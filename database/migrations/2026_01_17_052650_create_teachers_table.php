@@ -12,10 +12,13 @@ return new class extends Migration {
     {
         Schema::create('teachers', function (Blueprint $table) {
             $table->id();
-            $table->string('nip')->unique()->nullable(); // Nomor Induk Pegawai (bisa kosong jika honorer)
+            // Relasi ke tabel users (jika guru punya akun login)
+            $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
+            $table->string('nip')->unique()->nullable();
             $table->string('name');
-            $table->string('email')->unique()->nullable(); // Untuk login nanti
+            $table->string('email')->unique()->nullable();
             $table->string('phone')->nullable();
+            $table->boolean('is_active')->default(true);
             $table->timestamps();
         });
     }

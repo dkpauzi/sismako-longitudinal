@@ -23,7 +23,29 @@ class TeacherResource extends Resource
     {
         return $form
             ->schema([
-                //
+                Forms\Components\Section::make('Identitas Guru')
+                    ->schema([
+                        Forms\Components\TextInput::make('nip')
+                            ->label('NIP')
+                            ->helperText('Nomor Induk Pegawai (Opsional)')
+                            ->maxLength(255),
+
+                        Forms\Components\TextInput::make('name')
+                            ->label('Nama Lengkap')
+                            ->required()
+                            ->maxLength(255),
+
+                        Forms\Components\TextInput::make('email')
+                            ->label('Email')
+                            ->email()
+                            ->unique(ignoreRecord: true) // Cek unik agar tidak ada email kembar
+                            ->maxLength(255),
+
+                        Forms\Components\TextInput::make('phone')
+                            ->label('Nomor Telepon/WA')
+                            ->tel()
+                            ->maxLength(255),
+                    ])->columns(2), // Tampilan 2 kolom biar rapi
             ]);
     }
 
@@ -31,7 +53,22 @@ class TeacherResource extends Resource
     {
         return $table
             ->columns([
-                //
+                Tables\Columns\TextColumn::make('nip')
+                    ->label('NIP')
+                    ->searchable(),
+
+                Tables\Columns\TextColumn::make('name')
+                    ->label('Nama Guru')
+                    ->searchable()
+                    ->sortable()
+                    ->weight('bold'), // Cetak tebal biar jelas
+
+                Tables\Columns\TextColumn::make('email')
+                    ->icon('heroicon-m-envelope')
+                    ->copyable(), // Fitur keren: bisa diklik copy
+
+                Tables\Columns\TextColumn::make('phone')
+                    ->label('Telepon'),
             ])
             ->filters([
                 //

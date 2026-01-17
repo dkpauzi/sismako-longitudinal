@@ -12,9 +12,9 @@ return new class extends Migration {
     {
         Schema::create('academic_periods', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
-            $table->date('start_date')->nullable();
-            $table->date('end_date')->nullable();
+            $table->string('name'); // Contoh: 2025/2026 Ganjil
+            $table->date('start_date');
+            $table->date('end_date');
             $table->boolean('is_active')->default(false);
             $table->timestamps();
         });

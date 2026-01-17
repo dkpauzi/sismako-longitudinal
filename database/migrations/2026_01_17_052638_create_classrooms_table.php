@@ -12,9 +12,8 @@ return new class extends Migration {
     {
         Schema::create('classrooms', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
-            $table->integer('grade_level');
-            $table->unsignedBigInteger('homerome_teacher_id')->nullable();
+            $table->string('name'); // Contoh: 7A
+            $table->integer('grade_level'); // 1-12
             $table->timestamps();
         });
     }
