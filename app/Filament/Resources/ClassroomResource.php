@@ -99,7 +99,8 @@ class ClassroomResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            RelationManagers\ClassHomeroomsRelationManager::class,
+            RelationManagers\StudentsRelationManager::class,
         ];
     }
 
