@@ -101,6 +101,7 @@ class ClassroomResource extends Resource
         return [
             RelationManagers\ClassHomeroomsRelationManager::class,
             RelationManagers\StudentsRelationManager::class,
+            RelationManagers\SubjectsRelationManager::class,
         ];
     }
 

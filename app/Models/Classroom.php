@@ -23,4 +23,8 @@ class Classroom extends Model
     {
         return $this->hasMany(StudentEnrollment::class);
     }
+    public function subjectSchedules(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(SubjectSchedule::class);
+    }
 }
