@@ -4,8 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
+return new class extends Migration {
     /**
      * Run the migrations.
      */
@@ -17,6 +16,12 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
+            // --- TAMBAHAN KITA ---
+            // Role: admin, headmaster (kepsek), teacher, student
+            $table->enum('role', ['admin', 'headmaster', 'teacher', 'student'])->default('student');
+
+            // Status Aktif (Biar bisa blokir siswa lulus tanpa hapus data)
+            $table->boolean('is_active')->default(true);
             $table->rememberToken();
             $table->timestamps();
         });

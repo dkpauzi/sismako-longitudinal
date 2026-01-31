@@ -15,6 +15,9 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class AcademicPeriodResource extends Resource
 {
+    protected static ?string $navigationGroup = 'Manajemen Sistem';
+    protected static ?string $navigationLabel = 'Periode Semester'; // Label Menu
+    protected static ?int $navigationSort = 2;
     protected static ?string $model = AcademicPeriod::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';

@@ -12,9 +12,14 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Filament\Forms\Set;
+use App\Models\User;
 
 class StudentResource extends Resource
 {
+    protected static ?string $navigationGroup = 'Akademik';
+    protected static ?string $navigationLabel = 'Siswa'; // Label Menu
+    protected static ?int $navigationSort = 1; // Urutan ke-1
     protected static ?string $model = Student::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
@@ -23,11 +28,48 @@ class StudentResource extends Resource
     {
         return $form
             ->schema([
+                // BAGIAN 1: HUBUNGKAN KE AKUN USER (Baru)
+                Forms\Components\Section::make('Hubungkan Akun Siswa')
+                    ->description('Jika siswa ini bisa login, pilih akun user-nya disini.')
+                    ->schema([
+                        Forms\Components\Select::make('user_id')
+                            ->relationship(
+                                'user',
+                                'name',
+                                modifyQueryUsing: fn(Builder $query, $record) => $query
+                                    // 1. Filter Role: Hanya tampilkan yang role-nya 'student'
+                                    ->where('role', 'student')
+
+                                    // 2. Filter Unik: Jangan tampilkan user yang sudah dipakai siswa lain
+                                    ->where(
+                                        fn($q) => $q
+                                            ->whereDoesntHave('student') // Cari user yang TIDAK punya data di tabel students
+                                            ->orWhere('id', $record?->user_id) // Kecuali user milik siswa ini sendiri
+                                    )
+                            )
+                            ->label('Akun Login (User)')
+                            ->searchable()
+                            ->preload()
+                            ->helperText('Buat akun role "Student" di menu Users, lalu pilih disini.')
+                            ->live() // <--- 1. Bikin form jadi "Hidup" (Reaktif)
+                            ->afterStateUpdated(function (Set $set, $state) {
+                                // 2. Logika Autofill
+                                if ($state) {
+                                    $user = User::find($state);
+                                    if ($user) {
+                                        // Copas Nama & Email dari User ke Form
+                                        $set('name', $user->name);
+                                    }
+                                }
+                            }),
+                    ]),
+
+                // BAGIAN 2: BIODATA SISWA
                 Forms\Components\Section::make('Biodata Siswa')
                     ->schema([
                         Forms\Components\TextInput::make('nisn')
                             ->label('NISN')
-                            ->numeric() // Pastikan cuma angka
+                            ->numeric()
                             ->unique(ignoreRecord: true)
                             ->maxLength(20),
 

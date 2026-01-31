@@ -15,6 +15,9 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class SubjectResource extends Resource
 {
+    protected static ?string $navigationGroup = 'Akademik';
+    protected static ?string $navigationLabel = 'Mata Pelajaran'; // Label Menu
+    protected static ?int $navigationSort = 2;
     protected static ?string $model = Subject::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
