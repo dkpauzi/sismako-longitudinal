@@ -3,12 +3,13 @@
 namespace App\Filament\Widgets;
 
 use App\Models\SchoolEvent;
-use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Form;
+use Illuminate\Database\Eloquent\Model; // <--- Import ini PENTING
 use Saade\FilamentFullCalendar\Widgets\FullCalendarWidget;
 use Saade\FilamentFullCalendar\Actions\CreateAction;
 use Saade\FilamentFullCalendar\Actions\EditAction;
@@ -16,11 +17,12 @@ use Saade\FilamentFullCalendar\Actions\DeleteAction;
 
 class CalendarWidget extends FullCalendarWidget
 {
-    protected static ?int $sort = 2; // <--- Tambahkan ini (Urutan 2)
+    // --- PERBAIKAN DISINI ---
+    // Tipe datanya harus lengkap: Model|string|null
+    public Model|string|null $model = SchoolEvent::class;
 
-    // Opsional: Pastikan kalender memanjang penuh
-    protected int|string|array $columnSpan = 'full';
-    // Mengambil data event dari database untuk ditampilkan di kalender
+    protected static ?int $sort = 2;
+
     public function fetchEvents(array $fetchInfo): array
     {
         return SchoolEvent::query()
@@ -33,31 +35,31 @@ class CalendarWidget extends FullCalendarWidget
                     'title' => $event->title,
                     'start' => $event->start,
                     'end' => $event->end,
-                    'color' => $event->color, // Warna event
+                    'color' => $event->color,
                     'allDay' => $event->is_all_day,
                 ]
             )
             ->all();
     }
 
-    // Form saat Admin mengklik tanggal (Tambah Event Baru)
     public function getFormSchema(): array
     {
         return [
             TextInput::make('title')
                 ->label('Nama Kegiatan / Libur')
                 ->required(),
-            \Filament\Forms\Components\Select::make('color')
+
+            Select::make('color')
                 ->label('Jenis Agenda')
                 ->options([
-                    '#ef4444' => 'Libur Sekolah (Merah)',  // Merah
-                    '#3b82f6' => 'Kegiatan Penting (Biru)', // Biru
-                    '#22c55e' => 'Rapat Guru (Hijau)',      // Hijau
-                    '#eab308' => 'Pengingat (Kuning)',      // Kuning
+                    '#ef4444' => 'Libur Sekolah (Merah)',
+                    '#3b82f6' => 'Kegiatan Penting (Biru)',
+                    '#22c55e' => 'Rapat Guru (Hijau)',
+                    '#eab308' => 'Pengingat (Kuning)',
                 ])
                 ->required()
-                ->default('#3b82f6') // Default Biru
-                ->selectablePlaceholder(false), // Paksa pilih salah satu
+                ->default('#3b82f6')
+                ->allowHtml(false),
 
             Grid::make()
                 ->schema([
@@ -72,16 +74,14 @@ class CalendarWidget extends FullCalendarWidget
             Toggle::make('is_all_day')
                 ->label('Sepanjang Hari (All Day)')
                 ->default(true),
-
         ];
     }
 
-    // Tombol "Create" di pojok kanan atas kalender
     protected function headerActions(): array
     {
         return [
             CreateAction::make()
-                ->label('Tambah Kegiatan')
+                ->label('Tambah Agenda')
                 ->mountUsing(
                     function (Form $form, array $arguments) {
                         $form->fill([
@@ -94,7 +94,6 @@ class CalendarWidget extends FullCalendarWidget
         ];
     }
 
-    // Aksi saat event diklik (Edit & Hapus)
     protected function modalActions(): array
     {
         return [
@@ -102,11 +101,12 @@ class CalendarWidget extends FullCalendarWidget
             DeleteAction::make(),
         ];
     }
+
     public function config(): array
     {
         return [
-            'locale' => 'id', // Set Bahasa Indonesia
-            'firstDay' => 1,  // Mulai hari Senin
+            'locale' => 'id',
+            'firstDay' => 1,
             'headerToolbar' => [
                 'left' => 'dayGridMonth,timeGridWeek,listWeek',
                 'center' => 'title',
@@ -114,5 +114,4 @@ class CalendarWidget extends FullCalendarWidget
             ],
         ];
     }
-
 }

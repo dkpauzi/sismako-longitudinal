@@ -180,7 +180,12 @@ class SchoolProfileResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\ImageColumn::make('logo_path')->label('Logo'),
+                Tables\Columns\ImageColumn::make('logo_path')
+                    ->label('Logo')
+                    ->disk('public') // <--- PENTING: Paksa baca dari folder public
+                    //->visibility('private') // Kadang perlu diset explicit
+                    ->defaultImageUrl(url('/images/placeholder.png')) // (Opsional) jika gambar rusak
+                    ->circular(), // (Opsional) Biar tampil bulat rapi
                 Tables\Columns\TextColumn::make('name')->label('Nama Sekolah')->weight('bold'),
                 Tables\Columns\TextColumn::make('address')->label('Alamat')->limit(50),
                 Tables\Columns\TextColumn::make('phone')->label('Telepon'),

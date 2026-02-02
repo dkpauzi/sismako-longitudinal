@@ -38,7 +38,7 @@ class AdminPanelProvider extends PanelProvider
             // --- MULAI KUSTOMISASI BRANDING ---
             ->brandName(fn() => $this->getSchoolName())
             ->brandLogo(fn() => $this->getBrandHtml()) // Kita panggil fungsi baru
-            ->brandLogoHeight('3rem') // Tinggi logo agar proporsional
+            ->brandLogoHeight(fn() => request()->routeIs('filament.admin.auth.login') ? '7rem' : '3rem')
             ->favicon(fn() => $this->getSchoolFavicon())
             // ----------------------------------
             ->colors([
@@ -126,7 +126,7 @@ class AdminPanelProvider extends PanelProvider
     }
     private function getBrandHtml(): HtmlString
     {
-        $name = 'Sistem Sekolah'; // Default name
+        $name = 'Sistem Sekolah';
         $logoUrl = null;
 
         // Cek Database
@@ -140,19 +140,37 @@ class AdminPanelProvider extends PanelProvider
             }
         }
 
-        // Jika ada Logo, tampilkan Gambar + Teks
+        // Cek apakah sedang di Halaman Login?
+        $isLogin = request()->routeIs('filament.admin.auth.login');
+
+        // --- TAMPILAN KHUSUS LOGIN (VERTIKAL / ATAS-BAWAH) ---
+        if ($isLogin) {
+            if ($logoUrl) {
+                return new HtmlString("
+                    <div class='flex flex-col items-center justify-center gap-y-2 mt-2'>
+                        <img src='{$logoUrl}' alt='Logo' class='h-16 object-contain' />
+                        <span class='font-bold text-xl text-center leading-tight text-gray-950 dark:text-white'>
+                            {$name}
+                        </span>
+                    </div>
+                ");
+            }
+            return new HtmlString("<div class='font-bold text-xl text-center'>{$name}</div>");
+        }
+
+        // --- TAMPILAN DASHBOARD / SIDEBAR (HORIZONTAL / SAMPING) ---
+        // Ini agar header dashboard kembali rapi
         if ($logoUrl) {
             return new HtmlString("
                 <div class='flex items-center gap-x-3'>
-                    <img src='{$logoUrl}' alt='Logo' class='h-10 object-contain' style='height: 2.5rem;' />
-                    <span class='font-bold text-lg hidden md:block'>{$name}</span>
+                    <img src='{$logoUrl}' alt='Logo' class='h-9 object-contain' />
+                    <span class='font-bold text-lg hidden md:block text-gray-950 dark:text-white'>
+                        {$name}
+                    </span>
                 </div>
             ");
         }
 
-        // Jika tidak ada logo, tampilkan Teks saja
-        return new HtmlString("
-            <div class='font-bold text-xl'>{$name}</div>
-        ");
+        return new HtmlString("<div class='font-bold text-lg'>{$name}</div>");
     }
 }
