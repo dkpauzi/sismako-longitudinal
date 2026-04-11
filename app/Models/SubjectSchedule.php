@@ -2,30 +2,26 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class SubjectSchedule extends Model
 {
-    protected $guarded = [];
+    use HasFactory;
 
-    public function academicPeriod(): BelongsTo
-    {
-        return $this->belongsTo(AcademicPeriod::class);
-    }
+    protected $fillable = [
+        'teaching_assignment_id',
+        'day',
+        'start_time',
+        'end_time',
+        'room',
+        'note',
+    ];
 
-    public function classroom(): BelongsTo
+    // Relasi ke Induk (Penugasan)
+    public function teachingAssignment(): BelongsTo
     {
-        return $this->belongsTo(Classroom::class);
-    }
-
-    public function subject(): BelongsTo
-    {
-        return $this->belongsTo(Subject::class);
-    }
-
-    public function teacher(): BelongsTo
-    {
-        return $this->belongsTo(Teacher::class);
+        return $this->belongsTo(TeachingAssignment::class);
     }
 }

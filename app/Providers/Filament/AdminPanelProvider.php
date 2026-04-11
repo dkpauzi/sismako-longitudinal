@@ -20,11 +20,13 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 use App\Models\SchoolProfile;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
-use Saade\FilamentFullCalendar\FilamentFullCalendarPlugin;
 use Illuminate\Support\Facades\Blade;
-use Filament\Support\Facades\FilamentView;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\HtmlString;
+
+// Import Plugins
+use Saade\FilamentFullCalendar\FilamentFullCalendarPlugin;
+use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -34,22 +36,30 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->login()
-            // --- MULAI KUSTOMISASI BRANDING ---
+            //->login()
+            ->login(\App\Filament\Pages\Auth\Login::class)
+
+            // --- KONFIGURASI BRANDING (Logo & Nama) ---
             ->brandName(fn() => $this->getSchoolName())
-            ->brandLogo(fn() => $this->getBrandHtml()) // Kita panggil fungsi baru
+            ->brandLogo(fn() => $this->getBrandHtml())
             ->brandLogoHeight(fn() => request()->routeIs('filament.admin.auth.login') ? '7rem' : '3rem')
             ->favicon(fn() => $this->getSchoolFavicon())
-            // ----------------------------------
-            ->colors([
-                'primary' => \Filament\Support\Colors\Color::Blue, // Bisa diganti sesuai warna sekolah
+            // ------------------------------------------
 
+            ->colors([
+                'primary' => Color::Blue,
             ])
+
+            // --- DAFTAR PLUGIN ---
             ->plugins([
-                FilamentFullCalendarPlugin::make()
-                    ->selectable() // Agar bisa klik tanggal untuk tambah event
-                    ->editable(),  // Agar bisa geser/edit event
+                FilamentShieldPlugin::make(), // Plugin Hak Akses
+
+                FilamentFullCalendarPlugin::make() // Plugin Kalender
+                    ->selectable()
+                    ->editable(),
             ])
+            // ---------------------
+
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
@@ -58,7 +68,7 @@ class AdminPanelProvider extends PanelProvider
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
                 Widgets\AccountWidget::class,
-                //Widgets\FilamentInfoWidget::class,
+                // Widgets\FilamentInfoWidget::class, // Widget info bawaan (disembunyikan)
             ])
             ->middleware([
                 EncryptCookies::class,
@@ -74,6 +84,8 @@ class AdminPanelProvider extends PanelProvider
             ->authMiddleware([
                 Authenticate::class,
             ])
+
+            // --- CSS TAMBAHAN (Untuk Kalender) ---
             ->renderHook(
                 'panels::head.end',
                 fn(): string => Blade::render(<<<'HTML'
@@ -91,11 +103,11 @@ class AdminPanelProvider extends PanelProvider
             HTML)
             );
     }
-    // --- FUNGSI BANTUAN
+
+    // --- FUNGSI BANTUAN ---
 
     private function getSchoolName(): string
     {
-        // Cek dulu apakah tabel ada (untuk mencegah error saat migrasi awal)
         if (Schema::hasTable('school_profiles')) {
             $profile = SchoolProfile::first();
             return $profile?->name ?? 'Sistem Sekolah';
@@ -103,7 +115,7 @@ class AdminPanelProvider extends PanelProvider
         return 'Sistem Sekolah';
     }
 
-    private function getSchoolLogo(): ?string
+    private function getSchoolFavicon(): ?string
     {
         if (Schema::hasTable('school_profiles')) {
             $profile = SchoolProfile::first();
@@ -111,19 +123,9 @@ class AdminPanelProvider extends PanelProvider
                 return Storage::url($profile->logo_path);
             }
         }
-        return null; // Jika null, Filament hanya menampilkan Nama (Teks)
-    }
-
-    private function getSchoolFavicon(): ?string
-    {
-        if (Schema::hasTable('school_profiles')) {
-            $profile = SchoolProfile::first();
-            if ($profile && $profile->logo_path) {
-                return Storage::url($profile->logo_path); // Pakai logo sebagai favicon juga
-            }
-        }
         return null;
     }
+
     private function getBrandHtml(): HtmlString
     {
         $name = 'Sistem Sekolah';
@@ -143,7 +145,7 @@ class AdminPanelProvider extends PanelProvider
         // Cek apakah sedang di Halaman Login?
         $isLogin = request()->routeIs('filament.admin.auth.login');
 
-        // --- TAMPILAN KHUSUS LOGIN (VERTIKAL / ATAS-BAWAH) ---
+        // --- TAMPILAN LOGIN (VERTIKAL) ---
         if ($isLogin) {
             if ($logoUrl) {
                 return new HtmlString("
@@ -158,8 +160,7 @@ class AdminPanelProvider extends PanelProvider
             return new HtmlString("<div class='font-bold text-xl text-center'>{$name}</div>");
         }
 
-        // --- TAMPILAN DASHBOARD / SIDEBAR (HORIZONTAL / SAMPING) ---
-        // Ini agar header dashboard kembali rapi
+        // --- TAMPILAN DASHBOARD (HORIZONTAL) ---
         if ($logoUrl) {
             return new HtmlString("
                 <div class='flex items-center gap-x-3'>

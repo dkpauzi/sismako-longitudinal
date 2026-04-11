@@ -12,7 +12,9 @@ return new class extends Migration {
     {
         Schema::create('academic_periods', function (Blueprint $table) {
             $table->id();
-            $table->string('name'); // Contoh: 2025/2026 Ganjil
+            $table->year('start_year'); // 2025
+            $table->year('end_year');   // 2026
+            $table->enum('semester', ['odd', 'even']); // odd=Ganjil, even=Genap
             $table->date('start_date');
             $table->date('end_date');
             $table->boolean('is_active')->default(false);

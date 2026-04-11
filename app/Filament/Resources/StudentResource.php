@@ -5,158 +5,284 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\StudentResource\Pages;
 use App\Filament\Resources\StudentResource\RelationManagers;
 use App\Models\Student;
+use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Forms\Set;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
-use Filament\Forms\Set;
-use App\Models\User;
 
 class StudentResource extends Resource
 {
-    protected static ?string $navigationGroup = 'Akademik';
-    protected static ?string $navigationLabel = 'Siswa'; // Label Menu
-    protected static ?int $navigationSort = 1; // Urutan ke-1
+    // --- KONFIGURASI NAVIGASI ---
     protected static ?string $model = Student::class;
+    protected static ?string $navigationGroup = 'Akademik';
+    protected static ?string $navigationLabel = 'Data Siswa';
+    protected static ?int $navigationSort = 1;
+    protected static ?string $navigationIcon = 'heroicon-o-academic-cap';
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
-
+    /**
+     * --- FORM INPUT DATA ---
+     */
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                // BAGIAN 1: HUBUNGKAN KE AKUN USER (Baru)
-                Forms\Components\Section::make('Hubungkan Akun Siswa')
-                    ->description('Jika siswa ini bisa login, pilih akun user-nya disini.')
+                // BAGIAN 1: AKUN USER (LOGIN)
+                Forms\Components\Section::make('Akun & Login')
+                    ->description('Hubungkan siswa dengan akun untuk login ke sistem.')
                     ->schema([
                         Forms\Components\Select::make('user_id')
+                            ->label('Akun User')
                             ->relationship(
-                                'user',
-                                'name',
+                                name: 'user',
+                                titleAttribute: 'name',
                                 modifyQueryUsing: fn(Builder $query, $record) => $query
-                                    // 1. Filter Role: Hanya tampilkan yang role-nya 'student'
                                     ->where('role', 'student')
-
-                                    // 2. Filter Unik: Jangan tampilkan user yang sudah dipakai siswa lain
                                     ->where(
-                                        fn($q) => $q
-                                            ->whereDoesntHave('student') // Cari user yang TIDAK punya data di tabel students
-                                            ->orWhere('id', $record?->user_id) // Kecuali user milik siswa ini sendiri
+                                        fn($q) =>
+                                        $q->whereDoesntHave('student')
+                                            ->orWhere('id', $record?->user_id)
                                     )
                             )
-                            ->label('Akun Login (User)')
                             ->searchable()
                             ->preload()
-                            ->helperText('Buat akun role "Student" di menu Users, lalu pilih disini.')
-                            ->live() // <--- 1. Bikin form jadi "Hidup" (Reaktif)
-                            ->afterStateUpdated(function (Set $set, $state) {
-                                // 2. Logika Autofill
-                                if ($state) {
-                                    $user = User::find($state);
-                                    if ($user) {
-                                        // Copas Nama & Email dari User ke Form
-                                        $set('name', $user->name);
-                                    }
-                                }
-                            }),
+                            ->live()
+                            ->afterStateUpdated(fn(Set $set, $state) => $state ? $set('name', User::find($state)?->name) : null)
+                            ->helperText('Buat akun role "Student" di menu Users terlebih dahulu.'),
+                    ])->collapsible(),
+
+                // BAGIAN 2: DATA PRIBADI
+                Forms\Components\Section::make('Biodata Pribadi')
+                    ->schema([
+                        Forms\Components\Grid::make(2)->schema([
+                            // Identitas Nomor
+                            Forms\Components\TextInput::make('name')
+                                ->label('Nama Lengkap')
+                                ->required()
+                                ->columnSpanFull(),
+
+                            Forms\Components\TextInput::make('nisn')
+                                ->label('NISN')
+                                ->placeholder('Nomor Induk Siswa Nasional')
+                                ->rules(['numeric']) // Validasi hanya boleh angka, tapi inputnya tetap text
+                                ->unique(ignoreRecord: true)
+                                ->maxLength(20),
+
+                            Forms\Components\TextInput::make('nipd')
+                                ->label('NIPD')
+                                ->placeholder('Nomor Induk Peserta Didik')
+                                ->rules(['numeric'])
+                                ->maxLength(20),
+
+                            Forms\Components\TextInput::make('nik')
+                                ->label('NIK')
+                                ->placeholder('Nomor Induk Kependudukan')
+                                ->rules(['numeric'])
+                                ->minLength(16)
+                                ->maxLength(16),
+
+                            // Data Diri
+                            Forms\Components\Select::make('gender')
+                                ->label('Jenis Kelamin')
+                                ->options([
+                                    'L' => 'Laki-laki',
+                                    'P' => 'Perempuan',
+                                ])
+                                ->required(),
+
+                            Forms\Components\Select::make('religion')
+                                ->label('Agama')
+                                ->options([
+                                    'Islam' => 'Islam',
+                                    'Kristen' => 'Kristen',
+                                    'Katolik' => 'Katolik',
+                                    'Hindu' => 'Hindu',
+                                    'Buddha' => 'Buddha',
+                                    'Konghucu' => 'Konghucu',
+                                ]),
+
+                            Forms\Components\TextInput::make('place_of_birth')
+                                ->label('Tempat Lahir'),
+
+                            Forms\Components\DatePicker::make('date_of_birth')
+                                ->label('Tanggal Lahir')
+                                ->native(false)
+                                ->displayFormat('d F Y'),
+
+                            Forms\Components\Textarea::make('address')
+                                ->label('Alamat Domisili')
+                                ->rows(3)
+                                ->columnSpanFull(),
+                        ]),
                     ]),
 
-                // BAGIAN 2: BIODATA SISWA
-                Forms\Components\Section::make('Biodata Siswa')
+                // BAGIAN 3: DATA ORANG TUA
+                Forms\Components\Section::make('Data Orang Tua')
                     ->schema([
-                        Forms\Components\TextInput::make('nisn')
-                            ->label('NISN')
-                            ->numeric()
-                            ->unique(ignoreRecord: true)
-                            ->maxLength(20),
+                        Forms\Components\Grid::make(2)->schema([
+                            Forms\Components\TextInput::make('father_name')
+                                ->label('Nama Ayah'),
 
-                        Forms\Components\TextInput::make('name')
-                            ->label('Nama Lengkap')
-                            ->required()
-                            ->maxLength(255),
+                            Forms\Components\TextInput::make('mother_name')
+                                ->label('Nama Ibu'),
+                        ]),
+                    ])->collapsible(),
 
-                        Forms\Components\Select::make('gender')
-                            ->label('Jenis Kelamin')
-                            ->options([
-                                'L' => 'Laki-laki',
-                                'P' => 'Perempuan',
-                            ])
-                            ->required(),
-
-                        Forms\Components\DatePicker::make('date_of_birth')
-                            ->label('Tanggal Lahir'),
-
+                // BAGIAN 4: STATUS
+                Forms\Components\Section::make('Status Akademik')
+                    ->schema([
                         Forms\Components\Select::make('status')
-                            ->label('Status Siswa')
+                            ->label('Status Kesiswaan')
                             ->options([
                                 'active' => 'Aktif',
                                 'graduated' => 'Lulus',
                                 'moved' => 'Pindah Sekolah',
-                                'dropped_out' => 'Putus Sekolah',
+                                'dropped_out' => 'Putus Sekolah (DO)',
+                                'deceased' => 'Meninggal',
                             ])
                             ->default('active')
                             ->required(),
-
-                        Forms\Components\Textarea::make('address')
-                            ->label('Alamat Domisili')
-                            ->columnSpanFull(),
-                    ])->columns(2),
+                    ]),
             ]);
     }
 
+    /**
+     * --- TABEL DATA ---
+     */
     public static function table(Table $table): Table
     {
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('nisn')
                     ->label('NISN')
-                    ->searchable(),
+                    ->searchable()
+                    ->sortable()
+                    ->color('gray'),
+
+                Tables\Columns\TextColumn::make('nipd')
+                    ->label('NIPD')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nama Siswa')
                     ->searchable()
                     ->sortable()
-                    ->weight('bold'),
+                    ->weight('bold')
+                    ->description(fn(Student $record): string => $record->nipd ? "NIPD: {$record->nipd}" : ''),
+
+                // MAGIC COLUMN: Kelas Saat Ini
+                Tables\Columns\TextColumn::make('current_classroom.name')
+                    ->label('Kelas')
+                    ->badge()
+                    ->color('primary')
+                    ->placeholder('-'),
 
                 Tables\Columns\TextColumn::make('gender')
                     ->label('L/P')
                     ->badge()
                     ->color(fn(string $state): string => match ($state) {
-                        'L' => 'info',    // Biru untuk Laki-laki
-                        'P' => 'danger',  // Merah/Pink untuk Perempuan
+                        'L' => 'info',
+                        'P' => 'danger',
                         default => 'gray',
                     }),
 
                 Tables\Columns\TextColumn::make('status')
+                    ->label('Status')
                     ->badge()
-                    ->color(fn(string $state): string => match ($state) {
-                        'active' => 'success',
-                        'graduated' => 'primary',
-                        'moved', 'dropped_out' => 'danger',
-                        default => 'gray',
-                    })
                     ->formatStateUsing(fn(string $state): string => match ($state) {
                         'active' => 'Aktif',
                         'graduated' => 'Lulus',
                         'moved' => 'Pindah',
                         'dropped_out' => 'DO',
+                        'deceased' => 'Meninggal',
                         default => $state,
+                    })
+                    ->color(fn(string $state): string => match ($state) {
+                        'active' => 'success',
+                        'graduated' => 'warning',
+                        'moved', 'dropped_out', 'deceased' => 'danger',
+                        default => 'gray',
                     }),
             ])
             ->filters([
-                // Filter cepat untuk cari siswa aktif saja
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
-                        'active' => 'Aktif',
-                        'graduated' => 'Lulus',
-                        'moved' => 'Pindah',
+                        'active' => 'Siswa Aktif',
+                        'graduated' => 'Alumni',
+                        'moved' => 'Pindahan',
+                    ]),
+                Tables\Filters\SelectFilter::make('gender')
+                    ->label('Jenis Kelamin')
+                    ->options([
+                        'L' => 'Laki-laki',
+                        'P' => 'Perempuan',
                     ]),
             ])
+            // --- BAGIAN TOMBOL HEADER (Kanan Atas Tabel) ---
+            ->headerActions([
+                // 1. TOMBOL DOWNLOAD DRAFT EXCEL
+                Tables\Actions\Action::make('download_draft')
+                    ->label('Download Draft Excel')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('success') // Warna hijau agar mencolok
+                    ->action(function () {
+                        return response()->streamDownload(function () {
+                            $file = fopen('php://output', 'w');
+
+                            // Tulis Baris Header (Judul Kolom) -> Perhatikan 'nipd' di sini
+                            fputcsv($file, [
+                                'nisn',
+                                'nipd',
+                                'nama_siswa',
+                                'nik',
+                                'jenis_kelamin',
+                                'tempat_lahir',
+                                'tanggal_lahir',
+                                'agama',
+                                'alamat',
+                                'nama_ayah',
+                                'nama_ibu',
+                                'kelas_sekarang'
+                            ], ';');
+
+                            // Tulis Baris Contoh
+                            fputcsv($file, [
+                                '0012345678',
+                                '25.396',
+                                'Budi Santoso',
+                                '1303041805130002',
+                                'L',
+                                'Sijunjung',
+                                '2010-08-17',
+                                'Islam',
+                                'Jorong Pematang Anjuang',
+                                'Suryadi',
+                                'Siti',
+                                'Kelas 7.1'
+                            ], ';');
+
+                            fclose($file);
+                        }, 'Draft_Import_Data_Siswa.csv');
+                    }),
+
+                // 2. TOMBOL IMPORT SISWA
+                Tables\Actions\ImportAction::make('import_siswa')
+                    ->label('Import Data Siswa')
+                    ->icon('heroicon-o-users')
+                    ->importer(\App\Filament\Imports\StudentImporter::class)
+                    ->color('primary')
+                    ->csvDelimiter(';')
+                    ->modalHeading('Import Data & Akun Siswa Baru')
+                    ->visible(fn() => auth()->user()->hasRole('super_admin') || auth()->user()->hasRole('admin')),
+            ])
+            // Tombol Baris (Muncul di setiap baris Siswa)
             ->actions([
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

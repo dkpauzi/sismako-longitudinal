@@ -32,4 +32,9 @@ class SchoolProfile extends Model
     {
         return $this->hasMany(SchoolActivity::class);
     }
+
+    public function school_missions()
+    {
+        return $this->hasMany(SchoolMission::class);
+    }
 }

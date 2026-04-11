@@ -11,53 +11,41 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class ClassroomResource extends Resource
 {
-    protected static ?string $navigationGroup = 'Manajemen Sistem';
-    protected static ?string $navigationLabel = 'Ruang Kelas'; // Label Menu
-    protected static ?int $navigationSort = 3;
     protected static ?string $model = Classroom::class;
-
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationGroup = 'Akademik';
+    protected static ?string $navigationLabel = 'Ruang Kelas';
+    protected static ?int $navigationSort = 4;
+    protected static ?string $navigationIcon = 'heroicon-o-building-office-2';
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('name')
-                    ->label('Nama Kelas')
-                    ->placeholder('Contoh: 7A')
-                    ->required()
-                    ->maxLength(255),
+                Forms\Components\Section::make('Detail Kelas')
+                    ->description('Masukan identitas kelas dan tingkatannya.')
+                    ->schema([
+                        Forms\Components\Grid::make(2)
+                            ->schema([
+                                Forms\Components\TextInput::make('name')
+                                    ->label('Nama Kelas')
+                                    ->placeholder('Contoh: 7.1, 8.2')
+                                    ->required()
+                                    ->maxLength(255)
+                                    // Menggunakan Closure (fn) agar aman & lazy load
+                                    ->disabled(fn() => auth()->user()?->hasRole('teacher')),
 
-                Forms\Components\Select::make('grade_level')
-                    ->label('Tingkat Pendidikan')
-                    ->options([
-                        // Jenjang PAUD
-                        0 => 'PAUD / TK (Nol Besar)',
-
-                        // Jenjang SD
-                        1 => 'Kelas 1 (SD)',
-                        2 => 'Kelas 2 (SD)',
-                        3 => 'Kelas 3 (SD)',
-                        4 => 'Kelas 4 (SD)',
-                        5 => 'Kelas 5 (SD)',
-                        6 => 'Kelas 6 (SD)',
-
-                        // Jenjang SMP
-                        7 => 'Kelas 7 (SMP)',
-                        8 => 'Kelas 8 (SMP)',
-                        9 => 'Kelas 9 (SMP)',
-
-                        // Jenjang SMA
-                        10 => 'Kelas 10 (SMA/SMK)',
-                        11 => 'Kelas 11 (SMA/SMK)',
-                        12 => 'Kelas 12 (SMA/SMK)',
-                    ])
-                    ->searchable() // Tambahkan ini agar mudah mencari angkanya
-                    ->required(),
+                                Forms\Components\Select::make('grade_level')
+                                    ->label('Tingkat Pendidikan')
+                                    ->options(self::getGradeOptions())
+                                    ->searchable()
+                                    ->required()
+                                    ->native(false)
+                                    ->disabled(fn() => auth()->user()?->hasRole('teacher')),
+                            ]),
+                    ]),
             ]);
     }
 
@@ -68,29 +56,34 @@ class ClassroomResource extends Resource
                 Tables\Columns\TextColumn::make('name')
                     ->label('Kelas')
                     ->searchable()
-                    ->sortable(), // Agar bisa diurutkan A-Z
+                    ->sortable()
+                    ->weight('bold'),
 
                 Tables\Columns\TextColumn::make('grade_level')
                     ->label('Tingkat')
                     ->sortable()
-                    ->badge() // Biar tampilannya keren ada warnanya
+                    ->badge()
                     ->formatStateUsing(fn(string $state): string => match ($state) {
-                        '0' => 'PAUD',
+                        '0' => 'PAUD / TK',
                         default => 'Kelas ' . $state,
                     })
-                    ->color(fn($record): string => match (true) {
-                        $record->grade_level == 0 => 'warning',  // Kuning (PAUD)
-                        $record->grade_level <= 6 => 'danger',   // Merah (SD)
-                        $record->grade_level <= 9 => 'info',     // Biru (SMP)
-                        $record->grade_level <= 12 => 'gray',    // Abu-abu (SMA)
-                        default => 'primary',
+                    ->color(fn($state): string => match (true) {
+                        $state == 0 => 'warning',
+                        $state <= 6 => 'danger',
+                        $state <= 9 => 'info',
+                        default => 'gray',
                     }),
             ])
+            ->defaultSort('grade_level', 'asc')
             ->filters([
-                // Nanti kita bisa tambah filter berdasarkan tingkat
+                Tables\Filters\SelectFilter::make('grade_level')
+                    ->label('Filter Tingkat')
+                    ->options(self::getGradeOptions()),
             ])
             ->actions([
+                Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -99,13 +92,44 @@ class ClassroomResource extends Resource
             ]);
     }
 
+    /**
+     * --- PERBAIKAN DI SINI ---
+     * Menggunakan tanda tanya (?->) agar tidak error saat 'artisan serve'
+     */
     public static function getRelations(): array
     {
-        return [
-            RelationManagers\ClassHomeroomsRelationManager::class,
-            RelationManagers\StudentsRelationManager::class,
-            RelationManagers\SubjectsRelationManager::class,
+        $relations = [
+            RelationManagers\EnrollmentsRelationManager::class,
         ];
+
+        // Jika user BELUM LOGIN (null) atau user BUKAN guru, tampilkan tab ini.
+        // Tanda '?->' mencegah error jika user() bernilai null.
+        if (!auth()->user()?->hasRole('teacher')) {
+            $relations[] = RelationManagers\ClassHomeroomsRelationManager::class;
+        }
+
+        return $relations;
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        // Gunakan auth()->check() untuk memastikan ada user login sebelum cek role
+        if (auth()->check() && auth()->user()->hasRole('teacher')) {
+            $teacher = auth()->user()->teacher;
+
+            if ($teacher) {
+                $query->whereHas('classHomerooms', function ($q) use ($teacher) {
+                    $q->where('teacher_id', $teacher->id)
+                        ->where('is_current', true);
+                });
+            } else {
+                $query->whereRaw('1 = 0');
+            }
+        }
+
+        return $query;
     }
 
     public static function getPages(): array
@@ -114,6 +138,26 @@ class ClassroomResource extends Resource
             'index' => Pages\ListClassrooms::route('/'),
             'create' => Pages\CreateClassroom::route('/create'),
             'edit' => Pages\EditClassroom::route('/{record}/edit'),
+            'view' => Pages\ViewClassroom::route('/{record}'), // <-- Tambahkan ini
+        ];
+    }
+
+    public static function getGradeOptions(): array
+    {
+        return [
+            0 => 'PAUD / TK (Nol Besar)',
+            1 => 'Kelas 1 (SD)',
+            2 => 'Kelas 2 (SD)',
+            3 => 'Kelas 3 (SD)',
+            4 => 'Kelas 4 (SD)',
+            5 => 'Kelas 5 (SD)',
+            6 => 'Kelas 6 (SD)',
+            7 => 'Kelas 7 (SMP)',
+            8 => 'Kelas 8 (SMP)',
+            9 => 'Kelas 9 (SMP)',
+            10 => 'Kelas 10 (SMA/SMK)',
+            11 => 'Kelas 11 (SMA/SMK)',
+            12 => 'Kelas 12 (SMA/SMK)',
         ];
     }
 }

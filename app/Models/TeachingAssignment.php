@@ -1,0 +1,201 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+/**
+ * Model TeachingAssignment (SK Mengajar)
+ * * @property int $id
+ * @property int $academic_period_id
+ * @property int $teacher_id
+ * @property int $subject_id
+ * @property int $classroom_id
+ * @property string $grading_formula
+ * @property int|null $kktp
+ * @property bool $use_formative_boost
+ * @property int|null $formative_boost_percentage
+ * * Relasi:
+ * @property AcademicPeriod $academicPeriod
+ * @property Teacher $teacher
+ * @property Subject $subject
+ * @property Classroom $classroom
+ */
+class TeachingAssignment extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'academic_period_id',
+        'teacher_id',
+        'subject_id',
+        'classroom_id',
+        'grading_formula',
+        'kktp',
+        'use_formative_boost',
+        'formative_boost_percentage',
+    ];
+
+    protected $casts = [
+        'use_formative_boost' => 'boolean',
+    ];
+
+    /*
+    |--------------------------------------------------------------------------
+    | RELASI PARENT (Belongs To)
+    |--------------------------------------------------------------------------
+    */
+
+    public function academicPeriod(): BelongsTo
+    {
+        return $this->belongsTo(AcademicPeriod::class);
+    }
+
+    public function teacher(): BelongsTo
+    {
+        return $this->belongsTo(Teacher::class);
+    }
+
+    public function subject(): BelongsTo
+    {
+        return $this->belongsTo(Subject::class);
+    }
+
+    public function classroom(): BelongsTo
+    {
+        return $this->belongsTo(Classroom::class);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | RELASI CHILDREN (Has Many)
+    |--------------------------------------------------------------------------
+    */
+
+    public function schedules(): HasMany
+    {
+        return $this->hasMany(SubjectSchedule::class);
+    }
+
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(Attendance::class);
+    }
+
+    public function assessments(): HasMany
+    {
+        return $this->hasMany(Assessment::class);
+    }
+
+    public function kokurikulerGrades(): HasMany
+    {
+        return $this->hasMany(KokurikulerGrade::class);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | KALKULATOR NILAI AKHIR (CORE LOGIC)
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Menghitung Nilai Akhir Rapor untuk satu orang siswa di kelas ini.
+     * Mengakomodasi 3 Opsi Sumatif dan 1 Opsi Booster Formatif (Poin).
+     */
+    public function calculateFinalGrade(int $studentId): int|float
+    {
+        // 1. Ambil semua asesmen milik kelas ini beserta nilai anak tersebut
+        $assessments = $this->assessments()->with([
+            'grades' => function ($query) use ($studentId) {
+                $query->where('student_id', $studentId);
+            }
+        ])->get();
+
+        if ($assessments->isEmpty()) {
+            return 0; // Belum ada ujian sama sekali
+        }
+
+        // --- TAHAP 1: HITUNG NILAI DASAR SUMATIF ---
+        $summativeAssessments = $assessments->filter(function ($assessment) {
+            return in_array($assessment->category, ['sumatif_lingkup_materi', 'sumatif_akhir_semester']);
+        });
+
+        $summativeScore = 0;
+
+        if ($summativeAssessments->isNotEmpty()) {
+            if ($this->grading_formula === 'average') {
+                // Opsi 1: Rata-rata murni
+                $totalScore = 0;
+                $count = 0;
+                foreach ($summativeAssessments as $assessment) {
+                    $grade = $assessment->grades->first();
+                    if ($grade && $grade->score !== null) {
+                        $totalScore += $grade->score;
+                        $count++;
+                    }
+                }
+                $summativeScore = $count > 0 ? ($totalScore / $count) : 0;
+
+            } elseif ($this->grading_formula === 'weighting') {
+                // Opsi 2: Pembobotan Persentase
+                foreach ($summativeAssessments as $assessment) {
+                    $grade = $assessment->grades->first();
+                    $score = $grade ? (float) $grade->score : 0;
+                    $weight = (float) $assessment->weight;
+                    $summativeScore += ($score * ($weight / 100));
+                }
+
+            } elseif ($this->grading_formula === 'percentage') {
+                // Opsi 3: Persentase Ketuntasan KKTP
+                $kktp = $this->kktp ?? 75;
+                $passedCount = 0;
+                $totalCount = $summativeAssessments->count();
+
+                foreach ($summativeAssessments as $assessment) {
+                    $grade = $assessment->grades->first();
+                    if ($grade && $grade->score >= $kktp) {
+                        $passedCount++;
+                    }
+                }
+                $summativeScore = $totalCount > 0 ? (($passedCount / $totalCount) * 100) : 0;
+            }
+        }
+
+        // --- TAHAP 2: HITUNG TOTAL POIN FORMATIF (BOOSTER) ---
+        $formativeBoosterScore = 0;
+
+        // Hanya dieksekusi jika fitur diaktifkan di pengaturan kelas
+        if ($this->use_formative_boost && $this->formative_boost_percentage > 0) {
+            $boosterAssessments = $assessments->filter(function ($assessment) {
+                return $assessment->category === 'formatif_poin';
+            });
+
+            $totalRawPoints = 0;
+            foreach ($boosterAssessments as $assessment) {
+                $grade = $assessment->grades->first();
+                if ($grade && $grade->score !== null) {
+                    // Di UI, jika siswa menceklis, score menyimpan angka poin (misal: 2)
+                    $totalRawPoints += $grade->score;
+                }
+            }
+
+            // Hitung bonus akhir = Total Poin x (Persentase Booster / 100)
+            $percentage = $this->formative_boost_percentage / 100;
+            $formativeBoosterScore = $totalRawPoints * $percentage;
+        }
+
+        // --- TAHAP 3: KALKULASI AKHIR & PEMBULATAN ---
+        $finalGrade = $summativeScore + $formativeBoosterScore;
+
+        // PENGAMAN: Nilai tidak boleh lebih dari 100
+        if ($finalGrade > 100) {
+            $finalGrade = 100;
+        }
+
+        // Kembalikan dalam bentuk angka bulat (atau maksimal 1 desimal jika Anda mau)
+        return round($finalGrade);
+    }
+}

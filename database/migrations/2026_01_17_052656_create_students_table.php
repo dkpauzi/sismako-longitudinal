@@ -12,14 +12,38 @@ return new class extends Migration {
     {
         Schema::create('students', function (Blueprint $table) {
             $table->id();
+
+            // Relasi ke User Login (Bisa null jika siswa belum punya akun login)
             $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
-            $table->string('nisn')->unique()->nullable();
-            $table->string('name');
-            $table->enum('gender', ['L', 'P']);
-            $table->date('date_of_birth')->nullable();
-            $table->text('address')->nullable();
-            // Status tracking siswa
-            $table->enum('status', ['active', 'graduated', 'moved', 'dropped_out'])->default('active');
+
+            // --- 1. IDENTITAS UTAMA ---
+            $table->string('name');             // Kolom Excel: Nama
+            $table->string('nipd')->nullable(); // Kolom Excel: NIPD (No Induk Sekolah)
+            $table->string('nisn')->nullable()->unique(); // Kolom Excel: NISN (Wajib Unik)
+            $table->string('nik')->nullable();  // Kolom Excel: NIK
+
+            // --- 2. BIODATA PRIBADI ---
+            $table->enum('gender', ['L', 'P']);           // Kolom Excel: JK
+            $table->string('place_of_birth')->nullable(); // Kolom Excel: Tempat Lahir
+            $table->date('date_of_birth')->nullable();    // Kolom Excel: Tanggal Lahir
+            $table->string('religion')->nullable();       // Kolom Excel: Agama
+
+            // --- 3. DATA ORANG TUA ---
+            $table->string('father_name')->nullable(); // Kolom Excel: Ayah
+            $table->string('mother_name')->nullable(); // Kolom Excel: IBU
+
+            // --- 4. ALAMAT ---
+            $table->text('address')->nullable(); // Kolom Excel: Alamat
+
+            // --- 5. SYSTEM TRACKING ---
+            $table->enum('status', [
+                'active',       // Aktif
+                'graduated',    // Lulus
+                'moved',        // Pindah Sekolah
+                'dropped_out',  // Putus Sekolah
+                'deceased'      // Meninggal
+            ])->default('active');
+
             $table->timestamps();
         });
     }
