@@ -9,7 +9,7 @@ class GalerikegiatanController extends Controller
     public function index()
     {
         $activities = SchoolActivity::where('is_published', true)
-            ->orderBy('school_profile_id') // urutan berdasarkan school_profile_id
+            ->orderByDesc('date') // Terbaru dulu
             ->get();
 
         return view('dashboard.galerikegiatan', compact('activities'));

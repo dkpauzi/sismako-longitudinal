@@ -23,7 +23,7 @@ class Subject extends Model
     protected $fillable = [
         'name',
         'code',
-        'is_kokurikuler', // Penanda khusus untuk mata pelajaran Kokurikuler / P5
+        'type',
         'description',
     ];
 
@@ -32,19 +32,42 @@ class Subject extends Model
      * menjadi true/false di dalam aplikasi.
      */
     protected $casts = [
-        'is_kokurikuler' => 'boolean',
+        'type' => 'string',
     ];
 
-    /*
-    |--------------------------------------------------------------------------
-    | RELASI (RELATIONSHIPS)
-    |--------------------------------------------------------------------------
-    */
+    // ── Helper Methods ───────────────────────────────────────────────────────
 
     /**
-     * Relasi ke SK Mengajar (Teaching Assignments).
-     * Satu Mata Pelajaran bisa diajarkan di banyak kelas/SK.
+     * Apakah mapel ini otomatis masuk ke semua siswa?
+     * mandatory & kokurikuler = ya
+     * elective & extracurricular = tidak (perlu enrollment manual)
      */
+    public function isAutoEnroll(): bool
+    {
+        return in_array($this->type, ['mandatory', 'kokurikuler']);
+    }
+
+    public function isKokurikuler(): bool
+    {
+        return $this->type === 'kokurikuler';
+    }
+
+    public function isElective(): bool
+    {
+        return $this->type === 'elective';
+    }
+
+    // ── Accessors untuk backward compatibility ───────────────────────────────
+    // Beberapa bagian kode lama masih pakai is_kokurikuler
+    // Accessor ini memastikan tidak ada yang broken
+
+    public function getIsKokurikulerAttribute(): bool
+    {
+        return $this->type === 'kokurikuler';
+    }
+
+    // ── Relations ────────────────────────────────────────────────────────────
+
     public function teachingAssignments(): HasMany
     {
         return $this->hasMany(TeachingAssignment::class);

@@ -64,11 +64,15 @@ class AdminPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
                 Pages\Dashboard::class,
+                \App\Filament\Pages\DetailNilaiSiswa::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
                 Widgets\AccountWidget::class,
                 // Widgets\FilamentInfoWidget::class, // Widget info bawaan (disembunyikan)
+                \App\Filament\Widgets\NilaiSiswaWidget::class,
+    \App\Filament\Widgets\RingkasanNilaiKelasWidget::class,
+    \App\Filament\Widgets\KinerjaGuruWidget::class,
             ])
             ->middleware([
                 EncryptCookies::class,
@@ -106,22 +110,34 @@ class AdminPanelProvider extends PanelProvider
 
     // --- FUNGSI BANTUAN ---
 
+    /**
+     * Cache SchoolProfile agar tidak query berulang.
+     * Sebelumnya SchoolProfile::first() dipanggil 3x per request.
+     */
+    private static ?SchoolProfile $cachedProfile = null;
+    private static bool $profileLoaded = false;
+
+    private function getSchoolProfile(): ?SchoolProfile
+    {
+        if (!static::$profileLoaded) {
+            static::$profileLoaded = true;
+            if (Schema::hasTable('school_profiles')) {
+                static::$cachedProfile = SchoolProfile::first();
+            }
+        }
+        return static::$cachedProfile;
+    }
+
     private function getSchoolName(): string
     {
-        if (Schema::hasTable('school_profiles')) {
-            $profile = SchoolProfile::first();
-            return $profile?->name ?? 'Sistem Sekolah';
-        }
-        return 'Sistem Sekolah';
+        return $this->getSchoolProfile()?->name ?? 'Sistem Sekolah';
     }
 
     private function getSchoolFavicon(): ?string
     {
-        if (Schema::hasTable('school_profiles')) {
-            $profile = SchoolProfile::first();
-            if ($profile && $profile->logo_path) {
-                return Storage::url($profile->logo_path);
-            }
+        $profile = $this->getSchoolProfile();
+        if ($profile && $profile->logo_path) {
+            return Storage::url($profile->logo_path);
         }
         return null;
     }
@@ -131,14 +147,12 @@ class AdminPanelProvider extends PanelProvider
         $name = 'Sistem Sekolah';
         $logoUrl = null;
 
-        // Cek Database
-        if (Schema::hasTable('school_profiles')) {
-            $profile = SchoolProfile::first();
-            if ($profile) {
-                $name = $profile->name;
-                if ($profile->logo_path) {
-                    $logoUrl = Storage::url($profile->logo_path);
-                }
+        // ✅ Gunakan cache, bukan SchoolProfile::first() lagi
+        $profile = $this->getSchoolProfile();
+        if ($profile) {
+            $name = $profile->name;
+            if ($profile->logo_path) {
+                $logoUrl = Storage::url($profile->logo_path);
             }
         }
 

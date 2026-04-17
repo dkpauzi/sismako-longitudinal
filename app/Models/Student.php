@@ -114,7 +114,8 @@ class Student extends Model
         )
             // Melakukan JOIN ke tabel tahun ajaran untuk memfilter HANYA tahun ajaran yang sedang aktif
             ->join('academic_periods', 'enrollments.academic_period_id', '=', 'academic_periods.id')
-            ->where('academic_periods.is_active', true);
+            ->where('academic_periods.is_active', true)
+            ->select('classrooms.*');
     }
 
     /*

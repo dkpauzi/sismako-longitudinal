@@ -16,20 +16,28 @@ class DashboardStatsOverview extends BaseWidget
 
     protected function getStats(): array
     {
+        // ✅ PERBAIKAN: 3 COUNT query digabung menjadi 1 query.
+        $counts = \Illuminate\Support\Facades\DB::selectOne("
+            SELECT
+                (SELECT COUNT(*) FROM students WHERE status = 'active') as students,
+                (SELECT COUNT(*) FROM teachers WHERE is_active = 1) as teachers,
+                (SELECT COUNT(*) FROM classrooms) as classrooms
+        ");
+
         return [
-            Stat::make('Total Siswa', Student::where('status', 'active')->count())
+            Stat::make('Total Siswa', $counts->students)
                 ->description('Siswa Aktif')
                 ->descriptionIcon('heroicon-m-academic-cap')
                 ->color('success')
                 ->chart([7, 3, 4, 5, 6, 3, 5, 3]), // Hiasan grafik mini
 
-            Stat::make('Total Guru', Teacher::where('is_active', true)->count())
+            Stat::make('Total Guru', $counts->teachers)
                 ->description('Pengajar Aktif')
                 ->descriptionIcon('heroicon-m-user-group')
                 ->color('primary')
                 ->chart([3, 5, 3, 5, 6, 7, 3, 3]),
 
-            Stat::make('Total Kelas', Classroom::count())
+            Stat::make('Total Kelas', $counts->classrooms)
                 ->description('Rombongan Belajar')
                 ->descriptionIcon('heroicon-m-building-office-2')
                 ->color('warning'),

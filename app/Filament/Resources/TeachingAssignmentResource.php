@@ -98,6 +98,25 @@ class TeachingAssignmentResource extends Resource
                             ->searchable()
                             ->preload()
                             ->required(),
+
+                        Forms\Components\Select::make('subject_type')
+                            ->label('Override Tipe Mapel (Opsional)')
+                            ->options([
+                                'mandatory' => 'Wajib — Otomatis semua siswa',
+                                'kokurikuler' => 'Kokurikuler — Otomatis semua siswa',
+                                'elective' => 'Pilihan — Siswa didaftarkan manual',
+                                'extracurricular' => 'Ekskul — Siswa didaftarkan manual',
+                            ])
+                            ->nullable()
+                            ->native(false)
+                            ->placeholder('Ikuti tipe dari Mata Pelajaran (default)')
+                            ->helperText(
+                                'Kosongkan untuk mengikuti tipe mapel yang sudah disetting. ' .
+                                'Isi jika mapel ini perlu tipe berbeda untuk kelas ini saja. ' .
+                                'Contoh: Fisika jadi Pilihan di kelas SMA IPS.'
+                            )
+                            ->disabled(fn() => !auth()->user()->hasRole('super_admin'))
+                            ->dehydrated(),
                     ])
                     ->columns(2),
 
@@ -138,15 +157,21 @@ class TeachingAssignmentResource extends Resource
                             ->live() // Memicu re-render agar form KKTP bisa merespon
                             ->required(),
 
-                        // --- INPUT KKTP (Hanya muncul untuk mode Persentase) ---
+                        // --- INPUT KKTP ---
                         Forms\Components\TextInput::make('kktp')
-                            ->label('Nilai Batas Ketercapaian (KKTP)')
-                            ->helperText('Nilai minimal agar TP dianggap "Tercapai/Tuntas". Contoh: 75.')
+                            ->label('Nilai KKTP (Kriteria Ketercapaian Tujuan Pembelajaran)')
+                            ->helperText(
+                                fn(Forms\Get $get) => $get('grading_formula') === 'percentage'
+                                ? 'Nilai minimal agar TP dianggap Tuntas. Juga digunakan untuk menentukan predikat rapor (A/B/C/D).'
+                                : 'Digunakan untuk menentukan predikat rapor: A ≥ 90, B ≥ KKTP, C ≥ KKTP-15, D < KKTP-15.'
+                            )
                             ->numeric()
-                            ->default(75)
-                            ->minValue(0)->maxValue(100)
-                            ->visible(fn(Forms\Get $get) => $get('grading_formula') === 'percentage')
-                            ->required(fn(Forms\Get $get) => $get('grading_formula') === 'percentage'),
+                            ->default(fn() => \App\Models\SchoolSetting::first()?->default_kkm ?? 75)
+                            ->minValue(0)
+                            ->maxValue(100)
+                            ->suffix('/ 100')
+                            ->disabled(false) // KKTP boleh diedit siapa saja yang punya akses ke record ini
+                            ->required(),
 
                         // --- FITUR PENDONGKRAK FORMATIF (Booster Poin) ---
                         Forms\Components\Toggle::make('use_formative_boost')
@@ -178,9 +203,15 @@ class TeachingAssignmentResource extends Resource
                     ->sortable()
                     ->weight('bold')
                     ->searchable()
-                    // Penanda visual jika kelas ini adalah Projek P5
-                    ->description(fn(TeachingAssignment $record): string => $record->subject->is_kokurikuler ? 'Mapel Kokurikuler (P5)' : ''),
-
+                    ->description(
+                        fn(TeachingAssignment $record): string =>
+                        match ($record->getEffectiveType()) {
+                            'kokurikuler' => 'Kokurikuler (P5)',
+                            'elective' => 'Mapel Pilihan',
+                            'extracurricular' => 'Ekstrakurikuler',
+                            default => '',
+                        }
+                    ),
                 Tables\Columns\TextColumn::make('classroom.name')
                     ->label('Kelas')
                     ->badge()

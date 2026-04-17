@@ -26,7 +26,7 @@ class AssessmentsRelationManager extends RelationManager
      */
     public static function canViewForRecord(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): bool
     {
-        return $ownerRecord->subject->is_kokurikuler === false;
+        return !$ownerRecord->isKokurikuler();
     }
 
     /**
@@ -175,7 +175,8 @@ class AssessmentsRelationManager extends RelationManager
                     ->visible(
                         fn(RelationManager $livewire) =>
                         $livewire->getOwnerRecord()->grading_formula === 'weighting' ||
-                        Assessment::where('teaching_assignment_id', $livewire->getOwnerRecord()->id)->where('category', 'formatif_poin')->exists()
+                        // ✅ PERBAIKAN: Cek dari relasi yang sudah ter-load, bukan query baru
+                        $livewire->getOwnerRecord()->assessments->contains('category', 'formatif_poin')
                     ),
 
                 Tables\Columns\TextColumn::make('date')->date('d M Y'),
@@ -273,26 +274,60 @@ class AssessmentsRelationManager extends RelationManager
                         ]);
                     })
                     ->action(function ($record, array $data) {
-                        foreach ($data['grades_data'] as $item) {
-                            $scoreToSave = $item['score'] ?? null;
+                        // ✅ PERBAIKAN PERFORMA: Matikan GradeObserver sementara.
+                        // Sebelumnya setiap Grade::updateOrCreate memicu Observer
+                        // yang menjalankan calculateFinalGrade() per siswa.
+                        // 30 siswa = 60+ query. Sekarang: 0 query dari Observer.
+                        Grade::withoutEvents(function () use ($record, $data) {
+                            foreach ($data['grades_data'] as $item) {
+                                $scoreToSave = $item['score'] ?? null;
 
-                            // Jika formatif tipe 2 (Poin), kita konversi Toggle Yes/No menjadi Angka Poin di database
-                            if ($record->category === 'formatif_poin') {
-                                // Jika dicentang (true), dapat poin penuh sesuai weight. Jika tidak, dapat 0.
-                                $scoreToSave = !empty($item['is_completed']) ? $record->weight : 0;
+                                // Jika formatif tipe 2 (Poin), kita konversi Toggle Yes/No menjadi Angka Poin di database
+                                if ($record->category === 'formatif_poin') {
+                                    // Jika dicentang (true), dapat poin penuh sesuai weight. Jika tidak, dapat 0.
+                                    $scoreToSave = !empty($item['is_completed']) ? $record->weight : 0;
+                                }
+
+                                Grade::updateOrCreate(
+                                    [
+                                        'assessment_id' => $record->id,
+                                        'student_id' => $item['student_id']
+                                    ],
+                                    [
+                                        'score' => $scoreToSave,
+                                        'feedback' => $item['feedback'] ?? null,
+                                    ]
+                                );
                             }
+                        });
 
-                            Grade::updateOrCreate(
+                        // ✅ Recalculate final grades SEKALI untuk semua siswa setelah bulk save
+                        $assignment = $record->teachingAssignment;
+                        $semester = $assignment->academicPeriod->semester;
+                        $kktp = $assignment->kktp ?? 75;
+
+                        foreach ($data['grades_data'] as $item) {
+                            $finalScore = $assignment->calculateFinalGrade($item['student_id']);
+                            $gradeLabel = match (true) {
+                                $finalScore >= 90 => 'A',
+                                $finalScore >= $kktp => 'B',
+                                $finalScore >= $kktp - 15 => 'C',
+                                default => 'D',
+                            };
+
+                            \App\Models\FinalGrade::updateOrCreate(
                                 [
-                                    'assessment_id' => $record->id,
-                                    'student_id' => $item['student_id']
+                                    'student_id' => $item['student_id'],
+                                    'teaching_assignment_id' => $assignment->id,
+                                    'semester' => $semester,
                                 ],
                                 [
-                                    'score' => $scoreToSave,
-                                    'feedback' => $item['feedback'] ?? null,
+                                    'final_score' => $finalScore > 0 ? $finalScore : null,
+                                    'grade_label' => $finalScore > 0 ? $gradeLabel : null,
                                 ]
                             );
                         }
+
                         Notification::make()->title('Data Nilai Berhasil Disimpan')->success()->send();
                     }),
             ]);

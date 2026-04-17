@@ -175,7 +175,7 @@ class StudentResource extends Resource
                     ->description(fn(Student $record): string => $record->nipd ? "NIPD: {$record->nipd}" : ''),
 
                 // MAGIC COLUMN: Kelas Saat Ini
-                Tables\Columns\TextColumn::make('current_classroom.name')
+                Tables\Columns\TextColumn::make('currentClassroom.name')
                     ->label('Kelas')
                     ->badge()
                     ->color('primary')

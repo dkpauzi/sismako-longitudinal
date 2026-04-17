@@ -51,18 +51,14 @@ class AttendancesRelationManager extends RelationManager
         ];
 
         $targetDays = array_map(fn($d) => $dayMap[$d] ?? null, $teachingDays);
-        $dates = [];
-        $current = $period->start_date->copy();
-        $end = $period->end_date->copy();
 
-        while ($current <= $end) {
-            if (in_array($current->format('l'), $targetDays)) {
-                $dates[$current->format('Y-m-d')] = $current->translatedFormat('d F Y (l)');
-            }
-            $current->addDay();
-        }
-
-        return $dates;
+        // ✅ PERBAIKAN: Gunakan CarbonPeriod (lebih bersih dari while loop manual)
+        return collect(\Carbon\CarbonPeriod::create($period->start_date, $period->end_date))
+            ->filter(fn($date) => in_array($date->format('l'), $targetDays))
+            ->mapWithKeys(fn($date) => [
+                $date->format('Y-m-d') => $date->translatedFormat('d F Y (l)')
+            ])
+            ->toArray();
     }
 
     // --- FORM YANG TADI ERROR ---

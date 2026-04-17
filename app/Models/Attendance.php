@@ -29,4 +29,9 @@ class Attendance extends Model
     {
         return $this->belongsTo(Student::class);
     }
+    // Tambahkan di dalam class Attendance
+    public function lessonJournal()
+    {
+        return $this->belongsTo(LessonJournal::class);
+    }
 }

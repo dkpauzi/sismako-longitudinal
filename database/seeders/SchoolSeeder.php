@@ -34,6 +34,63 @@ class SchoolSeeder extends Seeder
             $admin->assignRole($roleAdmin);
 
             // 2. Buat Tahun Ajaran (Disesuaikan dengan Struktur Baru)
+            // 2023/2024 Ganjil
+            AcademicPeriod::firstOrCreate(
+
+                [
+                    'start_year' => 2023,
+                    'end_year' => 2024,
+                    'semester' => 'odd'
+                ],
+                [
+                    'start_date' => '2023-07-17',
+                    'end_date' => '2023-12-22',
+                    'is_active' => true, // Default aktif
+                ]
+            );
+
+            // 2024/2025 Genap
+            AcademicPeriod::firstOrCreate(
+                [
+                    'start_year' => 2023,
+                    'end_year' => 2024,
+                    'semester' => 'even'
+                ],
+                [
+                    'start_date' => '2024-01-08',
+                    'end_date' => '2024-06-28',
+                    'is_active' => false,
+                ]
+            );
+
+            // 2024/2025 Ganjil
+            AcademicPeriod::firstOrCreate(
+
+                [
+                    'start_year' => 2024,
+                    'end_year' => 2025,
+                    'semester' => 'odd'
+                ],
+                [
+                    'start_date' => '2024-07-15',
+                    'end_date' => '2024-12-20',
+                    'is_active' => true, // Default aktif
+                ]
+            );
+
+            // 2024/2025 Genap
+            AcademicPeriod::firstOrCreate(
+                [
+                    'start_year' => 2024,
+                    'end_year' => 2025,
+                    'semester' => 'even'
+                ],
+                [
+                    'start_date' => '2025-01-06',
+                    'end_date' => '2025-06-26',
+                    'is_active' => false,
+                ]
+            );
             // 2025/2026 Ganjil
             AcademicPeriod::firstOrCreate(
                 [
@@ -94,19 +151,19 @@ class SchoolSeeder extends Seeder
 
             // 4. Buat Mata Pelajaran
             $subjects = [
-                ['name' => 'Matematika', 'code' => 'MTK', 'is_kokurikuler' => false],
-                ['name' => 'Bahasa Indonesia', 'code' => 'BIND', 'is_kokurikuler' => false],
-                ['name' => 'Bahasa Inggris', 'code' => 'BING', 'is_kokurikuler' => false],
-                ['name' => 'IPA Terpadu', 'code' => 'IPA', 'is_kokurikuler' => false],
-                ['name' => 'IPS Terpadu', 'code' => 'IPS', 'is_kokurikuler' => false],
-                ['name' => 'Pendidikan Agama Islam dan Budi Pekerti', 'code' => 'PAI', 'is_kokurikuler' => false],
-                ['name' => 'PJOK', 'code' => 'PJOK', 'is_kokurikuler' => false],
-                ['name' => 'Informatika', 'code' => 'TIK', 'is_kokurikuler' => false],
-                ['name' => 'Pendidikan Pancasila', 'code' => 'PKN', 'is_kokurikuler' => false],
-                ['name' => 'Seni Budaya', 'code' => 'SENBUD', 'is_kokurikuler' => false],
-                ['name' => 'Bimbingan Konseling', 'code' => 'BK', 'is_kokurikuler' => false],
+                ['name' => 'Matematika', 'code' => 'MTK', 'type' => 'mandatory'],
+                ['name' => 'Bahasa Indonesia', 'code' => 'BIND', 'type' => 'mandatory'],
+                ['name' => 'Bahasa Inggris', 'code' => 'BING', 'type' => 'mandatory'],
+                ['name' => 'IPA Terpadu', 'code' => 'IPA', 'type' => 'mandatory'],
+                ['name' => 'IPS Terpadu', 'code' => 'IPS', 'type' => 'mandatory'],
+                ['name' => 'Pendidikan Agama Islam dan Budi Pekerti', 'code' => 'PAI', 'type' => 'mandatory'],
+                ['name' => 'PJOK', 'code' => 'PJOK', 'type' => 'mandatory'],
+                ['name' => 'Informatika', 'code' => 'TIK', 'type' => 'mandatory'],
+                ['name' => 'Pendidikan Pancasila', 'code' => 'PKN', 'type' => 'mandatory'],
+                ['name' => 'Seni Budaya', 'code' => 'SENBUD', 'type' => 'mandatory'],
+                ['name' => 'Bimbingan Konseling', 'code' => 'BK', 'type' => 'mandatory'],
                 // --- MAPEL KOKURIKULER ---
-                ['name' => 'Kokurikuler', 'code' => 'KOK', 'is_kokurikuler' => true],
+                ['name' => 'Kokurikuler', 'code' => 'KOK', 'type' => 'kokurikuler'],
             ];
 
             foreach ($subjects as $sub) {

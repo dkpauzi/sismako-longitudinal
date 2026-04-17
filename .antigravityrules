@@ -1,0 +1,33 @@
+1. Identitas Proyek & Konteks Akademik
+Nama Proyek: Sistem Informasi Akademik Berbasis Kurikulum Merdeka (SIAKAD).
+Lokasi Implementasi: SMPN 45 Sijunjung.
+Institusi: Universitas Bina Sarana Informatika (UBSI), Fakultas Teknik dan Informatika, Program Studi Sistem Informasi.
+Target Pengguna: Desain sistem harus bersifat multilevel dan fleksibel agar dapat digunakan di tingkat SD, SMP, maupun SMA dengan menyesuaikan terminologi akademik yang relevan.
+2. Tech Stack & Standar Coding
+Framework: Laravel 11 (Gunakan struktur direktori terbaru, minimalisir Http/Kernel.php).
+Admin Panel: Filament v3 (Gunakan Resource, Custom Pages, dan Widgets).
+Database: MySQL (Fokus pada integritas relasional untuk data akademik).
+Metode Pengembangan: Waterfall (Analisis, Desain, Pengodean, Pengujian, Pemeliharaan).
+AI Agent Mode: Prioritaskan pembuatan kode yang bersih, penggunaan Service Classes untuk logika bisnis, dan Filament Actions untuk alur kerja admin.
+3. Spesifikasi Fitur (Referensi Fase Pengembangan)
+Fase 1 (MVP): Fokus pada Smart Login, Master Data, dan Smart Importer.
+Fase 2
+Dashboard Siswa: Visualisasi grafik nilai longitudinal per semester.
+Dashboard Kepala Sekolah: Ringkasan nilai per kelas dan grafik kinerja guru (kehadiran & input nilai).
+Auto-Generate: Gunakan NilaiVisualisasiService untuk menghasilkan deskripsi rapor secara otomatis berbasis data Tujuan Pembelajaran (TP) dan Rule-based logic.
+Akses Kontrol (Role-Based):
+Siswa: Hanya melihat data diri sendiri.
+Wali siswa : Hanya melihat data siswa yang di walikan
+Guru: Siswa yang diajar pada periode aktif.
+Wali Kelas: Seluruh siswa di kelas perwaliannya.
+Kepsek: Akses global untuk monitoring kinerja sekolah.
+4. Istilah & Logika Domain (Kurikulum Merdeka)
+Asesmen Formatif: Penilaian selama proses belajar untuk umpan balik.
+Asesmen Sumatif: Penilaian akhir Tujuan Pembelajaran (TP).
+P5: Abaikan pengelolaan Projek Penguatan Profil Pelajar Pancasila sesuai batasan penelitian.
+Output: Hasilkan "Cetak Rapor Informasi" sebagai media transparansi (bukan pengganti dokumen legal Dapodik).
+5. Instruksi Respon AI
+Jika diminta membuat fitur baru, langsung sediakan kode Migration (MySQL), Model, dan Filament Resource.
+Berikan komentar pada kode yang menjelaskan kaitannya dengan kebutuhan.
+Gunakan bahasa yang profesional dan teknis, namun tetap selaras dengan istilah pendidikan di Indonesia.
+Pastikan kode mempertimbangkan skalabilitas untuk berbagai jenjang pendidikan (SD/SMP/SMA).

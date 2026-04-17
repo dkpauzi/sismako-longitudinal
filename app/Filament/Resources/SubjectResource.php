@@ -45,6 +45,22 @@ class SubjectResource extends Resource
                                     ->dehydrateStateUsing(fn(string $state): string => strtoupper($state))
                                     // Opsional: Biar kelihatan huruf besar saat ngetik (Visual CSS saja)
                                     ->extraInputAttributes(['style' => 'text-transform: uppercase']),
+                                Forms\Components\Select::make('type')
+                                    ->label('Tipe Mata Pelajaran')
+                                    ->options([
+                                        'mandatory' => 'Wajib (Mandatory) — Otomatis semua siswa',
+                                        'kokurikuler' => 'Kokurikuler / P5 — Otomatis semua siswa',
+                                        'elective' => 'Pilihan (Elective) — Siswa didaftarkan manual',
+                                        'extracurricular' => 'Ekstrakurikuler — Siswa didaftarkan manual',
+                                    ])
+                                    ->default('mandatory')
+                                    ->required()
+                                    ->native(false)
+                                    ->helperText(
+                                        'Wajib & Kokurikuler: otomatis masuk rapor semua siswa. ' .
+                                        'Pilihan & Ekskul: hanya muncul di rapor siswa yang terdaftar.'
+                                    )
+                                    ->columnSpanFull(),
                             ]),
 
                         Forms\Components\Textarea::make('description')
@@ -76,6 +92,21 @@ class SubjectResource extends Resource
                     ->label('Deskripsi')
                     ->limit(50)
                     ->color('gray'),
+                Tables\Columns\TextColumn::make('type')
+                    ->label('Tipe')
+                    ->badge()
+                    ->color(fn(string $state): string => match ($state) {
+                        'mandatory' => 'primary',
+                        'kokurikuler' => 'success',
+                        'elective' => 'warning',
+                        'extracurricular' => 'gray',
+                    })
+                    ->formatStateUsing(fn(string $state): string => match ($state) {
+                        'mandatory' => 'Wajib',
+                        'kokurikuler' => 'Kokurikuler',
+                        'elective' => 'Pilihan',
+                        'extracurricular' => 'Ekskul',
+                    }),
             ])
             ->filters([
                 //

@@ -26,6 +26,8 @@ return new class extends Migration {
 
             // Default Akademik
             $table->integer('default_kkm')->default(75);
+            // Pengaturan tampilan rapor SD
+            $table->boolean('show_score_sd')->default(true);
             $table->timestamps();
         });
 
@@ -56,6 +58,11 @@ return new class extends Migration {
             // Sejarah & Visi
             $table->longText('history')->nullable();
             $table->text('vision')->nullable();
+
+            // --- [BARU] PENGATURAN TOGGLE TAMPILAN LANDING PAGE ---
+            $table->boolean('show_history')->default(true);
+            $table->boolean('show_vision_mission')->default(true);
+            $table->boolean('show_map')->default(true);
 
             // Sosmed & Embed
             $table->text('google_maps_embed')->nullable();
@@ -117,11 +124,30 @@ return new class extends Migration {
             $table->string('color')->nullable();
             $table->timestamps();
         });
+
+        Schema::create('school_posts', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('school_profile_id')->constrained()->cascadeOnDelete();
+
+            $table->string('title');
+            $table->text('body');                          // Konten utama (rich text)
+            $table->string('cover_image_path')->nullable(); // Foto utama (opsional)
+
+            // Multi-gambar: disimpan sebagai JSON array path
+            $table->json('gallery_images')->nullable();
+
+            $table->string('category')->default('Umum');   // Cth: Prestasi, Pengumuman, Kegiatan
+            $table->boolean('is_published')->default(true);
+            $table->timestamp('published_at')->nullable();  // Bisa dijadwalkan
+
+            $table->timestamps();
+        });
     }
 
     public function down(): void
     {
         // Hapus dengan urutan terbalik (Anak dulu, baru Induk)
+        Schema::dropIfExists('school_posts');
         Schema::dropIfExists('school_events');
         Schema::dropIfExists('school_activities');
         Schema::dropIfExists('school_organization_structures');

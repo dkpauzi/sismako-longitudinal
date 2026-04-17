@@ -113,7 +113,15 @@ class ClassroomResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
+        // ✅ PERBAIKAN N+1: Eager load relasi yang dipakai accessor di tabel.
+        // Sebelumnya getCurrentHomeroomTeacher & activeStudentsCount
+        // menjalankan query per baris di tabel.
+        $query = parent::getEloquentQuery()
+            ->with(['classHomerooms' => fn($q) => $q->where('is_current', true)->with('teacher')])
+            ->withCount(['enrollments as active_students_count' => fn($q) =>
+                $q->where('status', 'active')
+                  ->whereHas('academicPeriod', fn($q2) => $q2->where('is_active', true))
+            ]);
 
         // Gunakan auth()->check() untuk memastikan ada user login sebelum cek role
         if (auth()->check() && auth()->user()->hasRole('teacher')) {

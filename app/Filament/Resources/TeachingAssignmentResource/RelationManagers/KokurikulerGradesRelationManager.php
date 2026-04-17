@@ -22,7 +22,7 @@ class KokurikulerGradesRelationManager extends RelationManager
      */
     public static function canViewForRecord(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): bool
     {
-        return $ownerRecord->subject->is_kokurikuler === true;
+        return $ownerRecord->isKokurikuler();
     }
 
     public function form(Form $form): Form

@@ -1,148 +1,56 @@
 @extends('layouts.app')
 
-@section('title', 'Galeri Kegiatan | SMPN 45 Sijunjung')
+@php $schoolName = \App\Models\SchoolProfile::first()?->name ?? 'SIAKAD'; @endphp
+@section('title', 'Galeri Kegiatan | ' . $schoolName)
 
 @section('content')
 
-<style>
-    .gallery-box {
-        background: #fff;
-        padding: 30px;
-        border-radius: 10px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    }
-
-    .gallery-title {
-        font-weight: 600;
-        font-size: 20px;
-        color: #0d6efd;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin-bottom: 20px;
-    }
-
-    .gallery-title::before {
-        content: "";
-        width: 10px;
-        height: 10px;
-        background: #0d6efd;
-        border-radius: 50%;
-        display: inline-block;
-    }
-
-    .gallery-item {
-        overflow: hidden;
-        border-radius: 8px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-        cursor: pointer;
-    }
-
-    .gallery-item img {
-        width: 100%;
-        height: 170px;
-        object-fit: cover;
-        transition: 0.3s ease-in-out;
-    }
-
-    .gallery-item:hover img {
-        transform: scale(1.1);
-    }
-
-    .pagination-box {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-top: 25px;
-    }
-
-    .pagination-box .page-numbers {
-        display: flex;
-        gap: 8px;
-    }
-
-    .page-btn {
-        width: 35px;
-        height: 35px;
-        border-radius: 6px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        border: 1px solid #0d6efd;
-        color: #0d6efd;
-        font-weight: 500;
-        text-decoration: none;
-        transition: 0.2s;
-    }
-
-    .page-btn.active {
-        background: #0d6efd;
-        color: white;
-    }
-
-    .page-btn:hover {
-        background: #0d6efd;
-        color: white;
-    }
-
-    .page-nav-btn {
-        border-radius: 6px;
-        padding: 6px 15px;
-        font-size: 13px;
-    }
-</style>
-
-<div class="gallery-box">
-
-    <div class="gallery-title">
-        Gallery
+{{-- Page Header --}}
+<div class="py-10" style="background: linear-gradient(135deg, var(--primary) 0%, color-mix(in srgb, var(--primary) 70%, #0f172a) 100%);">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <p class="text-white/60 text-xs font-medium mb-1">
+            <a href="{{ route('home') }}" class="hover:text-white transition-colors">Beranda</a>
+            <span class="mx-2">›</span> Galeri
+        </p>
+        <h1 class="text-2xl sm:text-3xl font-bold text-white">Galeri Kegiatan</h1>
+        <p class="text-white/70 text-sm mt-1">Dokumentasi aktivitas dan kegiatan sekolah</p>
     </div>
-
-    <!-- GRID FOTO -->
-    <div class="row g-4">
-
-        @php
-            $activities = $activities ?? collect();
-        @endphp
-
-        @for($i = 0; $i < 12; $i++)
-            @php
-                $item = $activities[$i] ?? null;
-            @endphp
-
-            <div class="col-md-4 col-sm-6">
-                <div class="gallery-item">
-
-                    @if($item && $item->image_path)
-                        <img src="{{ asset('storage/'.$item->image_path) }}" 
-                             alt="{{ $item->title }}"
-                             title="{{ $item->title }}">
-                    @else
-                        <img src="{{ asset('img/gallery/1.jpg') }}" alt="Foto Kegiatan">
-                    @endif
-
-                </div>
-            </div>
-        @endfor
-
-    </div>
-
-    <!-- PAGINATION (Design tetap, belum pakai Laravel paginate) -->
-    <div class="pagination-box">
-
-        <div class="page-numbers">
-            <a href="#" class="page-btn active">1</a>
-            <a href="#" class="page-btn">2</a>
-            <a href="#" class="page-btn">3</a>
-        </div>
-
-        <div>
-            <a href="#" class="btn btn-primary btn-sm page-nav-btn">Prev</a>
-            <a href="#" class="btn btn-primary btn-sm page-nav-btn">Next</a>
-        </div>
-
-    </div>
-
 </div>
 
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+
+    @if($activities->isEmpty())
+        <div class="text-center py-20 text-slate-400">
+            <svg class="w-12 h-12 mx-auto mb-4 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+            <p class="font-medium">Belum ada foto kegiatan</p>
+        </div>
+    @else
+
+    {{-- Masonry-style responsive grid --}}
+    <div class="columns-1 sm:columns-2 md:columns-3 gap-5 space-y-5">
+        @foreach($activities as $item)
+        <div class="break-inside-avoid group rounded-2xl overflow-hidden bg-white shadow-sm border border-slate-100 hover:shadow-md transition-all duration-300">
+            <div class="overflow-hidden">
+                <img src="{{ asset('storage/'.$item->image_path) }}"
+                     alt="{{ $item->title }}"
+                     class="w-full object-cover group-hover:scale-105 transition-transform duration-500"
+                     loading="lazy">
+            </div>
+            <div class="p-4">
+                <p class="text-xs font-medium mb-1" style="color: var(--primary);">
+                    {{ \Carbon\Carbon::parse($item->date)->translatedFormat('d F Y') }}
+                </p>
+                <h3 class="font-semibold text-slate-800 text-sm leading-snug">{{ $item->title }}</h3>
+                @if($item->description)
+                    <p class="text-xs text-slate-500 mt-1 line-clamp-2">{{ $item->description }}</p>
+                @endif
+            </div>
+        </div>
+        @endforeach
+    </div>
+    @endif
+
+</div>
 @endsection

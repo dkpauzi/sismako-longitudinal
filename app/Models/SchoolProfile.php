@@ -37,4 +37,8 @@ class SchoolProfile extends Model
     {
         return $this->hasMany(SchoolMission::class);
     }
+    public function posts(): HasMany
+    {
+        return $this->hasMany(SchoolPost::class);
+    }
 }

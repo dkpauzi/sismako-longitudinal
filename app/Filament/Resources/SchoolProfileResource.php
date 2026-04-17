@@ -172,6 +172,24 @@ class SchoolProfileResource extends Resource
                                     ->grid(2) // Tampil 2 kolom per baris
                                     ->addActionLabel('Tambah Fasilitas'),
                             ]),
+                        // --- TAB 5: PENGATURAN TAMPILAN (TOGGLE) ---
+                        Forms\Components\Tabs\Tab::make('Pengaturan Tampilan')
+                            ->icon('heroicon-o-eye')
+                            ->schema([
+                                Forms\Components\Section::make('Aktifkan / Nonaktifkan Bagian Website')
+                                    ->description('Pilih bagian mana saja yang ingin ditampilkan di halaman beranda (Landing Page).')
+                                    ->schema([
+                                        Forms\Components\Toggle::make('show_history')
+                                            ->label('Tampilkan Sejarah Sekolah')
+                                            ->default(true),
+                                        Forms\Components\Toggle::make('show_vision_mission')
+                                            ->label('Tampilkan Visi & Misi')
+                                            ->default(true),
+                                        Forms\Components\Toggle::make('show_map')
+                                            ->label('Tampilkan Peta Lokasi')
+                                            ->default(true),
+                                    ])->columns(3),
+                            ]),
                     ])->columnSpanFull(),
             ]);
     }

@@ -1,0 +1,261 @@
+<?php
+// app/Services/NilaiVisualisasiService.php
+
+namespace App\Services;
+
+use App\Models\AcademicPeriod;
+use App\Models\Enrollment;
+use App\Models\FinalGrade;
+use App\Models\Student;
+use App\Models\TeachingAssignment;
+use App\Models\ClassHomeroom;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
+
+class NilaiVisualisasiService
+{
+    /**
+     * Cek apakah user yang sedang login boleh melihat
+     * grafik nilai siswa tertentu.
+     */
+    public function canViewStudent(int $studentId): bool
+    {
+        $user = Auth::user();
+
+        // Kepala Sekolah & Super Admin → selalu bisa
+        if ($user->hasAnyRole(['super_admin', 'headmaster'])) {
+            return true;
+        }
+
+        // Siswa → hanya diri sendiri
+        if ($user->hasRole('student')) {
+            return $user->student?->id === $studentId;
+        }
+
+        // Guru → cek apakah mengajar siswa ini di periode aktif
+        if ($user->hasRole('teacher')) {
+            return $this->guruMengajarSiswa(
+                $user->teacher->id,
+                $studentId
+            );
+        }
+
+        return false;
+    }
+
+    /**
+     * Ambil data nilai siswa lintas periode untuk grafik longitudinal.
+     * Return format: per periode → per mapel → nilai
+     *
+     * [
+     *   '2024/2025 Ganjil' => [
+     *     'Matematika' => 85,
+     *     'Bahasa Indonesia' => 90,
+     *   ],
+     *   ...
+     * ]
+     */
+    public function getNilaiLongitudinal(int $studentId): array
+    {
+        // Ambil semua periode yang pernah diikuti siswa
+        $enrollments = Enrollment::where('student_id', $studentId)
+            ->with('academicPeriod')
+            ->orderBy('created_at')
+            ->get();
+
+        // ✅ PERBAIKAN N+1: Load SEMUA FinalGrade siswa dalam 1 query.
+        // Sebelumnya FinalGrade di-query per enrollment dalam loop.
+        $allGrades = FinalGrade::where('student_id', $studentId)
+            ->with('teachingAssignment.subject')
+            ->get();
+
+        $result = [];
+
+        foreach ($enrollments as $enrollment) {
+            $period      = $enrollment->academicPeriod;
+            $periodLabel = $period->name; // e.g. "2024/2025 Ganjil"
+
+            // ✅ Filter dari collection (bukan query baru)
+            $grades = $allGrades->filter(fn($g) =>
+                $g->semester === $period->semester &&
+                $g->teachingAssignment &&
+                $g->teachingAssignment->academic_period_id === $period->id &&
+                $g->teachingAssignment->classroom_id === $enrollment->classroom_id
+            );
+
+            $result[$periodLabel] = [];
+
+            foreach ($grades as $grade) {
+                $subjectName = $grade->teachingAssignment->subject->name;
+                $result[$periodLabel][$subjectName] = (float) $grade->final_score;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Ambil ringkasan nilai per kelas untuk dashboard kepsek/wali.
+     * Return: rata-rata nilai per mapel per kelas.
+     */
+    public function getRingkasanNilaiKelas(int $classroomId): array
+    {
+        $activePeriod = AcademicPeriod::where('is_active', true)->first();
+        if (!$activePeriod) return [];
+
+        $assignments = TeachingAssignment::where('classroom_id', $classroomId)
+            ->where('academic_period_id', $activePeriod->id)
+            ->whereHas('subject', fn($q) => $q->whereIn('type', ['mandatory']))
+            ->with(['subject', 'finalGrades'])
+            ->get();
+
+        $result = [];
+
+        foreach ($assignments as $assignment) {
+            $grades = $assignment->finalGrades
+                ->whereNotNull('final_score');
+
+            if ($grades->isEmpty()) continue;
+
+            $result[] = [
+                'subject'    => $assignment->subject->name,
+                'rata_rata'  => round($grades->avg('final_score'), 1),
+                'tertinggi'  => $grades->max('final_score'),
+                'terendah'   => $grades->min('final_score'),
+                'jumlah'     => $grades->count(),
+            ];
+        }
+
+        // Sort dari rata-rata tertinggi
+        usort($result, fn($a, $b) => $b['rata_rata'] <=> $a['rata_rata']);
+
+        return $result;
+    }
+
+    /**
+     * Data kinerja guru untuk dashboard kepala sekolah.
+     * Metrik: kelengkapan nilai, kehadiran jurnal KBM.
+     */
+    public function getKinerjaGuru(): array
+    {
+        $activePeriod = AcademicPeriod::where('is_active', true)->first();
+        if (!$activePeriod) return [];
+
+        $assignments = TeachingAssignment::where('academic_period_id', $activePeriod->id)
+            ->whereHas('subject', fn($q) => $q->where('type', 'mandatory'))
+            ->with([
+                'teacher.user',
+                'subject',
+                'classroom',
+                'finalGrades',
+                'lessonJournals',
+            ])
+            ->get()
+            ->groupBy('teacher_id');
+
+        $result = [];
+
+        // ✅ PERBAIKAN N+1: Batch query enrollment counts dalam 1 query.
+        // Sebelumnya Enrollment::count() dipanggil per TA di dalam loop.
+        $enrollmentCounts = Enrollment::where('academic_period_id', $activePeriod->id)
+            ->where('status', 'active')
+            ->selectRaw('classroom_id, COUNT(*) as total')
+            ->groupBy('classroom_id')
+            ->pluck('total', 'classroom_id');
+
+        foreach ($assignments as $teacherId => $teacherAssignments) {
+            $teacher = $teacherAssignments->first()->teacher;
+
+            // Hitung kelengkapan nilai
+            $totalStudents  = 0;
+            $totalGraded    = 0;
+            $totalJournals  = 0;
+
+            foreach ($teacherAssignments as $ta) {
+                // ✅ Lookup dari collection (bukan query baru)
+                $enrolledCount = $enrollmentCounts[$ta->classroom_id] ?? 0;
+
+                $gradedCount = $ta->finalGrades
+                    ->whereNotNull('final_score')
+                    ->count();
+
+                $totalStudents += $enrolledCount;
+                $totalGraded   += $gradedCount;
+                $totalJournals += $ta->lessonJournals->count();
+            }
+
+            $persentaseNilai = $totalStudents > 0
+                ? round(($totalGraded / $totalStudents) * 100, 1)
+                : 0;
+
+            $result[] = [
+                'teacher_id'         => $teacherId,
+                'nama_guru'          => $teacher->user->name,
+                'jumlah_kelas'       => $teacherAssignments->count(),
+                'total_siswa'        => $totalStudents,
+                'nilai_terisi'       => $totalGraded,
+                'persen_nilai'       => $persentaseNilai,
+                'jurnal_masuk'       => $totalJournals,
+                'status'             => $persentaseNilai >= 100 ? 'Lengkap'
+                    : ($persentaseNilai >= 50 ? 'Sebagian' : 'Belum'),
+            ];
+        }
+
+        // Sort dari persentase terendah (yang butuh perhatian)
+        usort($result, fn($a, $b) => $a['persen_nilai'] <=> $b['persen_nilai']);
+
+        return $result;
+    }
+
+    /**
+     * Daftar siswa yang boleh dilihat oleh user yang sedang login.
+     * Digunakan untuk dropdown pemilihan siswa di halaman detail.
+     */
+    public function getAccessibleStudents(): Collection
+    {
+        $user = Auth::user();
+
+        if ($user->hasAnyRole(['super_admin', 'headmaster'])) {
+            return Student::with('user')->orderBy('name')->get();
+        }
+
+        if ($user->hasRole('student')) {
+            return Student::where('id', $user->student->id)->get();
+        }
+
+        if ($user->hasRole('teacher')) {
+            $activePeriod = AcademicPeriod::where('is_active', true)->first();
+            if (!$activePeriod) return collect();
+
+            // Siswa yang diajar guru ini di periode aktif
+            $classroomIds = TeachingAssignment::where('teacher_id', $user->teacher->id)
+                ->where('academic_period_id', $activePeriod->id)
+                ->pluck('classroom_id');
+
+            return Student::whereHas('enrollments', fn($q) =>
+                $q->whereIn('classroom_id', $classroomIds)
+                  ->where('academic_period_id', $activePeriod->id)
+                  ->where('status', 'active')
+            )->orderBy('name')->get();
+        }
+
+        return collect();
+    }
+
+    // ─── PRIVATE ─────────────────────────────────────────────────────────────
+
+    private function guruMengajarSiswa(int $teacherId, int $studentId): bool
+    {
+        $activePeriod = AcademicPeriod::where('is_active', true)->first();
+        if (!$activePeriod) return false;
+
+        return TeachingAssignment::where('teacher_id', $teacherId)
+            ->where('academic_period_id', $activePeriod->id)
+            ->whereHas('classroom.enrollments', fn($q) =>
+                $q->where('student_id', $studentId)
+                  ->where('academic_period_id', $activePeriod->id)
+                  ->where('status', 'active')
+            )
+            ->exists();
+    }
+}

@@ -37,10 +37,12 @@ class TeachingAssignment extends Model
         'kktp',
         'use_formative_boost',
         'formative_boost_percentage',
+        'subject_type',
     ];
 
     protected $casts = [
         'use_formative_boost' => 'boolean',
+        'subject_type' => 'string',
     ];
 
     /*
@@ -94,6 +96,51 @@ class TeachingAssignment extends Model
     {
         return $this->hasMany(KokurikulerGrade::class);
     }
+    // Tambahkan di dalam class TeachingAssignment
+    public function lessonJournals()
+    {
+        return $this->hasMany(LessonJournal::class);
+    }
+
+    public function attendanceSummaries()
+    {
+        return $this->hasMany(AttendanceSummary::class);
+    }
+
+    public function finalGrades()
+    {
+        return $this->hasMany(FinalGrade::class);
+    }
+    public function studentSubjectEnrollments(): HasMany
+    {
+        return $this->hasMany(StudentSubjectEnrollment::class);
+    }
+
+    /**
+     * Tentukan type efektif dari teaching assignment ini.
+     *
+     * Urutan prioritas:
+     * 1. subject_type di teaching_assignments (override per kelas)
+     * 2. type di subjects (default global)
+     */
+    public function getEffectiveType(): string
+    {
+        return $this->subject_type ?? $this->subject->type ?? 'mandatory';
+    }
+
+    /**
+     * Apakah mapel ini otomatis masuk ke semua siswa di kelas?
+     */
+    public function isAutoEnroll(): bool
+    {
+        return in_array($this->getEffectiveType(), ['mandatory', 'kokurikuler']);
+    }
+
+    public function isKokurikuler(): bool
+    {
+        return $this->getEffectiveType() === 'kokurikuler';
+    }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -197,5 +244,16 @@ class TeachingAssignment extends Model
 
         // Kembalikan dalam bentuk angka bulat (atau maksimal 1 desimal jika Anda mau)
         return round($finalGrade);
+    }
+    protected static function booted(): void
+    {
+        static::creating(function (TeachingAssignment $model) {
+            // Jika KKTP tidak diisi saat create,
+            // ambil default dari school_settings
+            if (is_null($model->kktp)) {
+                $defaultKkm = \App\Models\SchoolSetting::first()?->default_kkm ?? 75;
+                $model->kktp = $defaultKkm;
+            }
+        });
     }
 }

@@ -21,6 +21,7 @@ class TeacherResource extends Resource
     protected static ?string $navigationLabel = 'Data Guru';
     protected static ?int $navigationSort = 3;
     protected static ?string $navigationIcon = 'heroicon-o-briefcase'; // Icon Tas Kerja
+    protected static ?string $recordTitleAttribute = 'name';
 
     /**
      * --- FORM INPUT DATA ---
@@ -317,6 +318,17 @@ class TeacherResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
+            ]);
+    }
+
+    // ✅ PERBAIKAN N+1: Eager load relasi yang dipakai accessor di tabel.
+    // Sebelumnya getCurrentClassroom accessor menjalankan query per baris.
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->with([
+                'user',
+                'classHomerooms' => fn($q) => $q->where('is_current', true)->with('classroom'),
             ]);
     }
 

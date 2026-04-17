@@ -12,8 +12,8 @@ return new class extends Migration {
             $table->string('name');
             $table->string('code')->unique();
 
-            // Penanda apakah mapel ini adalah Kokurikuler/P5
-            $table->boolean('is_kokurikuler')->default(false);
+            $table->enum('type', ['mandatory', 'kokurikuler', 'elective', 'extracurricular'])
+                ->default('mandatory');
 
             $table->string('description')->nullable();
             $table->timestamps();
