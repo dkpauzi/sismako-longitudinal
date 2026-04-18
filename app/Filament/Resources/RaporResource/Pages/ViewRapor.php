@@ -72,6 +72,31 @@ class ViewRapor extends ViewRecord
             ->get()
             ->groupBy('student_id');
 
+        // 5. Hitung progress input nilai per Guru Mapel
+        $progressGuruMapel = [];
+        $totalSiswaDiKelas = $enrollments->count();
+
+        foreach ($akademikAssignments as $ta) {
+            $gradedCount = 0;
+            if ($totalSiswaDiKelas > 0) {
+                foreach ($enrollments as $enrollment) {
+                    $studentGrades = $finalGrades[$enrollment->student_id] ?? collect();
+                    $grade = $studentGrades->where('teaching_assignment_id', $ta->id)->first();
+                    if ($grade && $grade->final_score !== null) {
+                        $gradedCount++;
+                    }
+                }
+            }
+            
+            $progressGuruMapel[] = [
+                'teacher' => $ta->teacher->name,
+                'subject' => $ta->subject->name,
+                'graded_count' => $gradedCount,
+                'total_students' => $totalSiswaDiKelas,
+                'percentage' => $totalSiswaDiKelas > 0 ? round(($gradedCount / $totalSiswaDiKelas) * 100) : 0,
+            ];
+        }
+
         return [
             'homeroom' => $homeroom,
             'enrollments' => $enrollments,
@@ -79,6 +104,7 @@ class ViewRapor extends ViewRecord
             'kokurikulerAssignments' => $kokurikulerAssignments,
             'finalGrades' => $finalGrades,
             'attendanceSummaries' => $attendanceSummaries,
+            'progressGuruMapel' => collect($progressGuruMapel)->sortBy('percentage')->values(),
             'semester' => $semester,
         ];
     }

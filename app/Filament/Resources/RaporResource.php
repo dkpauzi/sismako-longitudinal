@@ -20,10 +20,14 @@ class RaporResource extends Resource
     // Wali Kelas hanya melihat kelas yang dipegangnya.
     protected static ?string $model = ClassHomeroom::class;
 
-    protected static ?string $navigationGroup = 'Akademik';
     protected static ?string $navigationLabel = 'Rekap Rapor';
     protected static ?int $navigationSort = 5;
     protected static ?string $navigationIcon = 'heroicon-o-document-chart-bar';
+
+    public static function getNavigationGroup(): ?string
+    {
+        return auth()->check() && auth()->user()->hasRole('teacher') ? 'Saya sebagai Wali Kelas' : 'Akademik';
+    }
 
     // Hanya Wali Kelas dan Admin yang bisa mengakses
     public static function shouldRegisterNavigation(): bool

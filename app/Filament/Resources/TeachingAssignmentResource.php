@@ -21,10 +21,14 @@ class TeachingAssignmentResource extends Resource
 {
     protected static ?string $model = TeachingAssignment::class;
 
-    protected static ?string $navigationGroup = 'Akademik';
     protected static ?string $navigationLabel = 'Kelas Ajar Saya';
     protected static ?int $navigationSort = 2;
     protected static ?string $navigationIcon = 'heroicon-o-briefcase';
+
+    public static function getNavigationGroup(): ?string
+    {
+        return auth()->check() && auth()->user()->hasRole('teacher') ? 'Saya sebagai Guru Mapel' : 'Akademik';
+    }
 
     /**
      * Membatasi query agar Guru hanya bisa melihat kelas yang diajarkannya sendiri.

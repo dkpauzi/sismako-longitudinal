@@ -32,6 +32,46 @@
         </div>
     </div>
 
+    {{-- Tampilan Progress Guru Mapel --}}
+    <div class="bg-white dark:bg-gray-900 rounded-xl shadow-sm ring-1 ring-gray-950/5 dark:ring-white/10 overflow-hidden mb-6">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-base font-semibold text-gray-900 dark:text-white">
+                Status Input Nilai Guru Mata Pelajaran
+            </h2>
+            <p class="text-xs text-gray-500 mt-0.5">
+                Pantau progres pengisian nilai oleh guru mata pelajaran di kelas ini.
+            </p>
+        </div>
+        <div class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            @foreach($progressGuruMapel as $progress)
+                <div class="space-y-2">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="font-medium text-sm text-gray-900 dark:text-white lowercase capitalize">
+                                {{ $progress['subject'] }}
+                            </p>
+                            <p class="text-xs text-gray-500">
+                                {{ $progress['teacher'] }}
+                            </p>
+                        </div>
+                        <span class="inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-semibold
+                            {{ $progress['percentage'] >= 100 ? 'bg-success-100 text-success-800 dark:bg-success-800/20 dark:text-success-400' : ($progress['percentage'] >= 50 ? 'bg-warning-100 text-warning-800 dark:bg-warning-800/20 dark:text-warning-400' : 'bg-danger-100 text-danger-800 dark:bg-danger-800/20 dark:text-danger-400') }}">
+                            {{ $progress['percentage'] }}%
+                        </span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-800 overflow-hidden">
+                        <div class="h-2 rounded-full {{ $progress['percentage'] >= 100 ? 'bg-success-500' : ($progress['percentage'] >= 50 ? 'bg-warning-500' : 'bg-danger-500') }}" 
+                             style="width: {{ $progress['percentage'] }}%">
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-gray-400 text-right">
+                        {{ $progress['graded_count'] }} / {{ $progress['total_students'] }} Siswa Dinilai
+                    </p>
+                </div>
+            @endforeach
+        </div>
+    </div>
+
     {{-- Tabel Rekap Nilai --}}
     <div class="bg-white dark:bg-gray-900 rounded-xl shadow-sm ring-1 ring-gray-950/5 dark:ring-white/10 overflow-hidden mb-6">
 

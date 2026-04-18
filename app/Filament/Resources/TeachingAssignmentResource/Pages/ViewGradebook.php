@@ -5,7 +5,10 @@ namespace App\Filament\Resources\TeachingAssignmentResource\Pages;
 use App\Filament\Resources\TeachingAssignmentResource;
 use Filament\Resources\Pages\Page;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
+use Filament\Actions\Action;
 use App\Models\Enrollment;
+use App\Models\FinalGrade;
+use App\Services\DescriptionGeneratorService;
 
 class ViewGradebook extends Page
 {
@@ -23,6 +26,62 @@ class ViewGradebook extends Page
     public function getTitle(): string
     {
         return 'Buku Nilai: ' . $this->record->subject->name . ' - ' . $this->record->classroom->name;
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('generate_narasi')
+                ->label('Auto-Generate Deskripsi Rapor')
+                ->icon('heroicon-o-sparkles')
+                ->color('info')
+                ->requiresConfirmation()
+                ->modalHeading('Generate Deskripsi Otomatis?')
+                ->modalDescription(
+                    'Sistem akan menyusun narasi rapor untuk semua siswa berdasarkan nilai ' .
+                    'dan capaian Tujuan Pembelajaran (TP). Deskripsi manual yang sudah ada akan ditimpa.'
+                )
+                ->action(function () {
+                    $assignment = $this->record;
+                    $semester = $assignment->academicPeriod->semester;
+                    
+                    // Ambil siswa yang terdaftar di kelas
+                    $studentIds = Enrollment::where('classroom_id', $assignment->classroom_id)
+                        ->where('academic_period_id', $assignment->academic_period_id)
+                        ->where('status', 'active')
+                        ->pluck('student_id');
+
+                    // Cegah generate jika belum ada nilai / assignment belum diload relasinya dengan baik
+                    // Untuk optimalisasi, kita tetap manfaatkan Service
+                    $service = new DescriptionGeneratorService();
+                    
+                    $count = 0;
+                    foreach ($studentIds as $studentId) {
+                        // Pastikan FinalGrade ada
+                        $finalGrade = FinalGrade::firstOrCreate([
+                            'student_id' => $studentId,
+                            'teaching_assignment_id' => $assignment->id,
+                            'semester' => $semester,
+                        ]);
+
+                        // Cek apakah nilai terkunci
+                        if ($finalGrade->is_locked) {
+                            continue;
+                        }
+
+                        // Jika nilai tidak dikunci, generate narasi
+                        $service->calculateScorePerTp($assignment, $studentId);
+                        $service->generateDescription($assignment, $studentId);
+                        $count++;
+                    }
+
+                    \Filament\Notifications\Notification::make()
+                        ->title('Berhasil')
+                        ->body("Deskripsi rapor untuk {$count} siswa berhasil digenerate otomatis.")
+                        ->success()
+                        ->send();
+                }),
+        ];
     }
 
     protected function getViewData(): array

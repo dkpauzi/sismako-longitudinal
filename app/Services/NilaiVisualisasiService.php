@@ -57,14 +57,34 @@ class NilaiVisualisasiService
      */
     public function getNilaiLongitudinal(int $studentId): array
     {
+        $user = Auth::user();
+        $isTeacher = $user && $user->hasRole('teacher');
+        $teacherId = $isTeacher ? $user->teacher?->id : null;
+        
         // Ambil semua periode yang pernah diikuti siswa
         $enrollments = Enrollment::where('student_id', $studentId)
             ->with('academicPeriod')
             ->orderBy('created_at')
             ->get();
+            
+        $isHomeroomForStudent = false;
+        $allowedSubjectIds = [];
+        
+        if ($isTeacher && $teacherId) {
+            // Cek apakah guru ini adalah WALI KELAS untuk siswa ini di salah satu enrollmentnya
+            $isHomeroomForStudent = ClassHomeroom::where('teacher_id', $teacherId)
+                ->whereIn('classroom_id', $enrollments->pluck('classroom_id'))
+                ->exists();
+                
+            if (!$isHomeroomForStudent) {
+                // Jika bukan wali kelas, cari mapel apa saja yang diajar oleh guru ini
+                $allowedSubjectIds = TeachingAssignment::where('teacher_id', $teacherId)
+                    ->pluck('subject_id')
+                    ->toArray();
+            }
+        }
 
         // ✅ PERBAIKAN N+1: Load SEMUA FinalGrade siswa dalam 1 query.
-        // Sebelumnya FinalGrade di-query per enrollment dalam loop.
         $allGrades = FinalGrade::where('student_id', $studentId)
             ->with('teachingAssignment.subject')
             ->get();
@@ -86,8 +106,18 @@ class NilaiVisualisasiService
             $result[$periodLabel] = [];
 
             foreach ($grades as $grade) {
-                $subjectName = $grade->teachingAssignment->subject->name;
-                $result[$periodLabel][$subjectName] = (float) $grade->final_score;
+                $subject = $grade->teachingAssignment->subject;
+                
+                // --- PEMBATASAN UNTUK GURU MAPEL ---
+                // Jika user adalah guru, BUKAN wali kelas siswa ini,
+                // maka hanya tampilkan nilai untuk mapel yang ia ajar.
+                if ($isTeacher && !$isHomeroomForStudent) {
+                    if (!in_array($subject->id, $allowedSubjectIds)) {
+                        continue; // Skip mapel yang tidak diajar oleh guru ini
+                    }
+                }
+                
+                $result[$periodLabel][$subject->name] = (float) $grade->final_score;
             }
         }
 
