@@ -27,7 +27,7 @@ class DetailNilaiSiswa extends Page implements HasForms
     public ?int    $student_id    = null;
     public array   $chartData     = [];
     public array   $subjectList   = [];
-    public ?string $selectedSubject = null;
+    public array   $selectedSubjects = [];
 
     public static function canAccess(): bool
     {
@@ -60,13 +60,10 @@ class DetailNilaiSiswa extends Page implements HasForms
                     ->afterStateUpdated(fn() => $this->loadChartData())
                     ->visible(fn() => !Auth::user()->hasRole('student')),
 
-                Select::make('selectedSubject')
-                    ->label('Filter Mata Pelajaran')
-                    ->options(fn() => collect($this->subjectList)
-                        ->mapWithKeys(fn($s) => [$s => $s])
-                        ->prepend('Semua Mata Pelajaran', 'all')
-                    )
-                    ->default('all')
+                Select::make('selectedSubjects')
+                    ->label('Gabungkan Mata Pelajaran (Filter)')
+                    ->multiple()
+                    ->options(fn() => collect($this->subjectList)->mapWithKeys(fn($s) => [$s => $s]))
                     ->live()
                     ->afterStateUpdated(fn() => $this->loadChartData())
                     ->visible(fn() => $this->student_id !== null),
@@ -108,34 +105,85 @@ class DetailNilaiSiswa extends Page implements HasForms
 
         $periods = array_keys($longitudinal);
 
-        // Filter berdasarkan pilihan mapel
-        $subjectsToShow = ($this->selectedSubject && $this->selectedSubject !== 'all')
-            ? [$this->selectedSubject]
-            : $this->subjectList;
-
-        $colors = [
-            '#3B82F6', '#EF4444', '#10B981', '#F59E0B',
-            '#8B5CF6', '#EC4899', '#14B8A6', '#F97316',
-        ];
+        // Jika tidak ada subject yg dipilih, setel otomatis ke pelajaran pertama
+        if (empty($this->selectedSubjects)) {
+            $this->selectedSubjects = isset($this->subjectList[0]) ? [$this->subjectList[0]] : [];
+        }
 
         $datasets = [];
-        foreach ($subjectsToShow as $idx => $subject) {
-            $data = [];
-            foreach ($periods as $period) {
-                $data[] = $longitudinal[$period][$subject] ?? null;
+
+        if (!empty($this->selectedSubjects)) {
+            $colors = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
+            
+            $averageData = array_fill(0, count($periods), 0);
+            $countData = array_fill(0, count($periods), 0);
+
+            foreach ($this->selectedSubjects as $subject) {
+                if (!in_array($subject, $this->subjectList)) continue;
+
+                $data = [];
+                $colorIdx = array_search($subject, $this->subjectList);
+                $color = $colors[$colorIdx % count($colors)];
+
+                foreach ($periods as $pIndex => $period) {
+                    $score = $longitudinal[$period][$subject] ?? null;
+                    $data[] = $score;
+                    if ($score !== null) {
+                        $averageData[$pIndex] += $score;
+                        $countData[$pIndex]++;
+                    }
+                }
+
+                // Dataset Batang (Bar) per matapelajaran
+                $datasets[] = [
+                    'type'             => 'bar',
+                    'label'            => $subject,
+                    'data'             => $data,
+                    'borderColor'      => $color,
+                    'backgroundColor'  => $color . '60', // opacity
+                    'borderWidth'      => 1,
+                    'borderRadius'     => 4,
+                ];
             }
 
-            $color      = $colors[$idx % count($colors)];
+            // Hitung rata-rata untuk garis (Line) & Bar Rata-rata jika lebih dari 1
+            $avgDataValues = [];
+            foreach ($periods as $pIndex => $period) {
+                if ($countData[$pIndex] > 0) {
+                    $avgDataValues[] = round($averageData[$pIndex] / $countData[$pIndex], 2);
+                } else {
+                    $avgDataValues[] = null;
+                }
+            }
+
+            if (count($this->selectedSubjects) > 1) {
+                // Dataset Batang (Bar) untuk Rata-rata Gabungan
+                $datasets[] = [
+                    'type'             => 'bar',
+                    'label'            => 'Rata-rata Gabungan (Bar)',
+                    'data'             => $avgDataValues,
+                    'borderColor'      => '#4B5563', // Gray-600
+                    'backgroundColor'  => '#9CA3AF80', // Gray-400 with opacity
+                    'borderWidth'      => 1,
+                    'borderRadius'     => 4,
+                ];
+            }
+
+            // Dataset Tren Garis (Line)
+            $labelLine = count($this->selectedSubjects) > 1 ? 'Rata-rata Gabungan (Tren)' : $this->selectedSubjects[0] . ' (Tren)';
             $datasets[] = [
-                'label'            => $subject,
-                'data'             => $data,
-                'borderColor'      => $color,
-                'backgroundColor'  => $color . '20',
+                'type'             => 'line',
+                'label'            => $labelLine,
+                'data'             => $avgDataValues,
+                'borderColor'      => '#111827', // Gray-900 (Gelap)
+                'backgroundColor'  => '#111827',
                 'fill'             => false,
-                'tension'          => 0.3,
+                'tension'          => 0.4,
                 'spanGaps'         => true,
-                'pointRadius'      => 5,
-                'pointHoverRadius' => 7,
+                'pointRadius'      => 6,
+                'pointHoverRadius' => 8,
+                'borderWidth'      => 3,
+                'borderDash'       => count($this->selectedSubjects) > 1 ? [5, 5] : [],
             ];
         }
 

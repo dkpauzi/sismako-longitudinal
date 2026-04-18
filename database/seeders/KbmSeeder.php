@@ -15,222 +15,246 @@ class KbmSeeder extends Seeder
 {
     public function run(): void
     {
-        // =====================================================================
-        // 1. SIAPKAN DATA MASTER (PERIODE & MAPEL)
-        // =====================================================================
-        //$periodGanjil = AcademicPeriod::where('start_year', 2025)->where('semester', 'odd')->first();
-        //$periodGenap = AcademicPeriod::where('start_year', 2025)->where('semester', 'even')->first();
-
-        //$mtk = Subject::where('code', 'MTK')->first();
-        //$bind = Subject::where('code', 'BIND')->first();
-        //$bing = Subject::where('code', 'BING')->first();
-        //$ipa = Subject::where('code', 'IPA')->first();
-        //$ips = Subject::where('code', 'IPS')->first();
-        //$pai = Subject::where('code', 'PAI')->first();
-        //$pjok = Subject::where('code', 'PJOK')->first();
-        //$tik = Subject::where('code', 'TIK')->first();
-        //$pkn = Subject::where('code', 'PKN')->first();
-        //$bud = Subject::where('code', 'BUD')->first();
-        //$bk = Subject::where('code', 'BK')->first();
-        //$kok = Subject::where('code', 'KOK')->first(); // Mapel Kokurikuler P5
-
-        //if (!$periodGanjil || !$mtk) {
-        //    $this->command->warn('Seeder dibatalkan: Data Master tidak lengkap. Pastikan SchoolSeeder sudah dijalankan.');
-        //    return;
-        //}
-
-        // =====================================================================
-        // 2. SIAPKAN DATA KELAS
-        // =====================================================================
-        $kelas71 = Classroom::firstOrCreate(['name' => 'Kelas 7.1'], ['grade_level' => 7]);
-        $kelas72 = Classroom::firstOrCreate(['name' => 'Kelas 7.2'], ['grade_level' => 7]);
-        $kelas81 = Classroom::firstOrCreate(['name' => 'Kelas 8.1'], ['grade_level' => 8]);
-        $kelas82 = Classroom::firstOrCreate(['name' => 'Kelas 8.2'], ['grade_level' => 8]);
-        $kelas91 = Classroom::firstOrCreate(['name' => 'Kelas 9.1'], ['grade_level' => 9]);
-
-        // =====================================================================
-        // 3. SIAPKAN DATA GURU (Berdasarkan Nama Panggilan)
-        // =====================================================================
-        //$guruYunita = Teacher::firstOrCreate(['name' => 'Yunita, S.Pd.Ind']);
-        //$guruWinda = Teacher::firstOrCreate(['name' => 'Winda Arizona Asura, S.Pd']);
-        //$guruPetria = Teacher::firstOrCreate(['name' => 'Petria Susila, S.P']);
-        //$guruNadya = Teacher::firstOrCreate(['name' => 'Nadya Putri Adha, S.Si']);
-        //$guruAsfriyanti = Teacher::firstOrCreate(['name' => 'Asfriyanti, S.Pd']);
-        //$guruYuli = Teacher::firstOrCreate(['name' => 'Yuli Asman, S.Sos']);
-        //$guruRiza = Teacher::firstOrCreate(['name' => 'Riza Mustika, S.Pdi']);
-        //$guruGima = Teacher::firstOrCreate(['name' => 'Gima Ramadan, S.T']);
-        //$guruWempi = Teacher::firstOrCreate(['name' => 'Wempi Afridawati, S.Pd']);
-        //$guruAnggun = Teacher::firstOrCreate(['name' => 'Anggun Salsabil, S.Pd']);
-        //$guruNeneng = Teacher::firstOrCreate(['name' => 'Neneng Cahyana, S.Pd']);
-
-        /*
-        // =====================================================================
-        // 4. PEMETAAN SK MENGAJAR DAN JADWAL (DINONAKTIFKAN UNTUK TES IMPORT)
-        // =====================================================================
-        if ($periodGanjil) {
-            // [KELAS 7.1] - Senin
-            $taBind71 = TeachingAssignment::firstOrCreate(
-                ['academic_period_id' => $periodGanjil->id, 'teacher_id' => $guruYunita->id, 'subject_id' => $bind->id, 'classroom_id' => $kelas71->id],
-                ['grading_formula' => 'average']
-            );
-            SubjectSchedule::updateOrCreate(['teaching_assignment_id' => $taBind71->id, 'day' => 'Senin'], ['start_time' => '08:50', 'end_time' => '10:10']);
-
-            $taIpa71 = TeachingAssignment::firstOrCreate(
-                ['academic_period_id' => $periodGanjil->id, 'teacher_id' => $guruPetria->id, 'subject_id' => $ipa->id, 'classroom_id' => $kelas71->id],
-                ['grading_formula' => 'average']
-            );
-            SubjectSchedule::updateOrCreate(['teaching_assignment_id' => $taIpa71->id, 'day' => 'Senin'], ['start_time' => '10:40', 'end_time' => '12:00']);
-
-            $taPai71 = TeachingAssignment::firstOrCreate(
-                ['academic_period_id' => $periodGanjil->id, 'teacher_id' => $guruRiza->id, 'subject_id' => $pai->id, 'classroom_id' => $kelas71->id],
-                ['grading_formula' => 'average']
-            );
-            SubjectSchedule::updateOrCreate(['teaching_assignment_id' => $taPai71->id, 'day' => 'Senin'], ['start_time' => '13:40', 'end_time' => '15:00']);
-
-            // [KELAS 8.1] - Contoh Tambahan Mapel Akademik
-            $taMtk81 = TeachingAssignment::firstOrCreate(
-                ['academic_period_id' => $periodGanjil->id, 'teacher_id' => $guruAnggun->id, 'subject_id' => $mtk->id, 'classroom_id' => $kelas81->id],
-                ['grading_formula' => 'weighting']
-            );
-            SubjectSchedule::updateOrCreate(['teaching_assignment_id' => $taMtk81->id, 'day' => 'Selasa'], ['start_time' => '07:30', 'end_time' => '09:00']);
+        $activePeriod = AcademicPeriod::where('is_active', true)->first();
+        if (!$activePeriod) {
+            $this->command->error('Tidak ada Tahun Ajaran aktif! Pastikan SchoolSeeder sudah dijalankan.');
+            return;
         }
 
-        // =====================================================================
-        // 5. PEMETAAN TEAM TEACHING KOKURIKULER P5 (DINONAKTIFKAN UNTUK TES IMPORT)
-        // =====================================================================
-        $kokurikulerAssignments = [
-
-            // Kelas 7.1
-            ['guru' => $guruYunita, 'kelas' => $kelas71, 'day' => 'Senin', 'start' => '08:10', 'end' => '08:50'],
-            ['guru' => $guruWinda, 'kelas' => $kelas71, 'day' => 'Senin', 'start' => '13:00', 'end' => '13:40'],
-            ['guru' => $guruPetria, 'kelas' => $kelas71, 'day' => 'Selasa', 'start' => '13:00', 'end' => '13:40'],
-            ['guru' => $guruGima, 'kelas' => $kelas71, 'day' => 'Selasa', 'start' => '14:20', 'end' => '15:00'],
-            ['guru' => $guruWempi, 'kelas' => $kelas71, 'day' => 'Rabu', 'start' => '11:20', 'end' => '12:00'],
-            ['guru' => $guruAsfriyanti, 'kelas' => $kelas71, 'day' => 'Rabu', 'start' => '14:20', 'end' => '15:00'],
-            ['guru' => $guruRiza, 'kelas' => $kelas71, 'day' => 'Kamis', 'start' => '07:30', 'end' => '08:10'],
-            ['guru' => $guruNadya, 'kelas' => $kelas71, 'day' => 'Kamis', 'start' => '13:00', 'end' => '13:40'],
-            ['guru' => $guruYuli, 'kelas' => $kelas71, 'day' => 'Jumat', 'start' => '08:30', 'end' => '09:10'],
-            ['guru' => $guruAnggun, 'kelas' => $kelas71, 'day' => 'Kamis', 'start' => '09:10', 'end' => '09:50'],
-
-            // Kelas 7.2
-            ['guru' => $guruPetria, 'kelas' => $kelas72, 'day' => 'Senin', 'start' => '08:10', 'end' => '08:50'],
-            ['guru' => $guruNadya, 'kelas' => $kelas72, 'day' => 'Senin', 'start' => '13:00', 'end' => '13:40'],
-            ['guru' => $guruRiza, 'kelas' => $kelas72, 'day' => 'Selasa', 'start' => '13:00', 'end' => '13:40'],
-            ['guru' => $guruAnggun, 'kelas' => $kelas72, 'day' => 'Selasa', 'start' => '14:20', 'end' => '15:00'],
-            ['guru' => $guruWinda, 'kelas' => $kelas72, 'day' => 'Rabu', 'start' => '11:20', 'end' => '12:00'],
-            ['guru' => $guruWempi, 'kelas' => $kelas72, 'day' => 'Rabu', 'start' => '14:20', 'end' => '15:00'],
-            ['guru' => $guruGima, 'kelas' => $kelas72, 'day' => 'Kamis', 'start' => '07:30', 'end' => '08:10'],
-            ['guru' => $guruPetria, 'kelas' => $kelas72, 'day' => 'Kamis', 'start' => '13:00', 'end' => '13:40'],
-            ['guru' => $guruAsfriyanti, 'kelas' => $kelas72, 'day' => 'Jumat', 'start' => '08:30', 'end' => '09:10'],
-            ['guru' => $guruYunita, 'kelas' => $kelas72, 'day' => 'Kamis', 'start' => '09:10', 'end' => '09:50'],
-
-            // Kelas 8.1
-            ['guru' => $guruAsfriyanti, 'kelas' => $kelas81, 'day' => 'Senin', 'start' => '08:10', 'end' => '08:50'],
-            ['guru' => $guruYuli, 'kelas' => $kelas81, 'day' => 'Senin', 'start' => '13:00', 'end' => '13:40'],
-            ['guru' => $guruWempi, 'kelas' => $kelas81, 'day' => 'Selasa', 'start' => '13:00', 'end' => '13:40'],
-            ['guru' => $guruPetria, 'kelas' => $kelas81, 'day' => 'Selasa', 'start' => '14:20', 'end' => '15:00'],
-            ['guru' => $guruNadya, 'kelas' => $kelas81, 'day' => 'Rabu', 'start' => '11:20', 'end' => '12:00'],
-            ['guru' => $guruWinda, 'kelas' => $kelas81, 'day' => 'Rabu', 'start' => '14:20', 'end' => '15:00'],
-            ['guru' => $guruYunita, 'kelas' => $kelas81, 'day' => 'Kamis', 'start' => '07:30', 'end' => '08:10'],
-            ['guru' => $guruGima, 'kelas' => $kelas81, 'day' => 'Kamis', 'start' => '13:00', 'end' => '13:40'],
-            ['guru' => $guruAnggun, 'kelas' => $kelas81, 'day' => 'Jumat', 'start' => '08:30', 'end' => '09:10'],
-            ['guru' => $guruRiza, 'kelas' => $kelas81, 'day' => 'Kamis', 'start' => '09:10', 'end' => '09:50'],
-
-            // Kelas 8.2 (2 Guru)
-            ['guru' => $guruRiza, 'kelas' => $kelas82, 'day' => 'Senin', 'start' => '08:10', 'end' => '08:50'],
-            ['guru' => $guruGima, 'kelas' => $kelas82, 'day' => 'Senin', 'start' => '13:00', 'end' => '13:40'],
-            ['guru' => $guruWinda, 'kelas' => $kelas82, 'day' => 'Selasa', 'start' => '13:00', 'end' => '13:40'],
-            ['guru' => $guruWempi, 'kelas' => $kelas82, 'day' => 'Selasa', 'start' => '14:20', 'end' => '15:00'],
-            ['guru' => $guruYunita, 'kelas' => $kelas82, 'day' => 'Rabu', 'start' => '11:20', 'end' => '12:00'],
-            ['guru' => $guruPetria, 'kelas' => $kelas82, 'day' => 'Rabu', 'start' => '14:20', 'end' => '15:00'],
-            ['guru' => $guruAnggun, 'kelas' => $kelas82, 'day' => 'Kamis', 'start' => '07:30', 'end' => '08:10'],
-            ['guru' => $guruAsfriyanti, 'kelas' => $kelas82, 'day' => 'Kamis', 'start' => '13:00', 'end' => '13:40'],
-            ['guru' => $guruNadya, 'kelas' => $kelas82, 'day' => 'Jumat', 'start' => '08:30', 'end' => '09:10'],
-            ['guru' => $guruYuli, 'kelas' => $kelas82, 'day' => 'Kamis', 'start' => '09:10', 'end' => '09:50'],
-
-            // Kelas 9.1 (2 Guru)
-            ['guru' => $guruWempi, 'kelas' => $kelas91, 'day' => 'Senin', 'start' => '08:10', 'end' => '08:50'],
-            ['guru' => $guruAnggun, 'kelas' => $kelas91, 'day' => 'Senin', 'start' => '13:00', 'end' => '13:40'],
-            ['guru' => $guruYuli, 'kelas' => $kelas81, 'day' => 'Selasa', 'start' => '13:00', 'end' => '13:40'],
-            ['guru' => $guruWinda, 'kelas' => $kelas81, 'day' => 'Selasa', 'start' => '14:20', 'end' => '15:00'],
-            ['guru' => $guruGima, 'kelas' => $kelas81, 'day' => 'Rabu', 'start' => '11:20', 'end' => '12:00'],
-            ['guru' => $guruNadya, 'kelas' => $kelas81, 'day' => 'Rabu', 'start' => '14:20', 'end' => '15:00'],
-            ['guru' => $guruPetria, 'kelas' => $kelas81, 'day' => 'Kamis', 'start' => '07:30', 'end' => '08:10'],
-            ['guru' => $guruYunita, 'kelas' => $kelas81, 'day' => 'Kamis', 'start' => '13:00', 'end' => '13:40'],
-            ['guru' => $guruRiza, 'kelas' => $kelas81, 'day' => 'Jumat', 'start' => '08:30', 'end' => '09:10'],
-            ['guru' => $guruAsfriyanti, 'kelas' => $kelas81, 'day' => 'Kamis', 'start' => '09:10', 'end' => '09:50'],
+        // --- MAPEL MAP ---
+        $subjMap = [
+            'MTK' => Subject::where('code', 'MTK')->first()->id,
+            'BIND' => Subject::where('code', 'BIND')->first()->id,
+            'BING' => Subject::where('code', 'BING')->first()->id,
+            'IPA' => Subject::where('code', 'IPA')->first()->id,
+            'IPS' => Subject::where('code', 'IPS')->first()->id,
+            'PAI' => Subject::where('code', 'PAI')->first()->id,
+            'PJOK' => Subject::where('code', 'PJOK')->first()->id,
+            'TIK' => Subject::where('code', 'TIK')->first()->id,
+            'PKN' => Subject::where('code', 'PKN')->first()->id,
+            'SENBUD' => Subject::where('code', 'SENBUD')->first()->id,
+            'KOK' => Subject::where('code', 'KOK')->first()->id,
         ];
 
-        foreach ($kokurikulerAssignments as $assign) {
-            $taKok = TeachingAssignment::firstOrCreate([
-                'academic_period_id' => $periodGanjil->id,
-                'teacher_id' => $assign['guru']->id,
-                'subject_id' => $kok->id, // MAPEL PASTI KOKURIKULER
-                'classroom_id' => $assign['kelas']->id,
-            ]);
-
-            SubjectSchedule::updateOrCreate(
-                [
-                    'teaching_assignment_id' => $taKok->id,
-                    'day' => $assign['day']
-                ],
-                [
-                    'start_time' => $assign['start'],
-                    'end_time' => $assign['end']
-                ]
-            );
-        }
-
-        // =====================================================================
-        // 6. SEEDING TUJUAN PEMBELAJARAN TP (DINONAKTIFKAN UNTUK TES IMPORT)
-        // =====================================================================
-
-        // A. CONTOH TP UNTUK PKN KELAS 7 (Oleh Bpk. Yuli Asman)
-        $tpPknKelas7 = [
-            ['period' => $periodGanjil, 'code' => 'TP-7.1.1', 'content' => 'Peserta didik mampu memahami sejarah kelahiran Pancasila', 'attribute' => 'Memahami sejarah kelahiran Pancasila'],
-            ['period' => $periodGanjil, 'code' => 'TP-7.1.2', 'content' => 'Peserta didik dapat menerapkan norma dan aturan', 'attribute' => 'Menerapkan norma dan aturan'],
-            ['period' => $periodGenap, 'code' => 'TP-7.2.1', 'content' => 'Peserta didik mampu memahami Proklamasi kemerdekaan Republik Indonesia', 'attribute' => 'Memahami Proklamasi kemerdekaan RI'],
+        // --- TIMESLOTS MAP ---
+        // Karena waktu tertera di prompt, kita map jam ke string waktu
+        $timeslots = [
+            '07.30-08.10' => ['07:30', '08:10'],
+            '07.30-08.50' => ['07:30', '08:50'],
+            '08.00-08.40' => ['08:00', '08:40'],
+            '08.00-09.20' => ['08:00', '09:20'],
+            '08.00-10.00' => ['08:00', '10:00'],
+            '08.10-08.50' => ['08:10', '08:50'],
+            '08.10-09.30' => ['08:10', '09:30'],
+            '08.10-10.10' => ['08:10', '10:10'],
+            '08.20-09.00' => ['08:20', '09:00'],
+            '08.40-10.00' => ['08:40', '10:00'],
+            '08.50-10.10' => ['08:50', '10:10'],
+            '09.00-09.40' => ['09:00', '09:40'],
+            '09.20-11.10' => ['09:20', '11:10'],
+            '09.20-11.50' => ['09:20', '11:50'],
+            '09.30-10.10' => ['09:30', '10:10'],
+            '09.30-11.35' => ['09:30', '11:35'],
+            '10.25-11.45' => ['10:25', '11:45'],
+            '10.30-11.10' => ['10:30', '11:10'],
+            '10.30-11.50' => ['10:30', '11:50'],
+            '10.55-11.35' => ['10:55', '11:35'],
+            '10.55-12.15' => ['10:55', '12:15'],
+            '11.10-11.50' => ['11:10', '11:50'],
+            '11.20-12.00' => ['11:20', '12:00'],
+            '11.35-12.15' => ['11:35', '12:15'],
+            '12.20-13.00' => ['12:20', '13:00'],
+            '13.00-13.40' => ['13:00', '13:40'],
+            '13.00-14.20' => ['13:00', '14:20'],
+            '13.40-14.20' => ['13:40', '14:20'],
+            '13.40-15.00' => ['13:40', '15:00'],
+            '14.20-15.00' => ['14:20', '15:00'],
         ];
 
-        foreach ($tpPknKelas7 as $tp) {
-            LearningObjective::updateOrCreate(
-                ['code' => $tp['code'], 'teacher_id' => $guruYuli->id, 'academic_period_id' => $tp['period']->id],
-                ['subject_id' => $pkn->id, 'grade_level' => 7, 'phase' => 'D', 'content' => $tp['content'], 'attribute' => $tp['attribute']]
-            );
-        }
-
-        // B. CONTOH TP UNTUK IPA KELAS 8 (Oleh Ibu Petria Susila)
-        $tpIpaKelas8 = [
-            [
-                'period' => $periodGanjil,
-                'code' => 'TP-IPA-8.1.1',
-                'content' => 'Peserta didik mampu mengidentifikasi sistem pencernaan pada manusia dan fungsinya.',
-                'attribute' => 'Mengidentifikasi sistem pencernaan manusia'
-            ],
-            [
-                'period' => $periodGanjil,
-                'code' => 'TP-IPA-8.1.2',
-                'content' => 'Peserta didik dapat menjelaskan proses pernapasan dan organ-organ yang terlibat.',
-                'attribute' => 'Menjelaskan proses pernapasan'
-            ],
+        // --- GURU ---
+        // Sesuai mapping yang ada
+        $schedulesData = [
+            ['guru' => 'Yunita', 'sub_codes' => ['BIND', 'KOK'], 'schedules' => [
+                ['day' => 'Senin', 'kelas' => '7.1', 'time' => '08.50-10.10', 'sub' => 'BIND'],
+                ['day' => 'Senin', 'kelas' => '9.1', 'time' => '10.55-12.15', 'sub' => 'BIND'],
+                ['day' => 'Selasa', 'kelas' => '7.2', 'time' => '09.20-11.10', 'sub' => 'BIND'],
+                ['day' => 'Selasa', 'kelas' => '8.2', 'time' => '11.10-11.50', 'sub' => 'BIND'],
+                ['day' => 'Selasa', 'kelas' => '7.1', 'time' => '12.20-13.00', 'sub' => 'KOK'],
+                ['day' => 'Selasa', 'kelas' => '8.2', 'time' => '13.00-13.40', 'sub' => 'BIND'],
+                ['day' => 'Selasa', 'kelas' => '8.1', 'time' => '13.40-14.20', 'sub' => 'BIND'],
+                ['day' => 'Selasa', 'kelas' => '9.1', 'time' => '14.20-15.00', 'sub' => 'KOK'],
+                ['day' => 'Rabu', 'kelas' => '9.1', 'time' => '07.30-08.50', 'sub' => 'BIND'],
+                ['day' => 'Rabu', 'kelas' => '8.2', 'time' => '08.50-10.10', 'sub' => 'BIND'],
+                ['day' => 'Rabu', 'kelas' => '7.1', 'time' => '10.55-11.35', 'sub' => 'BIND'],
+                ['day' => 'Rabu', 'kelas' => '8.2', 'time' => '11.35-12.15', 'sub' => 'KOK'],
+                ['day' => 'Rabu', 'kelas' => '7.2', 'time' => '14.20-15.00', 'sub' => 'KOK'],
+                ['day' => 'Kamis', 'kelas' => '7.2', 'time' => '08.10-10.10', 'sub' => 'BIND'],
+                ['day' => 'Kamis', 'kelas' => '7.1', 'time' => '10.55-12.15', 'sub' => 'BIND'],
+                ['day' => 'Kamis', 'kelas' => '9.1', 'time' => '13.40-15.00', 'sub' => 'BIND'],
+                ['day' => 'Jumat', 'kelas' => '8.1', 'time' => '08.20-09.00', 'sub' => 'KOK'],
+                ['day' => 'Jumat', 'kelas' => '8.1', 'time' => '10.25-11.45', 'sub' => 'BIND']
+            ]],
+            ['guru' => 'Petria', 'sub_codes' => ['IPA', 'KOK'], 'schedules' => [
+                ['day' => 'Senin', 'kelas' => '9.1', 'time' => '13.00-13.40', 'sub' => 'KOK'],
+                ['day' => 'Senin', 'kelas' => '9.1', 'time' => '13.40-15.00', 'sub' => 'IPA'],
+                ['day' => 'Selasa', 'kelas' => '7.1', 'time' => '08.00-09.20', 'sub' => 'IPA'],
+                ['day' => 'Selasa', 'kelas' => '7.2', 'time' => '12.20-13.00', 'sub' => 'KOK'],
+                ['day' => 'Rabu', 'kelas' => '7.1', 'time' => '07.30-08.50', 'sub' => 'IPA'],
+                ['day' => 'Rabu', 'kelas' => '7.2', 'time' => '09.30-11.35', 'sub' => 'IPA'],
+                ['day' => 'Rabu', 'kelas' => '7.1', 'time' => '11.35-12.15', 'sub' => 'KOK'],
+                ['day' => 'Kamis', 'kelas' => '9.1', 'time' => '08.50-10.10', 'sub' => 'IPA'],
+                ['day' => 'Kamis', 'kelas' => '7.2', 'time' => '10.55-12.15', 'sub' => 'IPA']
+            ]],
+            ['guru' => 'Asfriyanti', 'sub_codes' => ['BING', 'KOK'], 'schedules' => [
+                ['day' => 'Senin', 'kelas' => '7.2', 'time' => '10.55-12.15', 'sub' => 'BING'],
+                ['day' => 'Senin', 'kelas' => '8.1', 'time' => '13.00-13.40', 'sub' => 'KOK'],
+                ['day' => 'Selasa', 'kelas' => '8.1', 'time' => '08.00-10.00', 'sub' => 'BING'],
+                ['day' => 'Selasa', 'kelas' => '8.2', 'time' => '10.30-11.10', 'sub' => 'BING'],
+                ['day' => 'Selasa', 'kelas' => '9.1', 'time' => '13.00-14.20', 'sub' => 'BING'],
+                ['day' => 'Selasa', 'kelas' => '7.1', 'time' => '14.20-15.00', 'sub' => 'KOK'],
+                ['day' => 'Rabu', 'kelas' => '7.2', 'time' => '07.30-08.10', 'sub' => 'BING'],
+                ['day' => 'Rabu', 'kelas' => '7.1', 'time' => '08.50-10.10', 'sub' => 'BING'],
+                ['day' => 'Rabu', 'kelas' => '8.2', 'time' => '10.55-11.35', 'sub' => 'BING'],
+                ['day' => 'Rabu', 'kelas' => '9.1', 'time' => '11.35-12.15', 'sub' => 'KOK'],
+                ['day' => 'Kamis', 'kelas' => '7.2', 'time' => '07.30-08.10', 'sub' => 'KOK'],
+                ['day' => 'Kamis', 'kelas' => '9.1', 'time' => '08.10-08.50', 'sub' => 'BING'],
+                ['day' => 'Kamis', 'kelas' => '7.1', 'time' => '09.30-10.10', 'sub' => 'BING'],
+                ['day' => 'Kamis', 'kelas' => '8.2', 'time' => '13.00-13.40', 'sub' => 'KOK']
+            ]],
+            ['guru' => 'Riza', 'sub_codes' => ['PAI', 'KOK'], 'schedules' => [
+                ['day' => 'Senin', 'kelas' => '7.2', 'time' => '08.10-08.50', 'sub' => 'KOK'],
+                ['day' => 'Senin', 'kelas' => '7.1', 'time' => '10.55-12.15', 'sub' => 'PAI'],
+                ['day' => 'Senin', 'kelas' => '8.2', 'time' => '13.00-13.40', 'sub' => 'KOK'],
+                ['day' => 'Selasa', 'kelas' => '8.2', 'time' => '08.00-09.20', 'sub' => 'PAI'],
+                ['day' => 'Selasa', 'kelas' => '7.2', 'time' => '11.10-11.50', 'sub' => 'PAI'],
+                ['day' => 'Selasa', 'kelas' => '7.2', 'time' => '13.00-13.40', 'sub' => 'PAI'],
+                ['day' => 'Kamis', 'kelas' => '7.1', 'time' => '07.30-08.10', 'sub' => 'KOK'],
+                ['day' => 'Kamis', 'kelas' => '8.1', 'time' => '08.10-09.30', 'sub' => 'PAI'],
+                ['day' => 'Kamis', 'kelas' => '8.1', 'time' => '13.00-13.40', 'sub' => 'KOK'],
+                ['day' => 'Jumat', 'kelas' => '9.1', 'time' => '08.20-09.00', 'sub' => 'KOK'],
+                ['day' => 'Jumat', 'kelas' => '9.1', 'time' => '10.25-11.45', 'sub' => 'PAI']
+            ]],
+            ['guru' => 'Wempi', 'sub_codes' => ['IPS', 'KOK'], 'schedules' => [
+                ['day' => 'Senin', 'kelas' => '7.1', 'time' => '13.00-13.40', 'sub' => 'KOK'],
+                ['day' => 'Senin', 'kelas' => '7.2', 'time' => '13.40-15.00', 'sub' => 'IPS'],
+                ['day' => 'Selasa', 'kelas' => '9.1', 'time' => '08.00-08.40', 'sub' => 'IPS'],
+                ['day' => 'Selasa', 'kelas' => '7.1', 'time' => '09.20-11.50', 'sub' => 'IPS'],
+                ['day' => 'Selasa', 'kelas' => '8.1', 'time' => '12.20-13.00', 'sub' => 'KOK'],
+                ['day' => 'Selasa', 'kelas' => '7.2', 'time' => '13.40-14.20', 'sub' => 'IPS'],
+                ['day' => 'Rabu', 'kelas' => '8.2', 'time' => '07.30-08.10', 'sub' => 'IPS'],
+                ['day' => 'Rabu', 'kelas' => '9.1', 'time' => '08.10-09.30', 'sub' => 'IPS'],
+                ['day' => 'Rabu', 'kelas' => '8.1', 'time' => '10.55-11.35', 'sub' => 'IPS'],
+                ['day' => 'Rabu', 'kelas' => '8.1', 'time' => '13.00-14.20', 'sub' => 'IPS'],
+                ['day' => 'Rabu', 'kelas' => '9.1', 'time' => '14.20-15.00', 'sub' => 'KOK'],
+                ['day' => 'Jumat', 'kelas' => '7.2', 'time' => '08.20-09.00', 'sub' => 'KOK'],
+                ['day' => 'Jumat', 'kelas' => '8.2', 'time' => '09.00-09.40', 'sub' => 'KOK'],
+                ['day' => 'Jumat', 'kelas' => '8.2', 'time' => '10.25-11.45', 'sub' => 'IPS']
+            ]],
+            ['guru' => 'Winda', 'sub_codes' => ['SENBUD', 'KOK'], 'schedules' => [
+                ['day' => 'Senin', 'kelas' => '9.1', 'time' => '08.10-08.50', 'sub' => 'KOK'],
+                ['day' => 'Senin', 'kelas' => '9.1', 'time' => '08.50-10.10', 'sub' => 'SENBUD'],
+                ['day' => 'Senin', 'kelas' => '8.2', 'time' => '10.55-12.15', 'sub' => 'SENBUD'],
+                ['day' => 'Selasa', 'kelas' => '8.2', 'time' => '12.20-13.00', 'sub' => 'KOK'],
+                ['day' => 'Selasa', 'kelas' => '7.1', 'time' => '13.00-14.20', 'sub' => 'SENBUD'],
+                ['day' => 'Rabu', 'kelas' => '8.1', 'time' => '08.50-10.10', 'sub' => 'SENBUD'],
+                ['day' => 'Rabu', 'kelas' => '7.2', 'time' => '11.35-12.15', 'sub' => 'KOK'],
+                ['day' => 'Rabu', 'kelas' => '7.2', 'time' => '13.00-14.20', 'sub' => 'SENBUD'],
+                ['day' => 'Rabu', 'kelas' => '8.1', 'time' => '14.20-15.00', 'sub' => 'KOK'],
+                ['day' => 'Jumat', 'kelas' => '7.1', 'time' => '09.00-09.40', 'sub' => 'KOK']
+            ]],
+            ['guru' => 'Nadya', 'sub_codes' => ['PJOK', 'KOK'], 'schedules' => [
+                ['day' => 'Senin', 'kelas' => '8.2', 'time' => '08.10-08.50', 'sub' => 'KOK'],
+                ['day' => 'Senin', 'kelas' => '8.2', 'time' => '08.50-10.10', 'sub' => 'PJOK'],
+                ['day' => 'Rabu', 'kelas' => '8.1', 'time' => '07.30-08.50', 'sub' => 'PJOK'],
+                ['day' => 'Rabu', 'kelas' => '8.1', 'time' => '11.35-12.15', 'sub' => 'KOK'],
+                ['day' => 'Rabu', 'kelas' => '9.1', 'time' => '13.00-14.20', 'sub' => 'PJOK'],
+                ['day' => 'Kamis', 'kelas' => '7.1', 'time' => '08.10-09.30', 'sub' => 'PJOK'],
+                ['day' => 'Kamis', 'kelas' => '9.1', 'time' => '13.00-13.40', 'sub' => 'KOK'],
+                ['day' => 'Jumat', 'kelas' => '7.1', 'time' => '08.20-09.00', 'sub' => 'KOK'],
+                ['day' => 'Jumat', 'kelas' => '8.1', 'time' => '09.00-09.40', 'sub' => 'KOK'],
+                ['day' => 'Jumat', 'kelas' => '7.2', 'time' => '10.25-11.45', 'sub' => 'PJOK']
+            ]],
+            ['guru' => 'Yuli', 'sub_codes' => ['PKN', 'KOK'], 'schedules' => [
+                ['day' => 'Senin', 'kelas' => '8.2', 'time' => '13.40-15.00', 'sub' => 'PKN'],
+                ['day' => 'Selasa', 'kelas' => '7.2', 'time' => '08.00-09.20', 'sub' => 'PKN'],
+                ['day' => 'Selasa', 'kelas' => '9.1', 'time' => '10.30-11.50', 'sub' => 'PKN'],
+                ['day' => 'Selasa', 'kelas' => '7.2', 'time' => '14.20-15.00', 'sub' => 'KOK'],
+                ['day' => 'Kamis', 'kelas' => '8.1', 'time' => '07.30-08.10', 'sub' => 'KOK'],
+                ['day' => 'Kamis', 'kelas' => '8.1', 'time' => '09.30-11.35', 'sub' => 'PKN'],
+                ['day' => 'Kamis', 'kelas' => '7.1', 'time' => '13.00-13.40', 'sub' => 'KOK'],
+                ['day' => 'Kamis', 'kelas' => '7.1', 'time' => '13.40-15.00', 'sub' => 'PKN'],
+                ['day' => 'Jumat', 'kelas' => '8.2', 'time' => '08.20-09.00', 'sub' => 'KOK'],
+                ['day' => 'Jumat', 'kelas' => '9.1', 'time' => '09.00-09.40', 'sub' => 'KOK']
+            ]],
+            ['guru' => 'Gima', 'sub_codes' => ['TIK', 'KOK'], 'schedules' => [
+                ['day' => 'Senin', 'kelas' => '7.2', 'time' => '13.00-13.40', 'sub' => 'KOK'],
+                ['day' => 'Selasa', 'kelas' => '9.1', 'time' => '12.20-13.00', 'sub' => 'KOK'],
+                ['day' => 'Selasa', 'kelas' => '8.1', 'time' => '14.20-15.00', 'sub' => 'KOK'],
+                ['day' => 'Rabu', 'kelas' => '7.2', 'time' => '08.10-09.30', 'sub' => 'TIK'],
+                ['day' => 'Rabu', 'kelas' => '9.1', 'time' => '09.30-11.35', 'sub' => 'TIK'],
+                ['day' => 'Rabu', 'kelas' => '7.1', 'time' => '13.00-14.20', 'sub' => 'TIK'],
+                ['day' => 'Rabu', 'kelas' => '7.1', 'time' => '14.20-15.00', 'sub' => 'KOK'],
+                ['day' => 'Kamis', 'kelas' => '8.2', 'time' => '07.30-08.10', 'sub' => 'KOK'],
+                ['day' => 'Kamis', 'kelas' => '8.1', 'time' => '08.10-08.50', 'sub' => 'TIK'],
+                ['day' => 'Kamis', 'kelas' => '8.2', 'time' => '10.55-12.15', 'sub' => 'TIK'],
+                ['day' => 'Kamis', 'kelas' => '8.1', 'time' => '13.40-15.00', 'sub' => 'TIK']
+            ]],
+            ['guru' => 'Anggun', 'sub_codes' => ['MTK', 'KOK'], 'schedules' => [
+                ['day' => 'Senin', 'kelas' => '7.1', 'time' => '08.10-08.50', 'sub' => 'KOK'],
+                ['day' => 'Senin', 'kelas' => '7.2', 'time' => '08.50-10.10', 'sub' => 'MTK'],
+                ['day' => 'Senin', 'kelas' => '8.1', 'time' => '10.55-12.15', 'sub' => 'MTK'],
+                ['day' => 'Senin', 'kelas' => '7.1', 'time' => '13.40-15.00', 'sub' => 'MTK'],
+                ['day' => 'Selasa', 'kelas' => '9.1', 'time' => '08.40-10.00', 'sub' => 'MTK'],
+                ['day' => 'Selasa', 'kelas' => '8.1', 'time' => '11.10-11.50', 'sub' => 'MTK'],
+                ['day' => 'Selasa', 'kelas' => '8.2', 'time' => '13.40-14.20', 'sub' => 'MTK'],
+                ['day' => 'Selasa', 'kelas' => '8.2', 'time' => '14.20-15.00', 'sub' => 'KOK'],
+                ['day' => 'Kamis', 'kelas' => '9.1', 'time' => '07.30-08.10', 'sub' => 'KOK'],
+                ['day' => 'Kamis', 'kelas' => '8.2', 'time' => '08.10-10.10', 'sub' => 'MTK'],
+                ['day' => 'Kamis', 'kelas' => '9.1', 'time' => '10.55-12.15', 'sub' => 'MTK'],
+                ['day' => 'Kamis', 'kelas' => '7.2', 'time' => '13.00-13.40', 'sub' => 'KOK'],
+                ['day' => 'Kamis', 'kelas' => '7.2', 'time' => '13.40-15.00', 'sub' => 'MTK'],
+                ['day' => 'Jumat', 'kelas' => '8.1', 'time' => '09.00-09.40', 'sub' => 'KOK'],
+                ['day' => 'Jumat', 'kelas' => '7.1', 'time' => '10.25-11.45', 'sub' => 'MTK']
+            ]],
         ];
 
-        foreach ($tpIpaKelas8 as $tp) {
-            LearningObjective::updateOrCreate(
-                [
-                    'code' => $tp['code'],
-                    'teacher_id' => $guruPetria->id, // Disesuaikan ke variabel guru Petria
-                    'academic_period_id' => $tp['period']->id
-                ],
-                [
-                    'subject_id' => $ipa->id,
-                    'grade_level' => 8,
-                    'phase' => 'D',
-                    'content' => $tp['content'],
-                    'attribute' => $tp['attribute']
-                ]
-            );
+
+        foreach ($schedulesData as $item) {
+            $guru = Teacher::where('name', 'LIKE', '%' . $item['guru'] . '%')->first();
+            if (!$guru) {
+                $this->command->warn("Guru " . $item['guru'] . " tidak ditemukan, modifikasi KbmSeeder.");
+                continue;
+            }
+
+            foreach ($item['schedules'] as $sch) {
+                $classroom = Classroom::where('name', 'Kelas ' . $sch['kelas'])->first();
+                if (!$classroom) {
+                    $this->command->warn("Kelas " . $sch['kelas'] . " tidak ditemukan.");
+                    continue;
+                }
+
+                $subjectId = $subjMap[$sch['sub']];
+
+                $assignment = TeachingAssignment::firstOrCreate(
+                    [
+                        'academic_period_id' => $activePeriod->id,
+                        'teacher_id' => $guru->id,
+                        'subject_id' => $subjectId,
+                        'classroom_id' => $classroom->id
+                    ],
+                    ['grading_formula' => 'average']
+                );
+
+                $timesArr = $timeslots[$sch['time']] ?? null;
+                if ($timesArr) {
+                    SubjectSchedule::updateOrCreate(
+                        ['teaching_assignment_id' => $assignment->id, 'day' => $sch['day']],
+                        ['start_time' => $timesArr[0], 'end_time' => $timesArr[1]]
+                    );
+                } else {
+                    $this->command->warn("Timeslot tidak dikenali: " . $sch['time']);
+                }
+            }
         }
-        */
     }
 }

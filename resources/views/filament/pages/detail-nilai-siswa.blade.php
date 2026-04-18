@@ -1,6 +1,8 @@
 {{-- resources/views/filament/pages/detail-nilai-siswa.blade.php --}}
 
 <x-filament-panels::page>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     {{-- Form Pemilihan Siswa --}}
     <x-filament::section>
         {{ $this->form }}
@@ -27,26 +29,32 @@
             </x-filament::section>
         @endif
 
-        {{-- Grafik Longitudinal --}}
         <x-filament::section heading="Grafik Nilai Per Semester">
             <div
                 x-data="{
                     chart: null,
-                    chartData: {{ json_encode($chartData) }},
 
                     init() {
-                        this.renderChart();
+                        this.renderChart($wire.chartData);
+                        
+                        $wire.$watch('chartData', () => {
+                            this.renderChart($wire.chartData);
+                        });
                     },
 
-                    renderChart() {
+                    renderChart(data) {
                         if (this.chart) {
                             this.chart.destroy();
+                        }
+
+                        if (!data || !data.datasets) {
+                            return;
                         }
 
                         const ctx = this.$refs.canvas.getContext('2d');
                         this.chart = new Chart(ctx, {
                             type: 'line',
-                            data: this.chartData,
+                            data: data,
                             options: {
                                 responsive: true,
                                 maintainAspectRatio: false,
@@ -88,9 +96,8 @@
                         });
                     }
                 }"
-                x-on:livewire:navigated.window="renderChart()"
-                wire:key="chart-{{ $student_id }}-{{ $selectedSubject }}"
                 style="height: 420px; position: relative;"
+                wire:ignore
             >
                 <canvas x-ref="canvas"></canvas>
             </div>

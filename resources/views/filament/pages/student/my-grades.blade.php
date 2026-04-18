@@ -1,4 +1,8 @@
 <x-filament-panels::page>
+    <div class="mb-4">
+        {{ $this->form }}
+    </div>
+
     @if(!$hasData)
         <div class="bg-white dark:bg-gray-900 rounded-xl shadow-sm ring-1 ring-gray-950/5 p-8 text-center">
             <x-heroicon-o-document-magnifying-glass class="w-12 h-12 mx-auto text-gray-400 mb-4" />
@@ -88,7 +92,7 @@
                                 <div class="space-y-3">
                                     @foreach($data['summative_scores'] as $score)
                                         <div class="flex justify-between items-center text-sm">
-                                            <span class="text-gray-600 dark:text-gray-400">{{ $score->assessment->title }}</span>
+                                            <span class="text-gray-600 dark:text-gray-400">{{ $score->assessment->name }}</span>
                                             <span class="font-medium {{ $score->score < ($data['kktp'] ?? 75) ? 'text-red-600' : 'text-gray-900 dark:text-gray-100' }}">
                                                 {{ $score->score !== null ? $score->score : '-' }}
                                             </span>
@@ -110,7 +114,7 @@
                                 <ul class="space-y-3">
                                     @foreach($data['formative_scores'] as $score)
                                         <li class="flex justify-between items-center text-sm">
-                                            <span class="text-gray-600 dark:text-gray-400">{{ $score->assessment->title }}</span>
+                                            <span class="text-gray-600 dark:text-gray-400">{{ $score->assessment->name }}</span>
                                             <span class="font-medium {{ $score->score < ($data['kktp'] ?? 75) ? 'text-red-600' : 'text-gray-900 dark:text-gray-100' }}">
                                                 {{ $score->score !== null ? $score->score : '-' }}
                                             </span>

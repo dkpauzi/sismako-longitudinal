@@ -3,15 +3,21 @@
 namespace App\Filament\Pages\Student;
 
 use App\Models\AcademicPeriod;
-use App\Models\AssessmentScore;
 use App\Models\AttendanceSummary;
+use App\Models\Enrollment;
 use App\Models\FinalGrade;
 use App\Models\TeachingAssignment;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Concerns\InteractsWithForms;
+use Filament\Forms\Contracts\HasForms;
+use Filament\Forms\Form;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Auth;
 
-class MyGrades extends Page
+class MyGrades extends Page implements HasForms
 {
+    use InteractsWithForms;
+
     protected static ?string $navigationIcon = 'heroicon-o-academic-cap';
     protected static ?string $navigationLabel = 'Detail Nilai Saya';
     protected static ?string $title = 'Riwayat Nilai & Kehadiran';
@@ -21,9 +27,56 @@ class MyGrades extends Page
     // Custom blade file
     protected static string $view = 'filament.pages.student.my-grades';
 
+    public ?int $selectedPeriodId = null;
+
     public static function canAccess(): bool
     {
         return Auth::check() && Auth::user()->hasRole('student') && Auth::user()->student !== null;
+    }
+
+    public function mount(): void
+    {
+        $student = Auth::user()->student;
+        if ($student) {
+            $latestEnrollment = Enrollment::where('student_id', $student->id)
+                ->orderBy('created_at', 'desc')
+                ->first();
+                
+            if ($latestEnrollment) {
+                $this->selectedPeriodId = $latestEnrollment->academic_period_id;
+            }
+        }
+    }
+
+    public function form(Form $form): Form
+    {
+        $student = Auth::user()->student;
+        $options = [];
+        
+        if ($student) {
+            // Hanya tampilkan periode dimana siswa ini terdaftar
+            $periods = Enrollment::where('student_id', $student->id)
+                ->with('academicPeriod')
+                ->get()
+                ->mapWithKeys(function($enrollment) {
+                    $ap = $enrollment->academicPeriod;
+                    if ($ap) {
+                        return [$ap->id => $ap->name];
+                    }
+                    return [];
+                })->toArray();
+                
+            $options = $periods;
+        }
+
+        return $form
+            ->schema([
+                Select::make('selectedPeriodId')
+                    ->label('Pilih Semester / Tahun Ajaran')
+                    ->options($options)
+                    ->live()
+            ])
+            ->columns(1);
     }
 
     /**
@@ -34,8 +87,8 @@ class MyGrades extends Page
     {
         $student = Auth::user()->student;
         
-        // Ambil periode akademik yang aktif saja saat ini (sebagai iterasi pertama)
-        $activePeriod = AcademicPeriod::where('is_active', true)->first();
+        // Pakai periode dari form
+        $activePeriod = AcademicPeriod::find($this->selectedPeriodId);
         
         if (!$activePeriod) {
             return [
@@ -74,7 +127,7 @@ class MyGrades extends Page
 
         // 2. Ambil DETAIL ASESMEN FORMATIF/SUMATIF
         // Gunakan whereHas untuk memastikan assessment ada di assignment yang relevan
-        $assessmentScores = AssessmentScore::with('assessment')
+        $assessmentScores = \App\Models\Grade::with('assessment')
             ->where('student_id', $student->id)
             ->whereHas('assessment', function($q) use ($assignmentIds) {
                 $q->whereIn('teaching_assignment_id', $assignmentIds);
@@ -100,8 +153,8 @@ class MyGrades extends Page
             
             $taScores = $assessmentScores->get($ta->id) ?? collect();
             
-            $formatives = $taScores->filter(fn($score) => $score->assessment->type === 'formative');
-            $summatives = $taScores->filter(fn($score) => $score->assessment->type === 'summative');
+            $formatives = $taScores->filter(fn($score) => str_starts_with($score->assessment->category, 'formatif'));
+            $summatives = $taScores->filter(fn($score) => str_starts_with($score->assessment->category, 'sumatif'));
             
             $studentData[] = [
                 'subject' => $ta->subject->name,

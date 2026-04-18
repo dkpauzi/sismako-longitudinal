@@ -194,6 +194,7 @@ class RolePermissionSeeder extends Seeder
             // Hanya bisa lihat nilai & rapor diri sendiri
             // (difilter di DetailNilaiSiswa Page dan NilaiSiswaWidget)
             'view_any_rapor', 'view_rapor',
+            'widget_StudentScheduleWidget',
         ]);
         $student->syncPermissions($studentPermissions);
         $this->command->info('✅ Siswa: ' . count($studentPermissions) . ' izin diberikan.');

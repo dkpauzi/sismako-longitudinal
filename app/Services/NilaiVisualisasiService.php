@@ -61,11 +61,12 @@ class NilaiVisualisasiService
         $isTeacher = $user && $user->hasRole('teacher');
         $teacherId = $isTeacher ? $user->teacher?->id : null;
         
-        // Ambil semua periode yang pernah diikuti siswa
+        // Ambil semua periode yang pernah diikuti siswa, urutkan berdasarkan waktu mulai semester
         $enrollments = Enrollment::where('student_id', $studentId)
             ->with('academicPeriod')
-            ->orderBy('created_at')
-            ->get();
+            ->get()
+            ->sortBy(fn($e) => $e->academicPeriod?->start_date)
+            ->values();
             
         $isHomeroomForStudent = false;
         $allowedSubjectIds = [];

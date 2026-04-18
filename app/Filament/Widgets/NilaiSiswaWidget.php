@@ -13,10 +13,29 @@ class NilaiSiswaWidget extends ChartWidget
     protected static ?int $sort = 2;
     protected int|string|array $columnSpan = 'full';
 
-    // Hanya muncul untuk role student
     public static function canView(): bool
     {
-        return Auth::user()?->hasRole('student') ?? false;
+        return false; // Dinonaktifkan sesuai permintaan pengguna
+    }
+
+    public ?string $filter = null;
+
+    protected function getFilters(): ?array
+    {
+        $service   = app(NilaiVisualisasiService::class);
+        $studentId = Auth::user()->student?->id;
+        
+        if (!$studentId) return [];
+
+        $longitudinal = $service->getNilaiLongitudinal($studentId);
+        $allSubjects = collect($longitudinal)
+            ->flatMap(fn($grades) => array_keys($grades))
+            ->unique()
+            ->sort()
+            ->values()
+            ->toArray();
+            
+        return collect($allSubjects)->mapWithKeys(fn($s) => [$s => $s])->toArray();
     }
 
     protected function getData(): array
@@ -40,33 +59,48 @@ class NilaiSiswaWidget extends ChartWidget
 
         // Kumpulkan semua label periode
         $periods = array_keys($longitudinal);
-
-        // Bangun dataset per mapel
-        $colors = [
-            '#3B82F6', '#EF4444', '#10B981', '#F59E0B',
-            '#8B5CF6', '#EC4899', '#14B8A6', '#F97316',
-            '#6366F1', '#84CC16',
-        ];
-
+        
+        $selectedSubject = $this->filter;
+        if (!$selectedSubject || !in_array($selectedSubject, $allSubjects)) {
+            $selectedSubject = $allSubjects[0] ?? null;
+        }
+        
         $datasets = [];
-        foreach ($allSubjects as $idx => $subject) {
+
+        if ($selectedSubject) {
             $data = [];
             foreach ($periods as $period) {
-                $data[] = $longitudinal[$period][$subject] ?? null;
+                $data[] = $longitudinal[$period][$selectedSubject] ?? null;
             }
 
-            $color = $colors[$idx % count($colors)];
+            $colorIdx = array_search($selectedSubject, $allSubjects);
+            $colors = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
+            $color = $colors[$colorIdx % count($colors)];
 
+            // Dataset 1: Tren Garis (Line)
             $datasets[] = [
-                'label'                => $subject,
-                'data'                 => $data,
-                'borderColor'          => $color,
-                'backgroundColor'      => $color . '20',
-                'fill'                 => false,
-                'tension'              => 0.3,
-                'spanGaps'             => true,
-                'pointRadius'          => 5,
-                'pointHoverRadius'     => 7,
+                'type'             => 'line',
+                'label'            => $selectedSubject . ' (Tren)',
+                'data'             => $data,
+                'borderColor'      => $color,
+                'backgroundColor'  => $color,
+                'fill'             => false,
+                'tension'          => 0.4,
+                'spanGaps'         => true,
+                'pointRadius'      => 6,
+                'pointHoverRadius' => 8,
+                'borderWidth'      => 3,
+            ];
+
+            // Dataset 2: Batang (Bar)
+            $datasets[] = [
+                'type'             => 'bar',
+                'label'            => $selectedSubject . ' (Nilai)',
+                'data'             => $data,
+                'borderColor'      => $color,
+                'backgroundColor'  => $color . '40', // opacity
+                'borderWidth'      => 1,
+                'borderRadius'     => 4,
             ];
         }
 
@@ -78,7 +112,7 @@ class NilaiSiswaWidget extends ChartWidget
 
     protected function getType(): string
     {
-        return 'line';
+        return 'bar';
     }
 
     protected function getOptions(): array

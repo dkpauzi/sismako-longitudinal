@@ -1,1 +1,4 @@
 *.sqlite*
+# Data Import & Examples
+Draft_Import_Data_Guru.csv
+student-importer-example.csv

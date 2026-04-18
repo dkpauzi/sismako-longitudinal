@@ -14,6 +14,11 @@ class DashboardStatsOverview extends BaseWidget
     // Agar widget tidak terlalu sering refresh (beban server), kita set polling agak lama atau matikan (null)
     protected static ?string $pollingInterval = '15s';
 
+    public static function canView(): bool
+    {
+        return auth()->check() && !auth()->user()?->hasRole('student');
+    }
+
     protected function getStats(): array
     {
         // ✅ PERBAIKAN: 3 COUNT query digabung menjadi 1 query.
