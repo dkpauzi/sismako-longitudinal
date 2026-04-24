@@ -69,9 +69,9 @@ class ViewGradebook extends Page
                             continue;
                         }
 
-                        // Jika nilai tidak dikunci, generate narasi
-                        $service->calculateScorePerTp($assignment, $studentId);
-                        $service->generateDescription($assignment, $studentId);
+                        // Generate narasi dan simpan ke FinalGrade
+                        $narrative = $service->generate($assignment, $studentId);
+                        $finalGrade->update(['narrative_description' => $narrative]);
                         $count++;
                     }
 

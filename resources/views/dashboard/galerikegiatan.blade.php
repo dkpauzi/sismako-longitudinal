@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@php $schoolName = \App\Models\SchoolProfile::first()?->name ?? 'SIAKAD'; @endphp
+@php $schoolName = $schoolProfile?->name ?? 'SIAKAD'; @endphp
 @section('title', 'Galeri Kegiatan | ' . $schoolName)
 
 @section('content')
