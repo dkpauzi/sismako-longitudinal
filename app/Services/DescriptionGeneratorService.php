@@ -50,7 +50,7 @@ class DescriptionGeneratorService
      *                                ↓
      *                          grade (nilai siswa)
      */
-    private function calculateScorePerTp(
+    public function calculateScorePerTp(
         TeachingAssignment $assignment,
         int $studentId,
         int $kktp
