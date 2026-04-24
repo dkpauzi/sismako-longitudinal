@@ -20,7 +20,8 @@ class Student extends Model
      * @var array<int, string>
      */
     protected $fillable = [
-        'user_id',          // Foreign Key: ID Akun Login di tabel users
+        'user_id',          // Foreign Key: ID Akun Login Siswa di tabel users
+        'guardian_user_id', // Foreign Key: ID Akun Login Wali Siswa di tabel users
 
         // --- IDENTITAS KEPENDUDUKAN & SEKOLAH ---
         'nisn',             // Nomor Induk Siswa Nasional (Unik, 10 digit angka)
@@ -69,6 +70,17 @@ class Student extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Relasi ke akun login Wali Siswa (User).
+     * Satu siswa bisa punya 1 akun wali. Satu akun wali bisa terhubung ke banyak siswa (saudara kandung).
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function guardianUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'guardian_user_id');
     }
 
     /**

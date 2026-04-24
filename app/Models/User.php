@@ -6,6 +6,7 @@ namespace App\Models;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -108,5 +109,16 @@ class User extends Authenticatable implements FilamentUser
     public function student(): HasOne
     {
         return $this->hasOne(Student::class);
+    }
+
+    /**
+     * Relasi ke siswa yang diampu sebagai Wali Siswa.
+     * Satu akun wali bisa terhubung ke banyak siswa (saudara kandung).
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function guardianStudents(): HasMany
+    {
+        return $this->hasMany(Student::class, 'guardian_user_id');
     }
 }

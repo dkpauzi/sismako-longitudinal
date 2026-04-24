@@ -32,15 +32,24 @@ class DetailNilaiSiswa extends Page implements HasForms
     public static function canAccess(): bool
     {
         return Auth::user()?->hasAnyRole([
-            'super_admin', 'headmaster', 'teacher', 'student'
+            'super_admin', 'headmaster', 'teacher', 'student', 'wali_siswa'
         ]) ?? false;
     }
 
     public function mount(): void
     {
+        $user = Auth::user();
+
         // Siswa langsung diarahkan ke datanya sendiri
-        if (Auth::user()->hasRole('student')) {
-            $this->student_id = Auth::user()->student?->id;
+        if ($user->hasRole('student')) {
+            $this->student_id = $user->student?->id;
+            $this->loadChartData();
+        }
+
+        // Wali Siswa diarahkan ke data anak pertamanya
+        if ($user->hasRole('wali_siswa')) {
+            $firstChild = $user->guardianStudents()->first();
+            $this->student_id = $firstChild?->id;
             $this->loadChartData();
         }
     }
@@ -58,7 +67,7 @@ class DetailNilaiSiswa extends Page implements HasForms
                     ->searchable()
                     ->live()
                     ->afterStateUpdated(fn() => $this->loadChartData())
-                    ->visible(fn() => !Auth::user()->hasRole('student')),
+                    ->visible(fn() => !Auth::user()->hasRole('student') && !Auth::user()->hasRole('wali_siswa')),
 
                 Select::make('selectedSubjects')
                     ->label('Gabungkan Mata Pelajaran (Filter)')

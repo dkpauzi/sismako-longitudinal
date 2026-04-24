@@ -2,10 +2,8 @@
 
 namespace App\Filament\Widgets;
 
-// --- PERBAIKAN: Gunakan Model yang Benar (SubjectSchedule) ---
+use App\Filament\Concerns\HasIndonesianDayFilter;
 use App\Models\SubjectSchedule;
-// -------------------------------------------------------------
-
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
@@ -13,6 +11,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class TeacherScheduleWidget extends BaseWidget
 {
+    use HasIndonesianDayFilter;
+
     protected static ?string $heading = 'Jadwal Mengajar Saya';
 
     protected int|string|array $columnSpan = 'full';
@@ -29,8 +29,9 @@ class TeacherScheduleWidget extends BaseWidget
     {
         return $table
             ->query(
-                // --- PERBAIKAN: Gunakan SubjectSchedule::query() ---
                 SubjectSchedule::query()
+                    // ✅ EAGER LOADING: Mencegah N+1 query saat render kolom relasi
+                    ->with(['teachingAssignment.subject', 'teachingAssignment.classroom'])
                     ->whereHas('teachingAssignment', function (Builder $query) {
                         // Ambil ID Teacher dengan aman (Default 0 jika null)
                         $teacherId = auth()->user()->teacher?->id ?? 0;
@@ -54,7 +55,6 @@ class TeacherScheduleWidget extends BaseWidget
                 Tables\Columns\TextColumn::make('start_time')
                     ->label('Jam')
                     ->time('H:i')
-                    // Menggunakan SubjectSchedule di type hint
                     ->description(fn(SubjectSchedule $record) => $record->end_time ? 's.d. ' . \Carbon\Carbon::parse($record->end_time)->format('H:i') : ''),
 
                 Tables\Columns\TextColumn::make('teachingAssignment.subject.name')
@@ -75,6 +75,9 @@ class TeacherScheduleWidget extends BaseWidget
                     ->label('Catatan')
                     ->limit(20)
                     ->color('gray'),
+            ])
+            ->filters([
+                $this->getDayFilter(), // ✅ DRY: Menggunakan trait HasIndonesianDayFilter
             ])
             ->paginated(false);
     }

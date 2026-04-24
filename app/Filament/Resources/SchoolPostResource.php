@@ -126,6 +126,7 @@ class SchoolPostResource extends Resource
                 Tables\Columns\TextColumn::make('category')
                     ->label('Kategori')
                     ->badge()
+                    ->sortable()
                     ->color(fn(string $state): string => match ($state) {
                         'Prestasi' => 'success',
                         'Pengumuman' => 'warning',
@@ -159,7 +160,8 @@ class SchoolPostResource extends Resource
                         'Prestasi' => 'Prestasi',
                         'Kegiatan' => 'Kegiatan',
                         'Berita' => 'Berita',
-                    ]),
+                    ])
+                    ->placeholder('Semua Kategori'),
                 Tables\Filters\TernaryFilter::make('is_published')
                     ->label('Status Tayang'),
             ])

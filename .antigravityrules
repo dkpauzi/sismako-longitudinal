@@ -1,33 +1,64 @@
-1. Identitas Proyek & Konteks Akademik
-Nama Proyek: Sistem Informasi Akademik Berbasis Kurikulum Merdeka (SIAKAD).
-Lokasi Implementasi: SMPN 45 Sijunjung.
-Institusi: Universitas Bina Sarana Informatika (UBSI), Fakultas Teknik dan Informatika, Program Studi Sistem Informasi.
-Target Pengguna: Desain sistem harus bersifat multilevel dan fleksibel agar dapat digunakan di tingkat SD, SMP, maupun SMA dengan menyesuaikan terminologi akademik yang relevan.
-2. Tech Stack & Standar Coding
-Framework: Laravel 11 (Gunakan struktur direktori terbaru, minimalisir Http/Kernel.php).
-Admin Panel: Filament v3 (Gunakan Resource, Custom Pages, dan Widgets).
-Database: MySQL (Fokus pada integritas relasional untuk data akademik).
-Metode Pengembangan: Waterfall (Analisis, Desain, Pengodean, Pengujian, Pemeliharaan).
-AI Agent Mode: Prioritaskan pembuatan kode yang bersih, penggunaan Service Classes untuk logika bisnis, dan Filament Actions untuk alur kerja admin.
-3. Spesifikasi Fitur (Referensi Fase Pengembangan)
-Fase 1 (MVP): Fokus pada Smart Login, Master Data, dan Smart Importer.
-Fase 2
-Dashboard Siswa: Visualisasi grafik nilai longitudinal per semester.
-Dashboard Kepala Sekolah: Ringkasan nilai per kelas dan grafik kinerja guru (kehadiran & input nilai).
-Auto-Generate: Gunakan NilaiVisualisasiService untuk menghasilkan deskripsi rapor secara otomatis berbasis data Tujuan Pembelajaran (TP) dan Rule-based logic.
-Akses Kontrol (Role-Based):
-Siswa: Hanya melihat data diri sendiri.
-Wali siswa : Hanya melihat data siswa yang di walikan
-Guru: Siswa yang diajar pada periode aktif.
-Wali Kelas: Seluruh siswa di kelas perwaliannya.
-Kepsek: Akses global untuk monitoring kinerja sekolah.
-4. Istilah & Logika Domain (Kurikulum Merdeka)
-Asesmen Formatif: Penilaian selama proses belajar untuk umpan balik.
-Asesmen Sumatif: Penilaian akhir Tujuan Pembelajaran (TP).
-P5: Abaikan pengelolaan Projek Penguatan Profil Pelajar Pancasila sesuai batasan penelitian.
-Output: Hasilkan "Cetak Rapor Informasi" sebagai media transparansi (bukan pengganti dokumen legal Dapodik).
-5. Instruksi Respon AI
-Jika diminta membuat fitur baru, langsung sediakan kode Migration (MySQL), Model, dan Filament Resource.
-Berikan komentar pada kode yang menjelaskan kaitannya dengan kebutuhan.
-Gunakan bahasa yang profesional dan teknis, namun tetap selaras dengan istilah pendidikan di Indonesia.
-Pastikan kode mempertimbangkan skalabilitas untuk berbagai jenjang pendidikan (SD/SMP/SMA).
+# .antigravityrules / Project Master Instructions
+
+Please read, understand, and strictly adhere to the following project context and constraints for all future code generation and technical responses. 
+
+## 1. Project Identity & Academic Context
+* **Project Name:** Academic Information System based on the Independent Curriculum (SIAKAD - *Sistem Informasi Akademik*).
+* **Implementation Location:** SMPN 45 Sijunjung.
+* **Institution:** Universitas Bina Sarana Informatika (UBSI), Faculty of Engineering and Informatics, Information Systems Study Program.
+* **Target Users/Scalability:** The system architecture and database design must be multilevel and flexible enough to be implemented at Elementary (SD), Junior High (SMP), and Senior High (SMA) levels by adjusting the relevant academic terminology.
+
+## 2. Tech Stack, Coding Standards & Database Performance
+* **Framework:** Laravel 11 (Strictly use the latest Laravel 11 directory structure, minimize modifications to `Http/Kernel.php` as it is removed/simplified in L11).
+* **Admin Panel:** Filament v3 (Extensively utilize Filament Resources, Custom Pages, and Widgets).
+* **Database & Performance (CRITICAL):** MySQL. Prioritize strong relational integrity, strict typing, and foreign key constraints. **Strictly avoid N+1 query problems.** Always use Eager Loading (`with()`) when fetching lists, tables, or widgets that require relationship data. Minimize redundant database calls by caching static data (like School Profiles) where appropriate.
+* **Development Methodology:** Waterfall (Analysis, Design, Coding, Testing, Maintenance).
+* **AI Agent Mode:** Prioritize writing clean, DRY (Don't Repeat Yourself) code. Strictly use **Service Classes** for complex business logic and **Filament Actions** for admin workflows. 
+
+## 3. Feature Specifications (Development Phases Reference)
+* **Phase 1 (MVP):** Focus strictly on Smart Login, Master Data management, and Smart Importer functionality.
+* **Phase 2:**
+    * **Student Dashboard:** Longitudinal data visualization of grades per semester.
+    * **Principal Dashboard:** Summary of grades per class and teacher performance graphs (e.g., attendance and grading input rates).
+    * **Auto-Generate Logic:** Utilize a dedicated `NilaiVisualisasiService` to automatically generate report card descriptions based on Learning Objectives (TP) data and rule-based logic.
+* **Role-Based Access Control (RBAC):**
+    * **Siswa (Student):** Can only view their own data.
+    * **Wali Siswa (Parent/Guardian):** Can only view the data of their assigned children.
+    * **Guru (Teacher):** Can only view students they teach during the active academic period.
+    * **Wali Kelas (Homeroom Teacher):** Has access to all students within their assigned homeroom class.
+    * **Kepala Sekolah (Principal):** Has global read access for monitoring school and teacher performance.
+
+## 4. Domain Logic & Kurikulum Merdeka (Independent Curriculum) Rules
+* **Asesmen Formatif (Formative Assessment):** Assessments conducted during the learning process to provide feedback.
+* **Asesmen Sumatif (Summative Assessment):** Final assessments based on Learning Objectives (TP).
+* **P5 Limitation:** Strictly ignore the management of the Pancasila Student Profile Strengthening Project (P5) as it is outside the scope of this research.
+* **Output Goal:** The system must generate an "Information Report Card" (*Cetak Rapor Informasi*) serving as a transparency medium for parents/students, not as a replacement for legal government Dapodik documents.
+
+## 5. AI Response Instructions
+* **Migration Strategy (Dev Mode):** Assume a development environment where I am willing to run `php artisan migrate:fresh --seed`. When instructed to update existing database structures, **modify the original migration file** rather than generating new `add_column_x` migration files. This is to keep the migration history clean during development.
+* When requested to create a new feature, you must provide the complete stack simultaneously: **Migration (MySQL) -> Model (with relationships) -> Filament Resource/Page**.
+* **Performance Check:** When writing Eloquent queries or Filament `table()` methods, double-check and explicitly state how you are handling eager loading to prevent performance bottlenecks.
+* Always provide inline comments explaining how the code fulfills the specific business requirements of this project.
+* Maintain a professional, technical tone, but align your logic with the Indonesian education system.
+* **CRITICAL:** Use the English language for system logic, variables, and methods (e.g., `calculateFinalGrade()`), but **STRICTLY USE** the Indonesian terms provided in the Glossary below for UI labels, Filament navigation, and user-facing text.
+
+---
+
+## 6. UI & Domain Terminology Glossary (Indonesian Mapping)
+When building Filament forms, tables, or Blade views, use these exact terms for the UI:
+
+* **SIAKAD** -> Academic Information System
+* **Siswa** -> Student
+* **Wali Siswa** -> Parent / Guardian
+* **Guru** -> Teacher
+* **Wali Kelas** -> Homeroom Teacher
+* **Kepala Sekolah / Kepsek** -> Principal
+* **Tujuan Pembelajaran (TP)** -> Learning Objectives
+* **Asesmen Formatif** -> Formative Assessment
+* **Asesmen Sumatif** -> Summative Assessment
+* **Mata Pelajaran (Mapel)** -> Subject
+* **Tahun Ajaran** -> Academic Year
+* **Semester** -> Semester (Ganjil/Genap - Odd/Even)
+* **Jadwal Pelajaran** -> Class Schedule
+* **Cetak Rapor Informasi** -> Print Information Report Card
+* **Deskripsi Rapor** -> Report Card Narrative/Description

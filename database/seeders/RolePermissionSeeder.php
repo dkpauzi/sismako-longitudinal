@@ -199,6 +199,21 @@ class RolePermissionSeeder extends Seeder
         $student->syncPermissions($studentPermissions);
         $this->command->info('✅ Siswa: ' . count($studentPermissions) . ' izin diberikan.');
 
+        // ── WALI SISWA ───────────────────────────────────────────
+        // Saat ini mendapat izin yang SAMA dengan Siswa.
+        // Dipisahkan agar nanti modul Konseling (Guru BK) bisa mengatur
+        // visibilitas per role — misalnya: "Apakah wali bisa melihat
+        // catatan konseling ini?" tanpa mempengaruhi akses siswa.
+        $waliSiswa = Role::firstOrCreate(['name' => 'wali_siswa', 'guard_name' => 'web']);
+
+        $waliPermissions = $this->resolvePermissions([
+            // Sama persis dengan Siswa — bisa lihat nilai & rapor anak
+            'view_any_rapor', 'view_rapor',
+            'widget_StudentScheduleWidget',
+        ]);
+        $waliSiswa->syncPermissions($waliPermissions);
+        $this->command->info('✅ Wali Siswa: ' . count($waliPermissions) . ' izin diberikan (sama dengan Siswa).');
+
         $this->command->newLine();
         $this->command->info('🎉 Selesai! Semua role telah dikonfigurasi.');
         $this->command->info('   Jalankan: php artisan permission:cache-reset untuk membersihkan cache.');

@@ -18,6 +18,11 @@ class StudentImporter extends Importer
 {
     protected static ?string $model = Student::class;
 
+    // ✅ OPTIMASI: Cache role di level instance agar tidak query per baris Excel.
+    // Untuk 200 siswa, ini menghilangkan ~400 query Role::firstOrCreate() yang berulang.
+    private ?Role $studentRole = null;
+    private ?Role $guardianRole = null;
+
     public static function getColumns(): array
     {
         return [
@@ -126,10 +131,30 @@ class StudentImporter extends Importer
             ]
         );
 
-        // Pastikan role Spatie diberikan (Jika di model User menggunakan trait HasRoles)
+        // Pastikan role Spatie diberikan
         if (method_exists($user, 'assignRole') && !$user->hasRole('student')) {
-            $roleSiswa = Role::firstOrCreate(['name' => 'student']);
-            $user->assignRole($roleSiswa);
+            $this->studentRole ??= Role::firstOrCreate(['name' => 'student']);
+            $user->assignRole($this->studentRole);
+        }
+
+        // 4b. BUAT AKUN WALI SISWA (GUARDIAN)
+        // Username: w_{NISN}, Password default: wali123
+        // Jika sudah ada (misal: re-import), data akun tidak ditimpa.
+        $guardianUser = User::firstOrCreate(
+            ['username' => 'w_' . $nisn],
+            [
+                'name'      => 'Wali dari ' . $nama,
+                'email'     => null,
+                'password'  => Hash::make('wali123'),
+                'role'      => 'guardian',
+                'is_active' => true,
+            ]
+        );
+
+        // Pastikan role Spatie 'wali_siswa' diberikan ke akun wali
+        if (method_exists($guardianUser, 'assignRole') && !$guardianUser->hasRole('wali_siswa')) {
+            $this->guardianRole ??= Role::firstOrCreate(['name' => 'wali_siswa']);
+            $guardianUser->assignRole($this->guardianRole);
         }
 
         // 5. BUAT ATAU UPDATE PROFIL SISWA
@@ -141,6 +166,7 @@ class StudentImporter extends Importer
             ['nisn' => $nisn], // Patokan utamanya adalah NISN
             [
                 'user_id' => $user->id,
+                'guardian_user_id' => $guardianUser->id, // Link ke akun wali
                 'name' => $nama,
                 'nipd' => trim($data['nipd'] ?? ''),
                 'nik' => trim($data['nik'] ?? null),
@@ -173,7 +199,7 @@ class StudentImporter extends Importer
 
     public static function getCompletedNotificationBody(Import $import): string
     {
-        $body = 'Proses import data Siswa telah selesai. ' . number_format($import->successful_rows) . ' siswa berhasil dibuatkan akun dan dimasukkan ke kelas.';
+        $body = 'Proses import data Siswa telah selesai. ' . number_format($import->successful_rows) . ' siswa berhasil dibuatkan akun (siswa + wali) dan dimasukkan ke kelas.';
 
         if ($failedRowsCount = $import->getFailedRowsCount()) {
             $body .= ' Namun, ada ' . number_format($failedRowsCount) . ' baris yang gagal. Silakan unduh log error untuk detailnya.';

@@ -18,8 +18,8 @@ return new class extends Migration {
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
 
-            // Role: admin, headmaster (kepsek), teacher, student
-            $table->enum('role', ['admin', 'headmaster', 'teacher', 'student'])->default('student');
+            // Role: admin, headmaster (kepsek), teacher, student, guardian (wali siswa)
+            $table->enum('role', ['admin', 'headmaster', 'teacher', 'student', 'guardian'])->default('student');
 
             // Status Aktif (Biar bisa blokir siswa lulus tanpa hapus data)
             $table->boolean('is_active')->default(true);

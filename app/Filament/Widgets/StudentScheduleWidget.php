@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Concerns\HasIndonesianDayFilter;
 use App\Models\SubjectSchedule;
 use App\Models\AcademicPeriod;
 use Filament\Tables;
@@ -11,6 +12,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class StudentScheduleWidget extends BaseWidget
 {
+    use HasIndonesianDayFilter;
+
     protected static ?string $heading = 'Jadwal Mata Pelajaran';
 
     protected int|string|array $columnSpan = 'full';
@@ -19,14 +22,22 @@ class StudentScheduleWidget extends BaseWidget
 
     public static function canView(): bool
     {
-        return auth()->check() && auth()->user()?->hasRole('student');
+        return auth()->check() && auth()->user()?->hasAnyRole(['student', 'wali_siswa']);
     }
 
     public function table(Table $table): Table
     {
-        $student = auth()->user()?->student;
+        // Resolve student: siswa → langsung, wali → anak pertama
+        $user = auth()->user();
+        $student = null;
         $classroomId = 0;
         $activePeriodId = 0;
+
+        if ($user?->hasRole('student')) {
+            $student = $user->student;
+        } elseif ($user?->hasRole('wali_siswa')) {
+            $student = $user->guardianStudents()->first();
+        }
 
         if ($student) {
             $activePeriod = AcademicPeriod::where('is_active', true)->first();
@@ -44,6 +55,8 @@ class StudentScheduleWidget extends BaseWidget
         return $table
             ->query(
                 SubjectSchedule::query()
+                    // ✅ EAGER LOADING: Mencegah N+1 query saat render kolom relasi
+                    ->with(['teachingAssignment.subject', 'teachingAssignment.teacher', 'teachingAssignment.classroom'])
                     ->whereHas('teachingAssignment', function (Builder $query) use ($classroomId, $activePeriodId) {
                         $query->where('classroom_id', $classroomId)
                               ->where('academic_period_id', $activePeriodId);
@@ -76,13 +89,16 @@ class StudentScheduleWidget extends BaseWidget
                 Tables\Columns\TextColumn::make('teachingAssignment.teacher.name')
                     ->label('Guru')
                     ->searchable(),
-                
+
                 Tables\Columns\TextColumn::make('teachingAssignment.classroom.name')
                     ->label('Kelas')
                     ->badge()
                     ->color('success'),
             ])
-            ->paginated(false) // Tampilkan semua jadwal
-            ->searchable(false); // Widget di dashboard biasanya tidak perlu search kompleks
+            ->filters([
+                $this->getDayFilter(), // ✅ DRY: Menggunakan trait HasIndonesianDayFilter
+            ])
+            ->paginated(false)
+            ->searchable(false);
     }
 }

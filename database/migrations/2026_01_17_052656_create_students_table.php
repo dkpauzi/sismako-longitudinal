@@ -16,6 +16,9 @@ return new class extends Migration {
             // Relasi ke User Login (Bisa null jika siswa belum punya akun login)
             $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
 
+            // Relasi ke akun Wali Siswa (Bisa null, 1 wali bisa terhubung ke banyak siswa/saudara)
+            $table->foreignId('guardian_user_id')->nullable()->constrained('users')->nullOnDelete();
+
             // --- 1. IDENTITAS UTAMA ---
             $table->string('name');             // Kolom Excel: Nama
             $table->string('nipd')->nullable(); // Kolom Excel: NIPD (No Induk Sekolah)

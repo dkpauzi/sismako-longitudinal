@@ -32,6 +32,11 @@ class NilaiVisualisasiService
             return $user->student?->id === $studentId;
         }
 
+        // Wali Siswa → hanya anak yang terhubung via guardian_user_id
+        if ($user->hasRole('wali_siswa')) {
+            return $user->guardianStudents()->where('id', $studentId)->exists();
+        }
+
         // Guru → cek apakah mengajar siswa ini di periode aktif
         if ($user->hasRole('teacher')) {
             return $this->guruMengajarSiswa(
@@ -252,6 +257,11 @@ class NilaiVisualisasiService
 
         if ($user->hasRole('student')) {
             return Student::where('id', $user->student->id)->get();
+        }
+
+        // Wali Siswa → hanya anak-anak yang terhubung via guardian_user_id
+        if ($user->hasRole('wali_siswa')) {
+            return $user->guardianStudents()->orderBy('name')->get();
         }
 
         if ($user->hasRole('teacher')) {
