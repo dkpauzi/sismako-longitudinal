@@ -43,6 +43,8 @@ class TeachingAssignment extends Model
     protected $casts = [
         'use_formative_boost' => 'boolean',
         'subject_type' => 'string',
+        'kktp' => 'integer',
+        'formative_boost_percentage' => 'integer',
     ];
 
     /*
@@ -152,7 +154,7 @@ class TeachingAssignment extends Model
      * Menghitung Nilai Akhir Rapor untuk satu orang siswa di kelas ini.
      * Mengakomodasi 3 Opsi Sumatif dan 1 Opsi Booster Formatif (Poin).
      */
-    public function calculateFinalGrade(int $studentId): int|float
+    public function calculateFinalGrade(int $studentId): float
     {
         // 1. Ambil semua asesmen milik kelas ini beserta nilai anak tersebut
         $assessments = $this->assessments()->with([
@@ -175,29 +177,29 @@ class TeachingAssignment extends Model
         if ($summativeAssessments->isNotEmpty()) {
             if ($this->grading_formula === 'average') {
                 // Opsi 1: Rata-rata murni
-                $totalScore = 0;
+                $totalScore = 0.0;
                 $count = 0;
                 foreach ($summativeAssessments as $assessment) {
                     $grade = $assessment->grades->first();
                     if ($grade && $grade->score !== null) {
-                        $totalScore += $grade->score;
+                        $totalScore += (float) $grade->score;
                         $count++;
                     }
                 }
-                $summativeScore = $count > 0 ? ($totalScore / $count) : 0;
+                $summativeScore = $count > 0 ? ($totalScore / $count) : 0.0;
 
             } elseif ($this->grading_formula === 'weighting') {
                 // Opsi 2: Pembobotan Persentase
                 foreach ($summativeAssessments as $assessment) {
                     $grade = $assessment->grades->first();
-                    $score = $grade ? (float) $grade->score : 0;
+                    $score = $grade ? (float) $grade->score : 0.0;
                     $weight = (float) $assessment->weight;
                     $summativeScore += ($score * ($weight / 100));
                 }
 
             } elseif ($this->grading_formula === 'percentage') {
                 // Opsi 3: Persentase Ketuntasan KKTP
-                $kktp = $this->kktp ?? 75;
+                $kktp = (int) ($this->kktp ?? 75);
                 $passedCount = 0;
                 $totalCount = $summativeAssessments->count();
 
@@ -207,7 +209,7 @@ class TeachingAssignment extends Model
                         $passedCount++;
                     }
                 }
-                $summativeScore = $totalCount > 0 ? (($passedCount / $totalCount) * 100) : 0;
+                $summativeScore = $totalCount > 0 ? (($passedCount / $totalCount) * 100) : 0.0;
             }
         }
 
@@ -225,12 +227,12 @@ class TeachingAssignment extends Model
                 $grade = $assessment->grades->first();
                 if ($grade && $grade->score !== null) {
                     // Di UI, jika siswa menceklis, score menyimpan angka poin (misal: 2)
-                    $totalRawPoints += $grade->score;
+                    $totalRawPoints += (float) $grade->score;
                 }
             }
 
             // Hitung bonus akhir = Total Poin x (Persentase Booster / 100)
-            $percentage = $this->formative_boost_percentage / 100;
+            $percentage = (float) $this->formative_boost_percentage / 100;
             $formativeBoosterScore = $totalRawPoints * $percentage;
         }
 
@@ -243,7 +245,7 @@ class TeachingAssignment extends Model
         }
 
         // Kembalikan dalam bentuk angka bulat (atau maksimal 1 desimal jika Anda mau)
-        return round($finalGrade);
+        return (float) round($finalGrade);
     }
     protected static function booted(): void
     {
