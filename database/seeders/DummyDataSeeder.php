@@ -62,22 +62,28 @@ class DummyDataSeeder extends Seeder
             ]);
 
             // Populate Grades
-            foreach ($assessments as $assessment) {
-                foreach ($students as $enrollment) {
-                    $score = rand(60, 100);
-                    $feedback = '';
-                    if ($assessment->category === 'formatif_deskripsi') {
-                        $feedback = $score >= 80 ? 'Anak ini sangat baik dalam materi ini.' : 'Perlu bimbingan lebih lanjut untuk materi ini.';
-                    }
+            // ✅ PERBAIKAN PERFORMA: Wrap dalam withoutEvents() agar GradeObserver
+            // tidak menjalankan calculateFinalGrade() untuk setiap Grade yang dibuat.
+            // Tanpa ini, setiap Grade::create() memicu recalculate N+1 query.
+            // FinalGrade sudah dibuat manual di bagian bawah seeder.
+            Grade::withoutEvents(function () use ($assessments, $students) {
+                foreach ($assessments as $assessment) {
+                    foreach ($students as $enrollment) {
+                        $score = rand(60, 100);
+                        $feedback = '';
+                        if ($assessment->category === 'formatif_deskripsi') {
+                            $feedback = $score >= 80 ? 'Anak ini sangat baik dalam materi ini.' : 'Perlu bimbingan lebih lanjut untuk materi ini.';
+                        }
 
-                    Grade::create([
-                        'assessment_id' => $assessment->id,
-                        'student_id' => $enrollment->student_id,
-                        'score' => $score,
-                        'feedback' => $feedback,
-                    ]);
+                        Grade::create([
+                            'assessment_id' => $assessment->id,
+                            'student_id' => $enrollment->student_id,
+                            'score' => $score,
+                            'feedback' => $feedback,
+                        ]);
+                    }
                 }
-            }
+            });
 
             // Populate Attendance (3 pertemuan per assignment)
             for ($i = 0; $i < 3; $i++) {
