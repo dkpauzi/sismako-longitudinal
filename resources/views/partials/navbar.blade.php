@@ -1,5 +1,6 @@
 @php
-    $profile = \App\Models\SchoolProfile::first();
+    // $schoolProfile disediakan oleh View Composer di AppServiceProvider
+    $profile = $schoolProfile;
 @endphp
 
 <header id="navbar" class="bg-white/95 backdrop-blur-sm sticky top-0 z-50 transition-all duration-300">

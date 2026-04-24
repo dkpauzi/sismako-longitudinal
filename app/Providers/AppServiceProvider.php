@@ -4,8 +4,10 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Schema; // <--- Baris ini penting
+use Illuminate\Support\Facades\View;
 use App\Models\Attendance;
 use App\Models\Grade;
+use App\Models\SchoolProfile;
 use App\Observers\AttendanceObserver;
 use App\Observers\GradeObserver;
 use App\Services\DescriptionGeneratorService;
@@ -30,5 +32,19 @@ class AppServiceProvider extends ServiceProvider
         Attendance::observe(AttendanceObserver::class);
         // Observer: update final_grades setiap nilai berubah
         Grade::observe(GradeObserver::class);
+
+        // View Composer: share SchoolProfile ke semua Blade view publik.
+        // Menggantikan SchoolProfile::first() yang sebelumnya di-inline di setiap template.
+        // Data di-cache dalam closure agar hanya query 1x per request.
+        View::composer(
+            ['layouts.app', 'partials.navbar', 'dashboard.*'],
+            function (\Illuminate\View\View $view) {
+                static $cached = null;
+                if ($cached === null && Schema::hasTable('school_profiles')) {
+                    $cached = SchoolProfile::first();
+                }
+                $view->with('schoolProfile', $cached);
+            }
+        );
     }
 }

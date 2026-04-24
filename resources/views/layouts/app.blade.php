@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     @php
-        $profile = \App\Models\SchoolProfile::first();
-        $primaryColor = $profile?->primary_color ?? '#1a56db';
-        $schoolName   = $profile?->name ?? 'Sistem Informasi Akademik';
+        // $schoolProfile disediakan oleh View Composer di AppServiceProvider
+        $primaryColor = $schoolProfile?->primary_color ?? '#1a56db';
+        $schoolName   = $schoolProfile?->name ?? 'Sistem Informasi Akademik';
     @endphp
 
     <title>@yield('title', $schoolName)</title>
@@ -61,35 +61,35 @@
 
                 <div class="md:col-span-2">
                     <div class="flex items-center gap-3 mb-3">
-                        @if($profile?->logo_path)
-                            <img src="{{ asset('storage/'.$profile->logo_path) }}" class="h-8 w-8 object-contain" alt="Logo">
+                        @if($schoolProfile?->logo_path)
+                            <img src="{{ asset('storage/'.$schoolProfile->logo_path) }}" class="h-8 w-8 object-contain" alt="Logo">
                         @endif
                         <span class="text-white font-semibold">{{ $schoolName }}</span>
                     </div>
-                    @if($profile?->address)
-                        <p class="text-sm leading-relaxed max-w-sm">{{ $profile->address }}</p>
+                    @if($schoolProfile?->address)
+                        <p class="text-sm leading-relaxed max-w-sm">{{ $schoolProfile->address }}</p>
                     @endif
-                    @if($profile?->phone)
-                        <p class="text-sm mt-2">📞 {{ $profile->phone }}</p>
+                    @if($schoolProfile?->phone)
+                        <p class="text-sm mt-2">📞 {{ $schoolProfile->phone }}</p>
                     @endif
-                    @if($profile?->email)
-                        <p class="text-sm">✉️ {{ $profile->email }}</p>
+                    @if($schoolProfile?->email)
+                        <p class="text-sm">✉️ {{ $schoolProfile->email }}</p>
                     @endif
                 </div>
 
                 <div>
                     <p class="text-white text-sm font-semibold mb-3">Ikuti Kami</p>
                     <div class="flex flex-col gap-2 text-sm">
-                        @if($profile?->facebook_url)
-                            <a href="{{ $profile->facebook_url }}" target="_blank" class="hover:text-white transition-colors">→ Facebook</a>
+                        @if($schoolProfile?->facebook_url)
+                            <a href="{{ $schoolProfile->facebook_url }}" target="_blank" class="hover:text-white transition-colors">→ Facebook</a>
                         @endif
-                        @if($profile?->instagram_url)
-                            <a href="{{ $profile->instagram_url }}" target="_blank" class="hover:text-white transition-colors">→ Instagram</a>
+                        @if($schoolProfile?->instagram_url)
+                            <a href="{{ $schoolProfile->instagram_url }}" target="_blank" class="hover:text-white transition-colors">→ Instagram</a>
                         @endif
-                        @if($profile?->youtube_url)
-                            <a href="{{ $profile->youtube_url }}" target="_blank" class="hover:text-white transition-colors">→ YouTube</a>
+                        @if($schoolProfile?->youtube_url)
+                            <a href="{{ $schoolProfile->youtube_url }}" target="_blank" class="hover:text-white transition-colors">→ YouTube</a>
                         @endif
-                        @if(!$profile?->facebook_url && !$profile?->instagram_url && !$profile?->youtube_url)
+                        @if(!$schoolProfile?->facebook_url && !$schoolProfile?->instagram_url && !$schoolProfile?->youtube_url)
                             <p class="text-slate-600 text-sm">Belum ada sosial media.</p>
                         @endif
                     </div>
