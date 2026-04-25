@@ -103,11 +103,22 @@ class ViewGradebook extends Page
         $formatifPoin = $assessments->where('category', 'formatif_poin');
         $formatifDeskripsi = $assessments->where('category', 'formatif_deskripsi');
 
+        // 4. ✅ PERBAIKAN N+1: Pre-compute nilai akhir di PHP, bukan per-row di Blade.
+        //    Sebelumnya calculateFinalGrade() dipanggil per siswa di dalam @forelse loop,
+        //    menyebabkan N query tambahan (30 siswa = 30 query). Sekarang dihitung sekali di sini.
+        $finalGrades = [];
+        foreach ($students as $enrollment) {
+            $finalGrades[$enrollment->student_id] = $this->record->calculateFinalGrade(
+                $enrollment->student_id
+            );
+        }
+
         return [
             'students' => $students,
             'sumatif' => $sumatif,
             'formatifPoin' => $formatifPoin,
             'formatifDeskripsi' => $formatifDeskripsi,
+            'finalGrades' => $finalGrades,
         ];
     }
 }

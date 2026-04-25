@@ -66,12 +66,18 @@ class AcademicPeriod extends Model
      * Saat menyimpan data, jika 'is_active' diset TRUE,
      * maka otomatis matikan 'is_active' pada periode lain.
      */
-    protected static function booted()
+    protected static function booted(): void
     {
         static::saving(function ($model) {
             if ($model->is_active) {
-                // Update semua data lain menjadi tidak aktif (false)
-                static::where('id', '!=', $model->id)->update(['is_active' => false]);
+                // Gunakan DB transaction untuk mencegah race condition:
+                // Tanpa ini, ada jeda antara UPDATE (matikan lainnya) dan SAVE (aktifkan baru),
+                // di mana request lain bisa membaca 0 atau 2 periode aktif.
+                \Illuminate\Support\Facades\DB::transaction(function () use ($model) {
+                    static::where('id', '!=', $model->id)
+                        ->where('is_active', true)
+                        ->update(['is_active' => false]);
+                });
             }
         });
     }

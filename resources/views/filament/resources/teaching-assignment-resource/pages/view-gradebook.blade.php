@@ -70,9 +70,9 @@
                                 @endforeach
                             @endif
 
-                            {{-- Kalkulasi Nilai Akhir --}}
+                            {{-- Nilai Akhir dari pre-computed data (bukan inline calculation) --}}
                             @php
-                                $finalGrade = $record->calculateFinalGrade($enrollment->student_id);
+                                $finalGrade = $finalGrades[$enrollment->student_id] ?? 0;
                             @endphp
                             <td class="px-4 py-3 border-r dark:border-gray-700 text-center font-bold bg-primary-50 dark:bg-primary-900/20 {{ $finalGrade < ($record->kktp ?? 75) ? 'text-danger-600' : 'text-primary-600 dark:text-primary-400' }}">
                                 {{ $finalGrade > 0 ? $finalGrade : '-' }}
