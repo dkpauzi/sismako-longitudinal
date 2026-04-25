@@ -94,15 +94,12 @@ class SchoolOrganizationStructureResource extends Resource
                 Tables\Columns\TextColumn::make('order')->sortable()->label('Urutan'),
             ])
             ->defaultSort('order', 'asc') // Urutkan dari angka kecil (atas) ke besar
-            ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
-            ])
             ->filters([
                 //
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

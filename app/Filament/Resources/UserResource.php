@@ -52,7 +52,7 @@ class UserResource extends Resource
                 // -----------------------------------------
 
                 Forms\Components\TextInput::make('password')
-                    ->label('Password')
+                    ->label('Kata Sandi')
                     ->password()
                     ->dehydrateStateUsing(fn($state) => Hash::make($state))
                     ->dehydrated(fn($state) => filled($state))
@@ -69,11 +69,11 @@ class UserResource extends Resource
                 // -------------------------------
 
                 Forms\Components\Toggle::make('is_active')
-                    ->label('Akun Aktif')
+                    ->label('Status Aktif Akun')
                     ->default(true)
                     ->onColor('success')
                     ->offColor('danger')
-                    ->helperText('Matikan toggle ini untuk memblokir akses login user tanpa menghapus datanya.'),
+                    ->helperText('Nonaktifkan untuk memblokir akses login tanpa menghapus data.'),
             ]);
     }
 

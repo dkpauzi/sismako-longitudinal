@@ -62,15 +62,12 @@ class SchoolActivityResource extends Resource
                 Tables\Columns\TextColumn::make('date')->date()->label('Tanggal'),
                 Tables\Columns\IconColumn::make('is_published')->boolean()->label('Tayang'),
             ])
-            ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
-            ])
             ->filters([
                 //
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
