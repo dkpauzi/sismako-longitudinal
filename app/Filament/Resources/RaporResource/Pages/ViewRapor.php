@@ -151,6 +151,7 @@ class ViewRapor extends ViewRecord
                 ->label('Kunci Semua Nilai')
                 ->icon('heroicon-o-lock-closed')
                 ->color('danger')
+                ->visible(fn() => auth()->user()->hasAnyRole(['super_admin', 'admin', 'headmaster']))
                 ->requiresConfirmation()
                 ->modalHeading('Kunci Semua Nilai Rapor?')
                 ->modalDescription(
@@ -187,6 +188,7 @@ class ViewRapor extends ViewRecord
                 ->label('Buka Kunci Nilai')
                 ->icon('heroicon-o-lock-open')
                 ->color('warning')
+                ->visible(fn() => auth()->user()->hasAnyRole(['super_admin', 'admin']))
                 ->requiresConfirmation()
                 ->modalHeading('Buka Kunci Nilai Rapor?')
                 ->modalDescription('Nilai akan bisa diperbarui kembali oleh guru.')

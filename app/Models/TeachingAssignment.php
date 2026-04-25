@@ -190,11 +190,22 @@ class TeachingAssignment extends Model
 
             } elseif ($this->grading_formula === 'weighting') {
                 // Opsi 2: Pembobotan Persentase
+                // ✅ PERBAIKAN: Skip nilai null agar data kosong tidak dianggap 0
+                //    dan distorsi rata-rata. Jika total bobot < 100 (karena ada yg belum diisi),
+                //    normalisasi agar proporsi tetap akurat.
+                $totalWeight = 0;
                 foreach ($summativeAssessments as $assessment) {
                     $grade = $assessment->grades->first();
-                    $score = $grade ? (float) $grade->score : 0.0;
+                    if (!$grade || $grade->score === null) continue; // Skip data kosong
+
+                    $score  = (float) $grade->score;
                     $weight = (float) $assessment->weight;
                     $summativeScore += ($score * ($weight / 100));
+                    $totalWeight    += $weight;
+                }
+                // Normalisasi jika bobot terkumpul kurang dari 100 karena data belum lengkap
+                if ($totalWeight > 0 && $totalWeight < 100) {
+                    $summativeScore = ($summativeScore / $totalWeight) * 100;
                 }
 
             } elseif ($this->grading_formula === 'percentage') {

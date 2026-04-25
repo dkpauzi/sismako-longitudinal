@@ -732,7 +732,10 @@ class RaporExportService
 
     private function saveToTemp(PhpWord $phpWord, string $filename): string
     {
-        $path = storage_path("app/temp/{$filename}_" . time() . ".docx");
+        // ✅ PERBAIKAN KEAMANAN: Sanitasi nama file untuk mencegah path traversal.
+        // Contoh berbahaya: "../../../etc/passwd" → "________etc_passwd"
+        $safeFilename = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $filename);
+        $path = storage_path('app/temp/' . $safeFilename . '_' . time() . '.docx');
 
         // Pastikan folder temp ada
         if (!is_dir(dirname($path))) {
@@ -742,6 +745,22 @@ class RaporExportService
         $writer = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
         $writer->save($path);
 
+        // Bersihkan file temp lama (> 1 jam) untuk mencegah penumpukan
+        $this->cleanOldTempFiles(dirname($path));
+
         return $path;
+    }
+
+    /**
+     * Bersihkan file .docx di folder temp yang sudah lebih dari 1 jam.
+     * Dipanggil setiap kali file baru dibuat untuk self-maintenance.
+     */
+    private function cleanOldTempFiles(string $dir): void
+    {
+        foreach (glob($dir . '/*.docx') as $file) {
+            if (filemtime($file) < now()->subHour()->timestamp) {
+                @unlink($file);
+            }
+        }
     }
 }
