@@ -32,6 +32,7 @@ class RolePermissionSeeder extends Seeder
         $teacher    = Role::firstOrCreate(['name' => 'teacher',     'guard_name' => 'web']);
         $headmaster = Role::firstOrCreate(['name' => 'headmaster',  'guard_name' => 'web']);
         $student    = Role::firstOrCreate(['name' => 'student',     'guard_name' => 'web']);
+        $guruBk     = Role::firstOrCreate(['name' => 'guru_bk',     'guard_name' => 'web']);
 
         // ── SUPER ADMIN: Dapat semua izin ────────────────────────
         // Super Admin tidak perlu didaftarkan permission satu per satu.
@@ -186,6 +187,11 @@ class RolePermissionSeeder extends Seeder
         ]);
         $teacher->syncPermissions($teacherPermissions);
         $this->command->info('✅ Guru: ' . count($teacherPermissions) . ' izin diberikan.');
+
+        // ── GURU BK ───────────────────────────────────────────────
+        // Saat ini hanya role kosong, izin akan ditambahkan nanti via Filament Shield
+        // Atau di seeder ini pada phase berikutnya.
+        $this->command->info('✅ Guru BK: Role dibuat (izin menyusul di modul BK).');
 
         // ── SISWA ─────────────────────────────────────────────────
         // Hanya bisa melihat datanya sendiri.

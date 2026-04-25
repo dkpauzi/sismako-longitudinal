@@ -146,6 +146,26 @@ class Student extends Model
          ->withTimestamps();
     }
 
+    /**
+     * Relasi ke respons kuesioner BK siswa.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function bkResponses(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(BkStudentResponse::class, 'student_id');
+    }
+
+    /**
+     * Relasi ke rekam bimbingan konseling siswa.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function counselingRecords(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(BkCounselingRecord::class, 'student_id');
+    }
+
     /*
     |--------------------------------------------------------------------------
     | SCOPES (FUNGSI FILTER QUERY BANTUAN)

@@ -121,4 +121,24 @@ class User extends Authenticatable implements FilamentUser
     {
         return $this->hasMany(Student::class, 'guardian_user_id');
     }
+
+    /**
+     * Relasi ke kuesioner BK yang dibuat oleh user ini (jika berperan sebagai Guru BK).
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function createdQuestionnaires(): HasMany
+    {
+        return $this->hasMany(BkQuestionnaire::class, 'counselor_id');
+    }
+
+    /**
+     * Relasi ke rekam bimbingan konseling yang dicatat oleh user ini (jika berperan sebagai Guru BK).
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function counselingRecordsAsCounselor(): HasMany
+    {
+        return $this->hasMany(BkCounselingRecord::class, 'counselor_id');
+    }
 }
