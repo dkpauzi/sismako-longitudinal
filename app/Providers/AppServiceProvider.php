@@ -3,7 +3,8 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\Schema; // <--- Baris ini penting
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
 use App\Models\Attendance;
 use App\Models\Grade;
@@ -34,16 +35,25 @@ class AppServiceProvider extends ServiceProvider
         Grade::observe(GradeObserver::class);
 
         // View Composer: share SchoolProfile ke semua Blade view publik.
-        // Menggantikan SchoolProfile::first() yang sebelumnya di-inline di setiap template.
-        // Data di-cache dalam closure agar hanya query 1x per request.
+        // ✅ PERBAIKAN: Gunakan Cache::remember() alih-alih static $cached.
+        // Alasan: static variable di closure akan stale di Octane/queue worker
+        // karena persist lintas request. Cache::remember bisa di-invalidate secara eksplisit
+        // saat admin mengupdate SchoolProfile (lihat EditSchoolProfile::afterSave).
         View::composer(
             ['layouts.app', 'partials.navbar', 'dashboard.*'],
             function (\Illuminate\View\View $view) {
-                static $cached = null;
-                if ($cached === null && Schema::hasTable('school_profiles')) {
-                    $cached = SchoolProfile::first();
+                if (!Schema::hasTable('school_profiles')) {
+                    $view->with('schoolProfile', null);
+                    return;
                 }
-                $view->with('schoolProfile', $cached);
+
+                $profile = Cache::remember(
+                    'school_profile_global',
+                    now()->addMinutes(30),
+                    fn() => SchoolProfile::first()
+                );
+
+                $view->with('schoolProfile', $profile);
             }
         );
     }

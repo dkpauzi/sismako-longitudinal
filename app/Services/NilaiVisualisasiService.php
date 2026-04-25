@@ -183,7 +183,10 @@ class NilaiVisualisasiService
                 'teacher.user',
                 'subject',
                 'classroom',
-                'finalGrades',
+                // ✅ PERBAIKAN: Scope finalGrades ke semester aktif saja.
+                // Sebelumnya memuat SEMUA semester (3 tahun = 6 semester data).
+                'finalGrades' => fn($q) => $q->where('semester', $activePeriod->semester)
+                                              ->whereNotNull('final_score'),
                 'lessonJournals',
             ])
             ->get()
