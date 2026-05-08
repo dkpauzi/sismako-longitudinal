@@ -71,8 +71,6 @@ class BkQuestionnaireResource extends Resource
                             ->label('Target Kelas')
                             ->relationship('targets')
                             ->schema([
-                                Forms\Components\Hidden::make('academic_period_id')
-                                    ->default($activePeriod?->id),
                                 Forms\Components\Select::make('classroom_id')
                                     ->label('Kelas')
                                     ->options(Classroom::pluck('name', 'id'))

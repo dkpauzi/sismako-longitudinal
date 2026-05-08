@@ -50,7 +50,18 @@ class LearningObjectiveResource extends Resource
                         // 2. Tahun Ajaran (Otomatis Aktif & Readonly buat Guru)
                         Forms\Components\Select::make('academic_period_id')
                             ->label('Tahun Ajaran')
-                            ->options(\App\Models\AcademicPeriod::pluck('name', 'id'))
+                            ->options(fn () => \App\Models\AcademicPeriod::query()
+                                ->orderByDesc('start_year')
+                                ->orderByDesc('semester')
+                                ->get()
+                                ->mapWithKeys(function (\App\Models\AcademicPeriod $period) {
+                                    $semesterLabel = $period->semester === 'odd' ? 'Ganjil' : 'Genap';
+
+                                    return [
+                                        $period->id => "{$period->start_year}/{$period->end_year} {$semesterLabel}",
+                                    ];
+                                })
+                                ->all())
                             ->default(fn() => \App\Models\AcademicPeriod::where('is_active', true)->first()?->id)
                             ->disabled(fn() => auth()->user()->hasRole('teacher')) // Guru tidak perlu ubah tahun
                             ->dehydrated() // Tetap kirim data meski disabled

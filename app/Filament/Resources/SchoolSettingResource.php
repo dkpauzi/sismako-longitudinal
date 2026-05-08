@@ -4,12 +4,14 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\SchoolSettingResource\Pages;
+use App\Models\SchoolProfile;
 use App\Models\SchoolSetting;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class SchoolSettingResource extends Resource
 {
@@ -31,31 +33,20 @@ class SchoolSettingResource extends Resource
         return $form
             ->schema([
                 Forms\Components\Section::make('Informasi Sekolah')
+                    ->description('Identitas sekolah mengikuti data pada menu "Tentang Kami" (School Profile) sebagai sumber utama.')
                     ->schema([
-                        Forms\Components\TextInput::make('school_name')
-                            ->label('Nama Sekolah')
-                            ->required(),
-
-                        Forms\Components\TextInput::make('npsn')
-                            ->label('NPSN'),
-
-                        Forms\Components\TextInput::make('principal_name')
-                            ->label('Nama Kepala Sekolah'),
-
-                        Forms\Components\TextInput::make('principal_nip')
-                            ->label('NIP Kepala Sekolah'),
-
-                        Forms\Components\Textarea::make('address')
-                            ->label('Alamat')
+                        Forms\Components\Placeholder::make('identity_source')
+                            ->label('Sumber Data')
+                            ->content('Data identitas diambil dari School Profile (Web Sekolah > Tentang Kami).')
                             ->columnSpanFull(),
 
-                        Forms\Components\TextInput::make('phone')
-                            ->label('Telepon')
-                            ->tel(),
+                        Forms\Components\Placeholder::make('current_school_name')
+                            ->label('Nama Sekolah')
+                            ->content(fn() => SchoolProfile::query()->first()?->name ?? '-'),
 
-                        Forms\Components\TextInput::make('email')
-                            ->label('Email')
-                            ->email(),
+                        Forms\Components\Placeholder::make('current_principal_name')
+                            ->label('Nama Kepala Sekolah')
+                            ->content(fn() => SchoolProfile::query()->first()?->principal_name ?? '-'),
                     ])->columns(2),
 
                 Forms\Components\Section::make('Pengaturan Akademik')
@@ -92,11 +83,11 @@ class SchoolSettingResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('school_name')
+                Tables\Columns\TextColumn::make('schoolProfile.name')
                     ->label('Nama Sekolah')
                     ->weight('bold'),
 
-                Tables\Columns\TextColumn::make('principal_name')
+                Tables\Columns\TextColumn::make('schoolProfile.principal_name')
                     ->label('Kepala Sekolah'),
 
                 Tables\Columns\TextColumn::make('default_kkm')
@@ -111,11 +102,15 @@ class SchoolSettingResource extends Resource
             ]);
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with('schoolProfile');
+    }
+
     public static function getPages(): array
     {
         return [
             'index' => Pages\ListSchoolSettings::route('/'),
-            'create' => Pages\CreateSchoolSetting::route('/create'),
             'edit' => Pages\EditSchoolSetting::route('/{record}/edit'),
         ];
     }

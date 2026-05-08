@@ -24,6 +24,12 @@ class SchoolProfileResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
+    public static function canCreate(): bool
+    {
+        // SchoolProfile diperlakukan sebagai singleton agar identitas sekolah konsisten.
+        return SchoolProfile::query()->count() === 0;
+    }
+
     public static function form(Form $form): Form
     {
         return $form

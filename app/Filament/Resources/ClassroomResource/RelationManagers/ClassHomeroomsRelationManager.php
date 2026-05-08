@@ -20,9 +20,13 @@ class ClassHomeroomsRelationManager extends RelationManager
     {
         return $form
             ->schema([
+                Forms\Components\Hidden::make('classroom_id')
+                    ->default(fn () => $this->getOwnerRecord()->id)
+                    ->dehydrated(),
+
                 Forms\Components\Select::make('teacher_id')
                     ->label('Pilih Guru')
-                    ->options(Teacher::all()->pluck('name', 'id'))
+                    ->options(fn () => Teacher::query()->orderBy('name')->pluck('name', 'id'))
                     ->searchable()
                     ->preload()
                     ->required()
@@ -30,7 +34,18 @@ class ClassHomeroomsRelationManager extends RelationManager
 
                 Forms\Components\Select::make('academic_period_id')
                     ->label('Tahun Ajaran')
-                    ->options(AcademicPeriod::all()->pluck('name', 'id'))
+                    ->options(fn () => AcademicPeriod::query()
+                        ->orderByDesc('start_year')
+                        ->orderByDesc('semester')
+                        ->get()
+                        ->mapWithKeys(function (AcademicPeriod $period) {
+                            $semesterLabel = $period->semester === 'odd' ? 'Ganjil' : 'Genap';
+
+                            return [
+                                $period->id => "{$period->start_year}/{$period->end_year} {$semesterLabel}",
+                            ];
+                        })
+                        ->all())
                     ->default(fn() => AcademicPeriod::where('is_active', true)->first()?->id)
                     ->required(),
 
@@ -73,6 +88,13 @@ class ClassHomeroomsRelationManager extends RelationManager
             ])
             ->headerActions([
                 Tables\Actions\CreateAction::make()
+                    ->mutateFormDataUsing(function (array $data): array {
+                        $data['classroom_id'] = $data['classroom_id'] ?? $this->getOwnerRecord()->id;
+                        $data['academic_period_id'] = $data['academic_period_id']
+                            ?? AcademicPeriod::query()->where('is_active', true)->value('id');
+
+                        return $data;
+                    })
                     ->label('Tunjuk Wali Kelas'),
             ])
             ->actions([

@@ -114,6 +114,8 @@ class RaporResource extends Resource
                         static::getUrl('view', ['record' => $record])
                     ),
             ])
+            ->emptyStateHeading('Data Rekap Rapor Belum Siap')
+            ->emptyStateDescription('Penetapan Wali Kelas aktif pada Tahun Ajaran aktif belum tersedia. Silakan lengkapi data akademik terlebih dahulu.')
             ->paginated(false);
     }
 

@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\SchoolSettingResource\Pages;
 
 use App\Filament\Resources\SchoolSettingResource;
-use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 
 class ListSchoolSettings extends ListRecords
@@ -12,8 +11,6 @@ class ListSchoolSettings extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [
-            Actions\CreateAction::make(),
-        ];
+        return [];
     }
 }
