@@ -26,11 +26,10 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('questionnaire_id')->constrained('bk_questionnaires')->cascadeOnDelete();
             $table->foreignId('classroom_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('academic_period_id')->constrained()->cascadeOnDelete();
             $table->timestamps();
 
-            // Kuesioner yang sama tidak boleh ditargetkan ke kelas yang sama berulang kali di periode yang sama
-            $table->unique(['questionnaire_id', 'classroom_id', 'academic_period_id'], 'unique_questionnaire_target');
+            // Kuesioner yang sama tidak boleh ditargetkan ke kelas yang sama berulang kali
+            $table->unique(['questionnaire_id', 'classroom_id'], 'unique_questionnaire_target');
         });
 
         // 3. Pertanyaan Kuesioner

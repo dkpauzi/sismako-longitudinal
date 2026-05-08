@@ -83,6 +83,11 @@ return new class extends Migration {
                 ->default('present');
             $table->string('note')->nullable();
             $table->timestamps();
+
+            $table->unique(
+                ['teaching_assignment_id', 'student_id', 'date'],
+                'unique_attendance_per_student_per_date'
+            );
         });
 
 
@@ -128,6 +133,11 @@ return new class extends Migration {
             $table->integer('score')->nullable();
             $table->text('feedback')->nullable(); // Sangat berguna untuk deskripsi opsional Formatif
             $table->timestamps();
+
+            $table->unique(
+                ['assessment_id', 'student_id'],
+                'unique_grade_per_assessment_student'
+            );
         });
 
         // 9. NILAI KOKURIKULER (P5)
@@ -137,6 +147,11 @@ return new class extends Migration {
             $table->foreignId('student_id')->constrained('students')->cascadeOnDelete();
             $table->text('description')->nullable();
             $table->timestamps();
+
+            $table->unique(
+                ['teaching_assignment_id', 'student_id'],
+                'unique_kokurikuler_grade_per_student'
+            );
         });
 
         // 10. REKAP ABSENSI — [TAMBAH] Snapshot H/I/S/A per semester, diperbarui oleh Observer

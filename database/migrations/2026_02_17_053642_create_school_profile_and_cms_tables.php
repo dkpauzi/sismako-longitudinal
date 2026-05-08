@@ -7,31 +7,8 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
-        // 1. PENGATURAN UMUM SEKOLAH (System Settings)
-        Schema::create('school_settings', function (Blueprint $table) {
-            $table->id();
-            $table->string('school_name');
-            $table->string('npsn')->nullable();
-            $table->text('address')->nullable();
-            $table->string('postal_code')->nullable();
-            $table->string('phone')->nullable();
-            $table->string('email')->nullable();
-            $table->string('website')->nullable();
-
-            // Branding & Tanda Tangan
-            $table->string('logo_path')->nullable();
-            $table->string('kop_surat_path')->nullable();
-            $table->string('principal_name')->nullable();
-            $table->string('principal_nip')->nullable();
-
-            // Default Akademik
-            $table->integer('default_kkm')->default(75);
-            // Pengaturan tampilan rapor SD
-            $table->boolean('show_score_sd')->default(true);
-            $table->timestamps();
-        });
-
-        // 2. PROFIL SEKOLAH (Untuk Tampilan Website Depan)
+        // 1. PROFIL SEKOLAH — Single Source of Truth untuk identitas sekolah
+        // Harus dibuat PERTAMA karena school_settings memiliki FK ke sini.
         Schema::create('school_profiles', function (Blueprint $table) {
             $table->id();
             // Identitas Dasar
@@ -39,6 +16,7 @@ return new class extends Migration {
             $table->string('npsn')->nullable();
             $table->string('accreditation')->nullable();
             $table->text('address')->nullable();
+            $table->string('postal_code')->nullable();
             $table->string('phone')->nullable();
             $table->string('email')->nullable();
             $table->string('website')->nullable();
@@ -59,7 +37,7 @@ return new class extends Migration {
             $table->longText('history')->nullable();
             $table->text('vision')->nullable();
 
-            // --- [BARU] PENGATURAN TOGGLE TAMPILAN LANDING PAGE ---
+            // --- PENGATURAN TOGGLE TAMPILAN LANDING PAGE ---
             $table->boolean('show_history')->default(true);
             $table->boolean('show_vision_mission')->default(true);
             $table->boolean('show_map')->default(true);
@@ -69,6 +47,23 @@ return new class extends Migration {
             $table->string('facebook_url')->nullable();
             $table->string('instagram_url')->nullable();
             $table->string('youtube_url')->nullable();
+            $table->timestamps();
+        });
+
+        // 2. PENGATURAN SISTEM SEKOLAH (Konfigurasi operasional, BUKAN identitas)
+        // Identitas sekolah diambil dari school_profiles via relasi.
+        Schema::create('school_settings', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('school_profile_id')->nullable()->constrained()->nullOnDelete();
+
+            // Branding & Tanda Tangan (khusus dokumen/rapor)
+            $table->string('kop_surat_path')->nullable();
+            $table->string('principal_nip')->nullable();
+
+            // Default Akademik
+            $table->integer('default_kkm')->default(75);
+            // Pengaturan tampilan rapor SD
+            $table->boolean('show_score_sd')->default(true);
             $table->timestamps();
         });
 
