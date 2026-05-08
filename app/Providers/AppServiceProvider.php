@@ -9,9 +9,14 @@ use Illuminate\Support\Facades\View;
 use App\Models\Attendance;
 use App\Models\Grade;
 use App\Models\SchoolProfile;
+use App\Models\Student;
+use App\Models\Teacher;
 use App\Observers\AttendanceObserver;
 use App\Observers\GradeObserver;
+use App\Observers\StudentObserver;
+use App\Observers\TeacherObserver;
 use App\Services\DescriptionGeneratorService;
+use App\Services\SchoolIdentityService;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -21,6 +26,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(DescriptionGeneratorService::class);
+        $this->app->singleton(SchoolIdentityService::class);
     }
 
     /**
@@ -33,6 +39,10 @@ class AppServiceProvider extends ServiceProvider
         Attendance::observe(AttendanceObserver::class);
         // Observer: update final_grades setiap nilai berubah
         Grade::observe(GradeObserver::class);
+        
+        // Observer: sinkronisasi name & email ke user login
+        Teacher::observe(TeacherObserver::class);
+        Student::observe(StudentObserver::class);
 
         // View Composer: share SchoolProfile ke semua Blade view publik.
         // ✅ PERBAIKAN: Gunakan Cache::remember() alih-alih static $cached.

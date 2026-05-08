@@ -13,7 +13,6 @@ class BkQuestionnaireTarget extends Model
     protected $fillable = [
         'questionnaire_id',
         'classroom_id',
-        'academic_period_id',
     ];
 
     public function questionnaire(): BelongsTo
@@ -24,10 +23,5 @@ class BkQuestionnaireTarget extends Model
     public function classroom(): BelongsTo
     {
         return $this->belongsTo(Classroom::class);
-    }
-
-    public function academicPeriod(): BelongsTo
-    {
-        return $this->belongsTo(AcademicPeriod::class);
     }
 }
