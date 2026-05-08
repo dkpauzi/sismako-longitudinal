@@ -16,25 +16,25 @@ class DatabaseSeeder extends Seeder
             SchoolSeeder::class,
 
             // 2. Import Siswa & Generate Kelas Otomatis
-            StudentSeeder::class,
+            //StudentSeeder::class,
 
             // 3. Import Guru
-            TeacherSeeder::class,
+            //TeacherSeeder::class,
 
             // 4. Setting Wali Kelas (Menghubungkan Guru & Kelas)
-            HomeroomSeeder::class,
+            //HomeroomSeeder::class,
 
             // 5. Data TP & Jadwal
-            KbmSeeder::class,
+            //KbmSeeder::class,
 
             // 6. Data Dummy Nilai dan Absensi
-            DummyDataSeeder::class,
+            //DummyDataSeeder::class,
 
             // 7. Data Role permission
-            RolePermissionSeeder::class,
+            //RolePermissionSeeder::class,
 
             // 8. Struktur Organisasi
-            SchoolOrganizationSeeder::class,
+            //SchoolOrganizationSeeder::class,
         ]);
     }
 }

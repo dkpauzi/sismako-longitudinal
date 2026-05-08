@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Models\Subject;
 use App\Models\AcademicPeriod;
 use App\Models\SchoolProfile;
+use App\Models\SchoolSetting;
 
 class SchoolSeeder extends Seeder
 {
@@ -134,7 +135,7 @@ class SchoolSeeder extends Seeder
             );
 
             // 3. Buat Profil Sekolah
-            SchoolProfile::updateOrCreate(
+            $profile = SchoolProfile::updateOrCreate(
                 ['id' => 1],
                 [
                     'name' => 'SMPN 45 Sijunjung',
@@ -146,6 +147,17 @@ class SchoolSeeder extends Seeder
                     'primary_color' => '#007bff',
                     // Logo default bisa dikosongkan dulu atau isi path dummy
                     // 'logo_path' => '01KG9QPV3Y9FR190MB838W83C2.png', 
+                ]
+            );
+
+            // 3b. Pastikan konfigurasi sistem sekolah tersedia dan terhubung
+            // ke source of truth identitas (SchoolProfile).
+            SchoolSetting::updateOrCreate(
+                ['id' => 1],
+                [
+                    'school_profile_id' => $profile->id,
+                    'default_kkm' => 75,
+                    'show_score_sd' => true,
                 ]
             );
 

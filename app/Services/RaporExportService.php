@@ -10,6 +10,7 @@ use App\Models\FinalGrade;
 use App\Models\KokurikulerGrade;
 use App\Models\SchoolSetting;
 use App\Models\TeachingAssignment;
+use App\Services\SchoolIdentityService;
 use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\SimpleType\TblWidth;
 use PhpOffice\PhpWord\Style\Table as TableStyle;
@@ -23,10 +24,12 @@ class RaporExportService
     const COLOR_BORDER = 'BFBFBF';
 
     private SchoolSetting $setting;
+    private SchoolIdentityService $schoolIdentity;
 
     public function __construct()
     {
         $this->setting = SchoolSetting::first() ?? new SchoolSetting();
+        $this->schoolIdentity = app(SchoolIdentityService::class);
     }
 
     /**
@@ -270,7 +273,7 @@ class RaporExportService
             ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]
         );
         $section->addText(
-            $this->setting->school_name ?? 'SMPN 45 Sijunjung',
+            $this->schoolIdentity->schoolName(),
             ['size' => 10, 'name' => 'Arial'],
             [
                 'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER,
@@ -293,7 +296,7 @@ class RaporExportService
         $identityLeft = [
             ['label' => 'Nama Murid', 'value' => $student->name],
             ['label' => 'NISN', 'value' => $student->nisn ?? '-'],
-            ['label' => 'Sekolah', 'value' => $this->setting->school_name ?? '-'],
+            ['label' => 'Sekolah', 'value' => $this->schoolIdentity->schoolName()],
             ['label' => 'Alamat', 'value' => $student->address ?? '-'],
         ];
 
@@ -670,7 +673,7 @@ class RaporExportService
 
         // Wali Kelas — dengan tanggal
         $dateStr = now()->translatedFormat('d F Y');
-        $city = explode(',', $this->setting->address ?? '')[0] ?? 'Sijunjung';
+        $city = explode(',', $this->schoolIdentity->schoolAddress() ?? '')[0] ?? 'Sijunjung';
         $cell = $row->addCell(3000, ['borderSize' => 0]);
         $cell->addText(
             "Tempat, Tanggal rapor",
