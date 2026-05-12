@@ -189,9 +189,39 @@ class RolePermissionSeeder extends Seeder
         $this->command->info('✅ Guru: ' . count($teacherPermissions) . ' izin diberikan.');
 
         // ── GURU BK ───────────────────────────────────────────────
-        // Saat ini hanya role kosong, izin akan ditambahkan nanti via Filament Shield
-        // Atau di seeder ini pada phase berikutnya.
-        $this->command->info('✅ Guru BK: Role dibuat (izin menyusul di modul BK).');
+        // Mengelola rekam bimbingan, kuesioner BK, serta dapat melihat data siswa dan kelas.
+        $guruBkPermissions = $this->resolvePermissions([
+            // Rekam Bimbingan (CRUD untuk rekam yang dibuatnya sendiri, difilter di Resource)
+            'view_any_bk::counseling::record', 'view_bk::counseling::record',
+            'create_bk::counseling::record',   'update_bk::counseling::record',
+            'delete_bk::counseling::record',
+
+            // Kuesioner BK (CRUD untuk kuesioner yang dibuatnya sendiri, difilter di Resource)
+            'view_any_bk::questionnaire', 'view_bk::questionnaire',
+            'create_bk::questionnaire',   'update_bk::questionnaire',
+            'delete_bk::questionnaire',
+
+            // Siswa - hanya bisa lihat
+            'view_any_student', 'view_student',
+
+            // Kelas - hanya bisa lihat
+            'view_any_classroom', 'view_classroom',
+            
+            // Guru - melihat data guru/wali kelas untuk koordinasi
+            'view_any_teacher', 'view_teacher',
+
+            // Rapor - bisa melihat rapor siswa untuk keperluan konseling
+            'view_any_rapor', 'view_rapor',
+
+            // Konten Website - bisa buat postingan/informasi (sebagai kontribusi)
+            'view_any_school::post',    'view_school::post',
+            'create_school::post',      'update_school::post',
+
+            'view_any_school::activity', 'view_school::activity',
+            'create_school::activity',   'update_school::activity',
+        ]);
+        $guruBk->syncPermissions($guruBkPermissions);
+        $this->command->info('✅ Guru BK: ' . count($guruBkPermissions) . ' izin diberikan.');
 
         // ── SISWA ─────────────────────────────────────────────────
         // Hanya bisa melihat datanya sendiri.
@@ -201,6 +231,9 @@ class RolePermissionSeeder extends Seeder
             // (difilter di DetailNilaiSiswa Page dan NilaiSiswaWidget)
             'view_any_rapor', 'view_rapor',
             'widget_StudentScheduleWidget',
+
+            // Kuesioner BK — siswa bisa melihat & mengisi kuesioner yang ditargetkan ke kelasnya
+            'page_MyQuestionnaires',
         ]);
         $student->syncPermissions($studentPermissions);
         $this->command->info('✅ Siswa: ' . count($studentPermissions) . ' izin diberikan.');
