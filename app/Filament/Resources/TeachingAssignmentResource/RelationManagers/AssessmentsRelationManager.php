@@ -5,6 +5,7 @@ namespace App\Filament\Resources\TeachingAssignmentResource\RelationManagers;
 use App\Models\Assessment;
 use App\Models\Enrollment;
 use App\Models\Grade;
+use App\Services\GradeRangeResolver;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
@@ -308,12 +309,11 @@ class AssessmentsRelationManager extends RelationManager
 
                         foreach ($data['grades_data'] as $item) {
                             $finalScore = $assignment->calculateFinalGrade($item['student_id']);
-                            $gradeLabel = match (true) {
-                                $finalScore >= 90 => 'A',
-                                $finalScore >= $kktp => 'B',
-                                $finalScore >= $kktp - 15 => 'C',
-                                default => 'D',
-                            };
+
+                            // ✅ REFACTORED: Gunakan GradeRangeResolver terpusat
+                            $gradeLabel = $finalScore > 0
+                                ? GradeRangeResolver::resolve($assignment, $finalScore)
+                                : null;
 
                             \App\Models\FinalGrade::updateOrCreate(
                                 [
@@ -323,7 +323,7 @@ class AssessmentsRelationManager extends RelationManager
                                 ],
                                 [
                                     'final_score' => $finalScore > 0 ? $finalScore : null,
-                                    'grade_label' => $finalScore > 0 ? $gradeLabel : null,
+                                    'grade_label' => $gradeLabel,
                                 ]
                             );
                         }

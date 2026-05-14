@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\GradeRangeResolver;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -258,6 +259,15 @@ class TeachingAssignment extends Model
         // Kembalikan dalam bentuk angka bulat (atau maksimal 1 desimal jika Anda mau)
         return (float) round($finalGrade);
     }
+    /**
+     * Relasi ke grade_ranges: 5 baris (A-E) per SK Mengajar.
+     * Digunakan oleh GradeRangeResolver untuk menentukan letter grade internal.
+     */
+    public function gradeRanges(): HasMany
+    {
+        return $this->hasMany(GradeRange::class);
+    }
+
     protected static function booted(): void
     {
         static::creating(function (TeachingAssignment $model) {
@@ -266,6 +276,18 @@ class TeachingAssignment extends Model
             if (is_null($model->kktp)) {
                 $defaultKkm = \App\Models\SchoolSetting::first()?->default_kkm ?? 75;
                 $model->kktp = $defaultKkm;
+            }
+        });
+
+        // Auto-seed grade_ranges setelah SK Mengajar dibuat
+        static::created(function (TeachingAssignment $model) {
+            GradeRangeResolver::seedDefaults($model);
+        });
+
+        // Auto-recalculate grade_ranges jika KKTP diubah
+        static::updated(function (TeachingAssignment $model) {
+            if ($model->wasChanged('kktp')) {
+                GradeRangeResolver::seedDefaults($model);
             }
         });
     }

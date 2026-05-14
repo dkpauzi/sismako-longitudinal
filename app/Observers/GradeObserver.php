@@ -5,6 +5,7 @@ namespace App\Observers;
 
 use App\Models\Grade;
 use App\Models\FinalGrade;
+use App\Services\GradeRangeResolver;
 
 class GradeObserver
 {
@@ -59,9 +60,12 @@ class GradeObserver
         // dan formative boost — kita tidak perlu duplikasi logikanya.
         $finalScore = $assignment->calculateFinalGrade($studentId);
 
-        // Tentukan predikat berdasarkan nilai akhir.
-        // Sesuaikan ambang batas ini dengan kebijakan sekolah jika berbeda.
-        $gradeLabel = $this->resolveGradeLabel($finalScore, $assignment->kktp ?? 75);
+        // ✅ REFACTORED: Gunakan GradeRangeResolver terpusat
+        // Menggantikan logika hardcoded resolveGradeLabel() yang lama.
+        // Resolver akan lookup dari tabel grade_ranges, atau fallback ke default.
+        $gradeLabel = $finalScore > 0
+            ? GradeRangeResolver::resolve($assignment, $finalScore)
+            : null;
 
         FinalGrade::updateOrCreate(
             [
@@ -71,31 +75,8 @@ class GradeObserver
             ],
             [
                 'final_score' => $finalScore > 0 ? $finalScore : null,
-                'grade_label' => $finalScore > 0 ? $gradeLabel : null,
+                'grade_label' => $gradeLabel,
             ]
         );
-    }
-
-    /**
-     * Tentukan predikat berdasarkan nilai akhir dan KKTP.
-     *
-     * Kurikulum Merdeka menggunakan 4 predikat:
-     *   A = Sangat Baik  (>= 90)
-     *   B = Baik         (>= KKTP, < 90)
-     *   C = Cukup        (>= KKTP - 15, < KKTP)
-     *   D = Perlu Bimbingan (< KKTP - 15)
-     *
-     * Ambang batas C dan D dihitung relatif terhadap KKTP agar
-     * fleksibel — sekolah dengan KKTP 70 tidak disamakan dengan
-     * sekolah yang KKTP-nya 80.
-     */
-    private function resolveGradeLabel(int|float $score, int $kktp): string
-    {
-        return match (true) {
-            $score >= 90 => 'A',
-            $score >= $kktp => 'B',
-            $score >= $kktp - 15 => 'C',
-            default => 'D',
-        };
     }
 }

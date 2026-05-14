@@ -184,7 +184,7 @@ return new class extends Migration {
                 ->cascadeOnDelete();
             $table->enum('semester', ['odd', 'even']);
             $table->decimal('final_score', 5, 2)->nullable();
-            $table->enum('grade_label', ['A', 'B', 'C', 'D'])->nullable();
+            $table->enum('grade_label', ['A', 'B', 'C', 'D', 'E'])->nullable();
             $table->text('narrative_description')->nullable();
             $table->boolean('is_locked')->default(false);
             $table->timestamp('locked_at')->nullable();
@@ -195,6 +195,27 @@ return new class extends Migration {
                 'unique_final_grade'
             );
         });
+
+        // 12. RENTANG GRADE INTERNAL (A-E) — Untuk Rule Engine deskripsi rapor
+        // Sepenuhnya internal, TIDAK PERNAH ditampilkan ke siswa/wali.
+        // C.min = KKTP (anchor), A/B/C = lulus, D/E = tidak lulus.
+        Schema::create('grade_ranges', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('teaching_assignment_id')
+                ->constrained('teaching_assignments')
+                ->cascadeOnDelete();
+            $table->enum('letter', ['A', 'B', 'C', 'D', 'E']);
+            $table->decimal('min_score', 5, 2);  // Batas bawah (inklusif)
+            $table->decimal('max_score', 5, 2);  // Batas atas (inklusif, untuk display)
+            $table->timestamps();
+
+            // Satu grade per letter per SK Mengajar
+            $table->unique(
+                ['teaching_assignment_id', 'letter'],
+                'unique_grade_range_per_letter'
+            );
+        });
+
         // MAPEL PILIHAN & EKSKUL — Pivot siswa ↔ teaching_assignment
         // Hanya diisi untuk type 'elective' dan 'extracurricular'
         Schema::create('student_subject_enrollments', function (Blueprint $table) {
@@ -224,6 +245,7 @@ return new class extends Migration {
     public function down(): void
     {
         Schema::dropIfExists('student_subject_enrollments');
+        Schema::dropIfExists('grade_ranges');
         Schema::dropIfExists('final_grades');
         Schema::dropIfExists('attendance_summaries');
         Schema::dropIfExists('kokurikuler_grades');

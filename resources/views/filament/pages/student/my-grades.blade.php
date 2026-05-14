@@ -72,7 +72,6 @@
                                 @if($data['final_grade'] && $data['final_grade']->final_score !== null)
                                     <p class="text-2xl font-black {{ $data['final_grade']->final_score < ($data['kktp'] ?? 75) ? 'text-red-600' : 'text-primary-600' }}">
                                         {{ number_format($data['final_grade']->final_score, 0) }}
-                                        <span class="text-sm font-medium text-gray-400 ml-1">({{ $data['final_grade']->grade_label }})</span>
                                     </p>
                                 @else
                                     <p class="text-2xl font-black text-gray-300">-</p>
