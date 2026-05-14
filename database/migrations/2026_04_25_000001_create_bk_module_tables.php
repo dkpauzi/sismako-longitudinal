@@ -56,12 +56,28 @@ return new class extends Migration {
             $table->timestamps();
         });
 
-        // 5. Respons Siswa (Header Jawaban)
+        // 5. Respons Siswa (Header Jawaban + Evaluasi + AI Placeholder)
         Schema::create('bk_student_responses', function (Blueprint $table) {
             $table->id();
             $table->foreignId('questionnaire_id')->constrained('bk_questionnaires')->cascadeOnDelete();
             $table->foreignId('student_id')->constrained()->cascadeOnDelete();
             $table->dateTime('submitted_at')->nullable();
+
+            // ── KOLOM EVALUASI GURU BK ──────────────────────────────
+            // Diisi oleh Guru BK setelah meninjau jawaban siswa
+            $table->decimal('score', 5, 2)->nullable();       // Skor kognitif final
+            $table->text('feedback')->nullable();              // Umpan balik akhir
+            $table->text('recommendation')->nullable();        // Saran metode belajar
+            $table->dateTime('evaluated_at')->nullable();      // Waktu evaluasi selesai
+
+            // ── KOLOM AI/EXPERT SYSTEM (PLACEHOLDER) ────────────────
+            // Disiapkan untuk integrasi AI di masa depan.
+            // Guru BK memiliki kebebasan penuh: menerima, mengedit, atau mengabaikan saran AI.
+            $table->decimal('ai_suggested_score', 5, 2)->nullable();
+            $table->text('ai_suggested_feedback')->nullable();
+            $table->text('ai_suggested_recommendation')->nullable();
+            $table->boolean('is_ai_assisted')->default(false); // Flag apakah evaluasi menggunakan bantuan AI
+
             $table->timestamps();
 
             // Mencegah siswa mensubmit kuesioner yang sama lebih dari sekali

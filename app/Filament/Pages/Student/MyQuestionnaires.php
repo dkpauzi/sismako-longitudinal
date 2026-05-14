@@ -8,6 +8,7 @@ use App\Models\BkQuestion;
 use App\Models\BkQuestionnaire;
 use App\Models\BkStudentResponse;
 use App\Models\Enrollment;
+use App\Models\Student;
 use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -19,10 +20,11 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Halaman siswa untuk mengisi kuesioner Bimbingan Konseling (BK).
+ * Halaman siswa/wali siswa untuk mengisi kuesioner BK dan melihat hasil evaluasi.
  *
  * Menampilkan daftar kuesioner yang ditargetkan ke kelas siswa pada
- * tahun ajaran aktif, serta menyediakan form modal untuk mengisi jawaban.
+ * tahun ajaran aktif, serta menyediakan form modal untuk mengisi jawaban
+ * dan modal read-only untuk melihat hasil evaluasi Guru BK.
  */
 class MyQuestionnaires extends Page implements HasForms
 {
@@ -38,26 +40,63 @@ class MyQuestionnaires extends Page implements HasForms
     protected static string $view = 'filament.pages.student.my-questionnaires';
 
     /**
-     * Hanya siswa yang memiliki profil Student yang bisa akses halaman ini.
+     * Siswa yang memiliki profil Student ATAU wali siswa yang memiliki anak
+     * bisa mengakses halaman ini.
      */
     public static function canAccess(): bool
     {
-        return Auth::check()
-            && Auth::user()->hasRole('student')
-            && Auth::user()->student !== null;
+        $user = Auth::user();
+
+        if (! $user) {
+            return false;
+        }
+
+        // Siswa: harus punya profil Student
+        if ($user->hasRole('student') && $user->student !== null) {
+            return true;
+        }
+
+        // Wali Siswa: harus punya minimal 1 anak yang terdaftar
+        if ($user->hasRole('wali_siswa') && $user->guardianStudents()->exists()) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Ambil daftar Student yang bisa dilihat oleh user saat ini.
+     * - Siswa: hanya dirinya sendiri
+     * - Wali Siswa: semua anak yang ditautkan
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<Student>
+     */
+    private function getAccessibleStudents(): Collection
+    {
+        $user = Auth::user();
+
+        if ($user->hasRole('student') && $user->student) {
+            return new Collection([$user->student]);
+        }
+
+        if ($user->hasRole('wali_siswa')) {
+            return $user->guardianStudents()->get();
+        }
+
+        return new Collection();
     }
 
     /**
      * Ambil daftar kuesioner yang ditargetkan ke kelas siswa saat ini.
      *
      * Eager-loading diterapkan pada: counselor, questions.options, targets.classroom
-     * Menambahkan atribut dinamis `has_responded` pada setiap record.
+     * Menambahkan atribut dinamis `has_responded`, `student_response`, `evaluated_at`.
      */
     public function getQuestionnairesForStudent(): Collection
     {
-        $student = Auth::user()->student;
+        $students = $this->getAccessibleStudents();
 
-        if (! $student) {
+        if ($students->isEmpty()) {
             return new Collection();
         }
 
@@ -68,24 +107,28 @@ class MyQuestionnaires extends Page implements HasForms
             return new Collection();
         }
 
-        // Cari enrollment aktif siswa di periode ini
-        $enrollment = Enrollment::where('student_id', $student->id)
+        // Kumpulkan semua classroom_id dari enrollment aktif siswa-siswa
+        $studentIds = $students->pluck('id')->toArray();
+
+        $enrollments = Enrollment::whereIn('student_id', $studentIds)
             ->where('academic_period_id', $activePeriod->id)
             ->where('status', 'active')
-            ->first();
+            ->get();
 
-        if (! $enrollment) {
+        if ($enrollments->isEmpty()) {
             return new Collection();
         }
 
-        $classroomId = $enrollment->classroom_id;
+        $classroomIds = $enrollments->pluck('classroom_id')->unique()->toArray();
 
-        // Ambil ID respon siswa yang sudah ada (untuk menandai yang sudah dikerjakan)
-        $respondedIds = BkStudentResponse::where('student_id', $student->id)
-            ->pluck('questionnaire_id')
-            ->toArray();
+        // Ambil respon siswa yang sudah ada (untuk menandai status)
+        $responses = BkStudentResponse::whereIn('student_id', $studentIds)
+            ->get()
+            ->keyBy(function ($r) {
+                return $r->questionnaire_id . '_' . $r->student_id;
+            });
 
-        // Query kuesioner yang published, sesuai periode, dan ditargetkan ke kelas siswa
+        // Query kuesioner yang published, sesuai periode, ditargetkan ke kelas siswa
         // Eager-load relasi untuk menghindari N+1
         $questionnaires = BkQuestionnaire::with([
                 'counselor:id,name',
@@ -94,15 +137,24 @@ class MyQuestionnaires extends Page implements HasForms
             ])
             ->where('status', 'published')
             ->where('academic_period_id', $activePeriod->id)
-            ->whereHas('targets', function ($query) use ($classroomId) {
-                $query->where('classroom_id', $classroomId);
+            ->whereHas('targets', function ($query) use ($classroomIds) {
+                $query->whereIn('classroom_id', $classroomIds);
             })
             ->orderBy('created_at', 'desc')
             ->get();
 
-        // Tandai setiap kuesioner apakah siswa sudah merespons
-        $questionnaires->each(function ($q) use ($respondedIds) {
-            $q->has_responded = in_array($q->id, $respondedIds);
+        // Untuk siswa: gunakan student_id pertama sebagai referensi
+        // Untuk wali_siswa: bisa saja punya lebih dari 1 anak, ambil anak pertama yang ada enrollment
+        $primaryStudentId = $enrollments->first()->student_id;
+
+        // Tandai setiap kuesioner dengan status respons
+        $questionnaires->each(function ($q) use ($responses, $primaryStudentId) {
+            $key = $q->id . '_' . $primaryStudentId;
+            $response = $responses->get($key);
+
+            $q->has_responded   = $response !== null;
+            $q->student_response = $response;
+            $q->evaluated_at    = $response?->evaluated_at;
         });
 
         return $questionnaires;
@@ -147,6 +199,16 @@ class MyQuestionnaires extends Page implements HasForms
     public function submitQuestionnaire(int $questionnaireId, array $formData): void
     {
         $student = Auth::user()->student;
+
+        // Guard: hanya siswa (bukan wali) yang boleh submit
+        if (! $student) {
+            Notification::make()
+                ->title('Akses Ditolak')
+                ->body('Hanya siswa yang dapat mengisi kuesioner.')
+                ->danger()
+                ->send();
+            return;
+        }
 
         // Guard: cegah duplikat submission
         $existingResponse = BkStudentResponse::where('questionnaire_id', $questionnaireId)
@@ -196,7 +258,6 @@ class MyQuestionnaires extends Page implements HasForms
 
                     case 'multiple_choice':
                         // Satu baris per opsi yang dipilih (relasional)
-                        // $value berupa array ID opsi
                         if (is_array($value)) {
                             foreach ($value as $optionId) {
                                 BkAnswer::create([
@@ -230,8 +291,8 @@ class MyQuestionnaires extends Page implements HasForms
     }
 
     /**
-     * Buat Filament Action untuk mengisi kuesioner via modal.
-     * Dipanggil dari Blade view via `$this->mountAction('fillQuestionnaire', ['questionnaire_id' => $q->id])`.
+     * Filament Action: mengisi kuesioner via modal.
+     * Hanya ditampilkan untuk role 'student'.
      */
     public function fillQuestionnaireAction(): Action
     {
@@ -247,6 +308,71 @@ class MyQuestionnaires extends Page implements HasForms
             ->action(function (array $data, array $arguments) {
                 $this->submitQuestionnaire((int) $arguments['questionnaire_id'], $data);
             });
+    }
+
+    /**
+     * Filament Action: melihat hasil evaluasi Guru BK via modal (read-only).
+     * Hanya bisa dimount jika evaluated_at != null.
+     */
+    public function viewResultAction(): Action
+    {
+        return Action::make('viewResult')
+            ->label('Lihat Hasil')
+            ->icon('heroicon-o-chart-bar-square')
+            ->color('success')
+            ->modalWidth('2xl')
+            ->modalHeading(fn (array $arguments) => 'Hasil Asesmen — ' . $this->getQuestionnaireTitle($arguments))
+            ->modalSubmitAction(false)
+            ->modalCancelActionLabel('Tutup')
+            ->form(fn (array $arguments) => $this->buildResultView($arguments));
+    }
+
+    /**
+     * Bangun tampilan hasil evaluasi secara read-only.
+     *
+     * @return array<Forms\Components\Component>
+     */
+    private function buildResultView(array $arguments): array
+    {
+        $questionnaireId = $arguments['questionnaire_id'] ?? 0;
+
+        $students = $this->getAccessibleStudents();
+        $studentId = $students->first()?->id;
+
+        $response = BkStudentResponse::where('questionnaire_id', $questionnaireId)
+            ->where('student_id', $studentId)
+            ->whereNotNull('evaluated_at')
+            ->first();
+
+        if (! $response) {
+            return [
+                Forms\Components\Placeholder::make('no_result')
+                    ->content('Hasil evaluasi belum tersedia.')
+                    ->columnSpanFull(),
+            ];
+        }
+
+        return [
+            Forms\Components\Section::make('Hasil Asesmen')
+                ->icon('heroicon-o-chart-bar-square')
+                ->schema([
+                    Forms\Components\Placeholder::make('result_score')
+                        ->label('Skor Kognitif')
+                        ->content($response->score . ' / 100'),
+
+                    Forms\Components\Placeholder::make('result_feedback')
+                        ->label('Umpan Balik')
+                        ->content($response->feedback ?? '—'),
+
+                    Forms\Components\Placeholder::make('result_recommendation')
+                        ->label('Saran Metode Belajar')
+                        ->content($response->recommendation ?? '—'),
+
+                    Forms\Components\Placeholder::make('result_date')
+                        ->label('Tanggal Evaluasi')
+                        ->content($response->evaluated_at->format('d M Y H:i')),
+                ]),
+        ];
     }
 
     /**
@@ -269,12 +395,6 @@ class MyQuestionnaires extends Page implements HasForms
 
     /**
      * Bangun form fields secara dinamis berdasarkan pertanyaan kuesioner.
-     *
-     * Tipe mapping:
-     * - single_choice → Radio
-     * - scale → Radio
-     * - multiple_choice → CheckboxList
-     * - text → Textarea
      *
      * @return array<Forms\Components\Component>
      */
@@ -328,16 +448,24 @@ class MyQuestionnaires extends Page implements HasForms
     }
 
     /**
+     * Cek apakah user saat ini adalah wali siswa (bukan siswa sendiri).
+     */
+    public function isGuardianView(): bool
+    {
+        return Auth::user()->hasRole('wali_siswa');
+    }
+
+    /**
      * Sediakan data ke Blade view.
-     * Semua kuesioner yang relevan dimuat dengan eager loading.
      */
     protected function getViewData(): array
     {
         $questionnaires = $this->getQuestionnairesForStudent();
 
         return [
-            'questionnaires' => $questionnaires,
-            'page'           => $this,
+            'questionnaires'  => $questionnaires,
+            'page'            => $this,
+            'isGuardianView'  => $this->isGuardianView(),
         ];
     }
 }

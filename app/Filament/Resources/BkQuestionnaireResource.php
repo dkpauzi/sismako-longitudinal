@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\BkQuestionnaireResource\Pages;
+use App\Filament\Resources\BkQuestionnaireResource\RelationManagers;
 use App\Models\AcademicPeriod;
 use App\Models\BkQuestionnaire;
 use App\Models\Classroom;
@@ -165,6 +166,11 @@ class BkQuestionnaireResource extends Resource
                 Tables\Columns\TextColumn::make('questions_count')
                     ->label('Jml Pertanyaan')
                     ->counts('questions'),
+                Tables\Columns\TextColumn::make('responses_count')
+                    ->label('Jml Respons')
+                    ->counts('responses')
+                    ->badge()
+                    ->color('info'),
                 Tables\Columns\TextColumn::make('starts_at')
                     ->label('Mulai')
                     ->dateTime('d M Y H:i')
@@ -210,7 +216,7 @@ class BkQuestionnaireResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            RelationManagers\BkStudentResponseRelationManager::class,
         ];
     }
 

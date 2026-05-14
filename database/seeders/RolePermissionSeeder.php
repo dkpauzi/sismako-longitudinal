@@ -74,6 +74,9 @@ class RolePermissionSeeder extends Seeder
 
             'view_any_school::organization::structure',
             'view_school::organization::structure',
+
+            // Hasil Asesmen BK - bisa melihat hasil evaluasi semua kelas
+            'page_StudentBkResults',
         ]);
         $headmaster->syncPermissions($headmasterPermissions);
         $this->command->info('✅ Kepala Sekolah: ' . count($headmasterPermissions) . ' izin diberikan.');
@@ -184,6 +187,9 @@ class RolePermissionSeeder extends Seeder
 
             'view_any_school::activity', 'view_school::activity',
             'create_school::activity',   'update_school::activity',
+
+            // Hasil Asesmen BK - bisa melihat hasil evaluasi siswa di kelasnya sendiri
+            'page_StudentBkResults',
         ]);
         $teacher->syncPermissions($teacherPermissions);
         $this->command->info('✅ Guru: ' . count($teacherPermissions) . ' izin diberikan.');
@@ -219,6 +225,9 @@ class RolePermissionSeeder extends Seeder
 
             'view_any_school::activity', 'view_school::activity',
             'create_school::activity',   'update_school::activity',
+
+            // Hasil Asesmen BK - bisa melihat hasil evaluasi semua kelas
+            'page_StudentBkResults',
         ]);
         $guruBk->syncPermissions($guruBkPermissions);
         $this->command->info('✅ Guru BK: ' . count($guruBkPermissions) . ' izin diberikan.');
@@ -246,12 +255,15 @@ class RolePermissionSeeder extends Seeder
         $waliSiswa = Role::firstOrCreate(['name' => 'wali_siswa', 'guard_name' => 'web']);
 
         $waliPermissions = $this->resolvePermissions([
-            // Sama persis dengan Siswa — bisa lihat nilai & rapor anak
+            // Bisa lihat nilai & rapor anak
             'view_any_rapor', 'view_rapor',
             'widget_StudentScheduleWidget',
+
+            // Kuesioner BK — wali bisa melihat kuesioner & hasil evaluasi anak
+            'page_MyQuestionnaires',
         ]);
         $waliSiswa->syncPermissions($waliPermissions);
-        $this->command->info('✅ Wali Siswa: ' . count($waliPermissions) . ' izin diberikan (sama dengan Siswa).');
+        $this->command->info('✅ Wali Siswa: ' . count($waliPermissions) . ' izin diberikan.');
 
         $this->command->newLine();
         $this->command->info('🎉 Selesai! Semua role telah dikonfigurasi.');
