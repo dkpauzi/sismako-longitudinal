@@ -268,6 +268,15 @@ class TeachingAssignment extends Model
         return $this->hasMany(GradeRange::class);
     }
 
+    /**
+     * Relasi ke narrative_templates: template kustom guru per SK Mengajar.
+     * Jika tidak ada, sistem fallback ke template default Admin.
+     */
+    public function narrativeTemplates(): HasMany
+    {
+        return $this->hasMany(NarrativeTemplate::class);
+    }
+
     protected static function booted(): void
     {
         static::creating(function (TeachingAssignment $model) {

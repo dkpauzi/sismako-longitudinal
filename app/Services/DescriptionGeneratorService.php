@@ -3,10 +3,24 @@
 
 namespace App\Services;
 
-use App\Models\Grade;
 use App\Models\LearningObjective;
+use App\Models\NarrativeTemplate;
 use App\Models\TeachingAssignment;
 
+/**
+ * MESIN PEMBUAT NARASI RAPOR (Rule Engine v2)
+ *
+ * Service ini menghasilkan deskripsi naratif rapor per siswa per mapel.
+ * Alur:
+ *   1. Hitung rata-rata skor per TP (Tujuan Pembelajaran)
+ *   2. Konversi setiap skor TP ke letter grade (A-E) via GradeRangeResolver
+ *   3. Identifikasi TP Max (grade tertinggi) dan TP Min (grade terendah)
+ *   4. Ambil template narasi berdasarkan grade, ganti placeholder [TP]
+ *   5. Gabungkan kalimat dengan konjungsi yang tepat
+ *
+ * Hierarki template:
+ *   Guru Override → Admin Default → Hardcoded Fallback
+ */
 class DescriptionGeneratorService
 {
     /**
@@ -20,26 +34,22 @@ class DescriptionGeneratorService
     {
         $kktp = $assignment->kktp ?? 75;
 
-        // 1. Ambil semua TP yang pernah diujikan di kelas ini,
-        //    beserta rata-rata nilai siswa untuk setiap TP tersebut.
+        // 1. Hitung rata-rata skor per TP
         $tpResults = $this->calculateScorePerTp($assignment, $studentId, $kktp);
 
-        // 2. Jika tidak ada data TP sama sekali, kembalikan narasi default.
+        // 2. Jika tidak ada data TP, kembalikan narasi default
         if ($tpResults->isEmpty()) {
             return $this->buildDefaultNarrative($assignment);
         }
 
-        // 3. Pisahkan TP yang tuntas dan belum tuntas.
-        $tuntasTps = $tpResults->where('is_tuntas', true);
-        $belumTuntasTps = $tpResults->where('is_tuntas', false);
+        // 3. Konversi setiap skor TP ke letter grade via GradeRangeResolver
+        $tpWithGrades = $tpResults->map(function ($tp) use ($assignment) {
+            $tp['grade'] = GradeRangeResolver::resolve($assignment, $tp['average_score']);
+            return $tp;
+        });
 
-        // 4. Bangun narasi dari komponen-komponen yang tersedia.
-        return $this->buildNarrative(
-            assignment: $assignment,
-            tuntasTps: $tuntasTps,
-            belumTuntasTps: $belumTuntasTps,
-            averageScore: $tpResults->avg('average_score'),
-        );
+        // 4. Bangun narasi dengan Rule Engine
+        return $this->buildGradeBasedNarrative($assignment, $tpWithGrades);
     }
 
     /**
@@ -64,8 +74,6 @@ class DescriptionGeneratorService
             ->get();
 
         // ✅ PERBAIKAN N+1: Load semua asesmen beserta grades & TP-nya dalam 1 query.
-        // Sebelumnya, Grade::whereHas() dipanggil per TP dalam loop = N query.
-        // Sekarang cukup 1 query, sisanya filter dari collection di memori PHP.
         $assessments = $assignment->assessments()
             ->with([
                 'learningObjectives',
@@ -97,125 +105,118 @@ class DescriptionGeneratorService
     }
 
     /**
-     * Bangun narasi akhir dari komponen yang sudah disiapkan.
+     * Rule Engine: Bangun narasi berdasarkan grade per TP.
      *
-     * Struktur narasi:
-     * [Kalimat pembuka] + [Kalimat kekuatan] + [Kalimat pengembangan]
+     * Logika:
+     * - Jika semua TP memiliki grade sama: 1 kalimat, gabungkan TP dengan "dan"
+     * - Jika Max != Min: 2 kalimat, masing-masing dengan template sesuai grade
+     * - Konjungsi antar kalimat tergantung apakah Min lulus/gagal
      */
-    private function buildNarrative(
+    private function buildGradeBasedNarrative(
         TeachingAssignment $assignment,
-        \Illuminate\Support\Collection $tuntasTps,
-        \Illuminate\Support\Collection $belumTuntasTps,
-        float $averageScore,
+        \Illuminate\Support\Collection $tpWithGrades
     ): string {
-        $parts = [];
+        // Urutkan berdasarkan grade priority: A=1, B=2, C=3, D=4, E=5
+        $gradePriority = ['A' => 1, 'B' => 2, 'C' => 3, 'D' => 4, 'E' => 5];
 
-        // --- KALIMAT PEMBUKA ---
-        // Berdasarkan rata-rata keseluruhan nilai siswa
-        $parts[] = $this->buildOpeningSentence($averageScore, $assignment->kktp ?? 75);
+        $sorted = $tpWithGrades->sortBy(fn($tp) => $gradePriority[$tp['grade']] ?? 5);
 
-        // --- KALIMAT KEKUATAN ---
-        // TP yang sudah dikuasai — ambil maksimal 2 TP terbaik
-        if ($tuntasTps->isNotEmpty()) {
-            $topTps = $tuntasTps
-                ->sortByDesc('average_score')
-                ->take(2)
-                ->pluck('attribute')
-                ->toArray();
+        $maxTp = $sorted->first();  // TP dengan grade tertinggi
+        $minTp = $sorted->last();   // TP dengan grade terendah
+        $maxGrade = $maxTp['grade'];
+        $minGrade = $minTp['grade'];
 
-            $parts[] = $this->buildStrengthSentence($topTps);
+        $assignmentId = $assignment->id;
+
+        // ── CASE 1: Semua TP memiliki grade yang sama ─────────────
+        if ($maxGrade === $minGrade) {
+            $allAttributes = $tpWithGrades->pluck('attribute')->toArray();
+            $combinedTp = $this->combineAttributes($allAttributes);
+            $template = NarrativeTemplate::getTemplate($maxGrade, $assignmentId);
+
+            return str_replace('[TP]', $combinedTp, $template);
         }
 
-        // --- KALIMAT PENGEMBANGAN ---
-        // TP yang perlu ditingkatkan — ambil 1 TP terlemah
-        if ($belumTuntasTps->isNotEmpty()) {
-            $weakestTp = $belumTuntasTps
-                ->sortBy('average_score')
-                ->first();
+        // ── CASE 2: Max != Min — buat 2 kalimat ──────────────────
 
-            $parts[] = $this->buildImprovementSentence($weakestTp['attribute']);
-        }
+        // Kumpulkan semua TP untuk grade Max (bisa lebih dari 1)
+        $maxTps = $tpWithGrades->where('grade', $maxGrade);
+        $maxAttributes = $maxTps->pluck('attribute')->toArray();
+        $maxCombined = $this->combineAttributes($maxAttributes);
+        $maxTemplate = NarrativeTemplate::getTemplate($maxGrade, $assignmentId);
+        $maxSentence = str_replace('[TP]', $maxCombined, $maxTemplate);
 
-        return implode(' ', $parts);
+        // Kumpulkan semua TP untuk grade Min
+        $minTps = $tpWithGrades->where('grade', $minGrade);
+        $minAttributes = $minTps->pluck('attribute')->toArray();
+        $minCombined = $this->combineAttributes($minAttributes);
+        $minTemplate = NarrativeTemplate::getTemplate($minGrade, $assignmentId);
+        $minSentence = str_replace('[TP]', $minCombined, $minTemplate);
+
+        // ── Tentukan konjungsi ───────────────────────────────────
+        $conjunction = $this->resolveConjunction($maxGrade, $minGrade);
+
+        // Gabungkan: hilangkan titik di akhir kalimat pertama, tambah konjungsi
+        $maxSentence = rtrim($maxSentence, '. ');
+        $minSentence = lcfirst(ltrim($minSentence));
+
+        return $maxSentence . $conjunction . $minSentence;
     }
 
     /**
-     * Kalimat pembuka berdasarkan rata-rata nilai.
-     * Dibuat bervariasi agar tidak monoton antar siswa.
+     * Gabungkan beberapa atribut TP menjadi string natural.
+     *
+     * 1 TP:  "aljabar"
+     * 2 TP:  "aljabar dan geometri"
+     * 3+ TP: "aljabar, geometri, dan statistika"
      */
-    private function buildOpeningSentence(float $average, int $kktp): string
+    public function combineAttributes(array $attributes): string
     {
-        // Gunakan hash student + assignment untuk memilih variasi kalimat
-        // sehingga siswa yang skornya sama tetap mendapat kalimat berbeda
-        $variationSeed = (int) ($average * 100) % 3;
+        $count = count($attributes);
 
-        if ($average >= 90) {
-            $templates = [
-                'Ananda menunjukkan capaian yang sangat memuaskan dalam mata pelajaran ini.',
-                'Ananda telah mencapai hasil yang luar biasa dan melampaui target pembelajaran.',
-                'Ananda memperlihatkan penguasaan materi yang sangat baik sepanjang semester ini.',
-            ];
-        } elseif ($average >= $kktp) {
-            $templates = [
-                'Ananda telah mencapai target Kriteria Ketercapaian Tujuan Pembelajaran (KKTP) dengan baik.',
-                'Ananda menunjukkan perkembangan yang positif dalam mengikuti pembelajaran.',
-                'Ananda mampu memenuhi capaian pembelajaran yang ditetapkan pada semester ini.',
-            ];
-        } elseif ($average >= $kktp - 15) {
-            $templates = [
-                'Ananda menunjukkan usaha yang cukup baik, namun masih perlu peningkatan untuk memenuhi KKTP.',
-                'Ananda telah berusaha mengikuti pembelajaran dengan baik meski capaian masih perlu ditingkatkan.',
-                'Ananda menampilkan perkembangan yang cukup, dengan beberapa aspek yang masih memerlukan perhatian.',
-            ];
-        } else {
-            $templates = [
-                'Ananda masih memerlukan bimbingan intensif untuk mencapai Kriteria Ketercapaian Tujuan Pembelajaran.',
-                'Ananda perlu meningkatkan semangat belajar agar dapat memenuhi capaian pembelajaran yang diharapkan.',
-                'Ananda membutuhkan dukungan dan pendampingan lebih lanjut dalam mengikuti pembelajaran.',
-            ];
+        if ($count === 0) {
+            return '';
         }
 
-        return $templates[$variationSeed];
+        if ($count === 1) {
+            return $attributes[0];
+        }
+
+        if ($count === 2) {
+            return $attributes[0] . ' dan ' . $attributes[1];
+        }
+
+        // 3+: "a, b, dan c"
+        $last = array_pop($attributes);
+        return implode(', ', $attributes) . ', dan ' . $last;
     }
 
     /**
-     * Kalimat kekuatan: menyebutkan TP yang sudah dikuasai.
+     * Tentukan konjungsi berdasarkan kombinasi grade Max dan Min.
+     *
+     * Rules:
+     * - Min lulus (A/B/C):          ", serta "   (tambahan positif)
+     * - Min gagal (D/E) tapi Max lulus:  ", namun "   (kontras)
+     * - Keduanya gagal (D/E + D/E):      ", dan juga " (penambahan negatif)
      */
-    private function buildStrengthSentence(array $topAttributes): string
+    public function resolveConjunction(string $maxGrade, string $minGrade): string
     {
-        if (count($topAttributes) === 1) {
-            $templates = [
-                "Ananda telah menguasai kompetensi {$topAttributes[0]}.",
-                "Kemampuan ananda dalam {$topAttributes[0]} sudah tercapai dengan baik.",
-                "Ananda menunjukkan penguasaan yang baik dalam {$topAttributes[0]}.",
-            ];
-        } else {
-            $combined = $topAttributes[0] . ' serta ' . $topAttributes[1];
-            $templates = [
-                "Ananda telah menguasai kompetensi {$combined} dengan baik.",
-                "Ananda menunjukkan kemampuan yang menonjol dalam {$combined}.",
-                "Capaian ananda sangat baik dalam {$combined}.",
-            ];
+        $passingGrades = ['A', 'B', 'C'];
+        $maxPassing = in_array($maxGrade, $passingGrades);
+        $minPassing = in_array($minGrade, $passingGrades);
+
+        if ($minPassing) {
+            // Min grade masih lulus → tambahan positif
+            return ', serta ';
         }
 
-        // Variasi kalimat berdasarkan jumlah karakter attribute
-        $seed = strlen(implode('', $topAttributes)) % 3;
-        return $templates[$seed];
-    }
+        if ($maxPassing && !$minPassing) {
+            // Max lulus tapi Min gagal → kontras
+            return ', namun ';
+        }
 
-    /**
-     * Kalimat pengembangan: menyebutkan TP yang perlu ditingkatkan.
-     */
-    private function buildImprovementSentence(string $weakAttribute): string
-    {
-        $templates = [
-            "Perlu peningkatan pada kompetensi {$weakAttribute}.",
-            "Ananda masih perlu berlatih lebih giat dalam {$weakAttribute}.",
-            "Diperlukan perhatian lebih pada {$weakAttribute} agar capaian semakin optimal.",
-        ];
-
-        $seed = strlen($weakAttribute) % 3;
-        return $templates[$seed];
+        // Keduanya gagal → penambahan negatif
+        return ', dan juga ';
     }
 
     /**

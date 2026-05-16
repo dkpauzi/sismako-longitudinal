@@ -149,6 +149,11 @@ class RolePermissionSeeder extends Seeder
             // Pengaturan Sekolah
             'view_any_school::setting', 'view_school::setting',
             'create_school::setting',   'update_school::setting',
+
+            // Template Narasi Rapor - full CRUD (Admin kelola template default)
+            'view_any_narrative::template', 'view_narrative::template',
+            'create_narrative::template',   'update_narrative::template',
+            'delete_narrative::template',
         ]);
         $admin->syncPermissions($adminPermissions);
         $this->command->info('✅ Admin: ' . count($adminPermissions) . ' izin diberikan.');
@@ -161,6 +166,11 @@ class RolePermissionSeeder extends Seeder
             // Create & Delete dikelola Admin
             'view_any_teaching::assignment', 'view_teaching::assignment',
             'update_teaching::assignment',
+
+            // Template Narasi Rapor - guru bisa lihat dan edit override kelasnya
+            'view_any_narrative::template', 'view_narrative::template',
+            'create_narrative::template',   'update_narrative::template',
+            'delete_narrative::template',
 
             // Tujuan Pembelajaran (TP) - full CRUD untuk TPnya sendiri
             'view_any_learning::objective', 'view_learning::objective',

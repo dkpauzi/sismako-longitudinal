@@ -38,4 +38,10 @@ class LearningObjective extends Model
     {
         return $this->belongsTo(AcademicPeriod::class);
     }
+
+    // Relasi ke Assessment (Asesmen yang menguji TP ini)
+    public function assessments(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(Assessment::class, 'assessment_learning_objective');
+    }
 }
