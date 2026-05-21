@@ -233,7 +233,7 @@ class StudentResource extends Resource
                         return response()->streamDownload(function () {
                             $file = fopen('php://output', 'w');
 
-                            // Tulis Baris Header (Judul Kolom) -> Perhatikan 'nipd' di sini
+                            // Tulis Baris Header (Judul Kolom)
                             fputcsv($file, [
                                 'nisn',
                                 'nipd',
@@ -246,6 +246,7 @@ class StudentResource extends Resource
                                 'alamat',
                                 'nama_ayah',
                                 'nama_ibu',
+                                'nama_wali',
                                 'kelas_sekarang'
                             ], ';');
 
@@ -262,6 +263,7 @@ class StudentResource extends Resource
                                 'Jorong Pematang Anjuang',
                                 'Suryadi',
                                 'Siti',
+                                'Suryadi',
                                 'Kelas 7.1'
                             ], ';');
 
@@ -269,14 +271,15 @@ class StudentResource extends Resource
                         }, 'Draft_Import_Data_Siswa.csv');
                     }),
 
-                // 2. TOMBOL IMPORT SISWA
+                // 2. TOMBOL IMPOR SISWA (Smart Importer)
                 Tables\Actions\ImportAction::make('import_siswa')
-                    ->label('Import Data Siswa')
+                    ->label('Impor Data Siswa')
                     ->icon('heroicon-o-users')
                     ->importer(\App\Filament\Imports\StudentImporter::class)
                     ->color('primary')
                     ->csvDelimiter(';')
-                    ->modalHeading('Import Data & Akun Siswa Baru')
+                    ->modalHeading('Impor Data & Akun Siswa Baru')
+                    ->modalDescription('Unggah file CSV/Excel berisi data siswa. Sistem akan otomatis membuatkan akun siswa, akun wali, dan profil siswa.')
                     ->visible(fn() => auth()->user()->hasRole('super_admin') || auth()->user()->hasRole('admin')),
             ])
             // Tombol Baris (Muncul di setiap baris Siswa)

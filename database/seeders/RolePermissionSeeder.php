@@ -32,6 +32,7 @@ class RolePermissionSeeder extends Seeder
         $teacher    = Role::firstOrCreate(['name' => 'teacher',     'guard_name' => 'web']);
         $headmaster = Role::firstOrCreate(['name' => 'headmaster',  'guard_name' => 'web']);
         $student    = Role::firstOrCreate(['name' => 'student',     'guard_name' => 'web']);
+        $guardian   = Role::firstOrCreate(['name' => 'guardian',    'guard_name' => 'web']);
         $guruBk     = Role::firstOrCreate(['name' => 'guru_bk',     'guard_name' => 'web']);
 
         // ── SUPER ADMIN: Dapat semua izin ────────────────────────
