@@ -14,6 +14,7 @@ class Enrollment extends Model
         'classroom_id',
         'academic_period_id',
         'status',
+        'promoted_from_enrollment_id',
     ];
 
     // Relasi ke Siswa
@@ -32,5 +33,11 @@ class Enrollment extends Model
     public function academicPeriod()
     {
         return $this->belongsTo(AcademicPeriod::class);
+    }
+
+    // Relasi rekursif ke enrollment sebelumnya
+    public function promotedFrom()
+    {
+        return $this->belongsTo(Enrollment::class, 'promoted_from_enrollment_id');
     }
 }
