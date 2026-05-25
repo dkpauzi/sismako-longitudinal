@@ -59,6 +59,8 @@ class VakScoringTest extends TestCase
         $response = BkStudentResponse::create([
             'questionnaire_id' => $questionnaire->id,
             'student_id' => $student->id,
+            'academic_period_id' => $academicPeriod->id,
+            'status' => 'pending',
             'submitted_at' => now(),
         ]);
 

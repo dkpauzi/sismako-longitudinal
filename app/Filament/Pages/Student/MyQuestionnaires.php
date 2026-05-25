@@ -87,10 +87,10 @@ class MyQuestionnaires extends Page implements HasForms
     }
 
     /**
-     * Ambil daftar kuesioner yang ditargetkan ke kelas siswa saat ini.
+     * Ambil daftar kuesioner yang memiliki tiket pending untuk siswa ini.
      *
-     * Eager-loading diterapkan pada: counselor, questions.options, targets.classroom
-     * Menambahkan atribut dinamis `has_responded`, `student_response`, `evaluated_at`.
+     * Siswa HANYA melihat kuesioner yang Guru BK telah membuka aksesnya
+     * melalui aksi 'Buka Akses Asesmen' (ticketing system).
      */
     public function getQuestionnairesForStudent(): Collection
     {
@@ -100,59 +100,43 @@ class MyQuestionnaires extends Page implements HasForms
             return new Collection();
         }
 
-        // Ambil tahun ajaran aktif
-        $activePeriod = AcademicPeriod::where('is_active', true)->first();
-
-        if (! $activePeriod) {
-            return new Collection();
-        }
-
-        // Kumpulkan semua classroom_id dari enrollment aktif siswa-siswa
         $studentIds = $students->pluck('id')->toArray();
 
-        $enrollments = Enrollment::whereIn('student_id', $studentIds)
-            ->where('academic_period_id', $activePeriod->id)
-            ->where('status', 'active')
-            ->get();
-
-        if ($enrollments->isEmpty()) {
-            return new Collection();
-        }
-
-        $classroomIds = $enrollments->pluck('classroom_id')->unique()->toArray();
-
-        // Ambil respon siswa yang sudah ada (untuk menandai status)
+        // Ambil semua respons siswa (termasuk pending dan completed)
         $responses = BkStudentResponse::whereIn('student_id', $studentIds)
             ->get()
             ->keyBy(function ($r) {
                 return $r->questionnaire_id . '_' . $r->student_id;
             });
 
-        // Query kuesioner yang published, sesuai periode, ditargetkan ke kelas siswa
-        // Eager-load relasi untuk menghindari N+1
+        // Ambil questionnaire_ids yang memiliki tiket untuk siswa ini
+        $questionnaireIds = $responses->pluck('questionnaire_id')->unique()->toArray();
+
+        if (empty($questionnaireIds)) {
+            return new Collection();
+        }
+
+        // Query kuesioner yang published DAN memiliki tiket untuk siswa
         $questionnaires = BkQuestionnaire::with([
                 'counselor:id,name',
                 'questions.options',
                 'targets.classroom',
             ])
             ->where('status', 'published')
-            ->where('academic_period_id', $activePeriod->id)
-            ->whereHas('targets', function ($query) use ($classroomIds) {
-                $query->whereIn('classroom_id', $classroomIds);
-            })
+            ->whereIn('id', $questionnaireIds)
             ->orderBy('created_at', 'desc')
             ->get();
 
-        // Untuk siswa: gunakan student_id pertama sebagai referensi
-        // Untuk wali_siswa: bisa saja punya lebih dari 1 anak, ambil anak pertama yang ada enrollment
-        $primaryStudentId = $enrollments->first()->student_id;
+        // Gunakan student_id pertama sebagai referensi utama
+        $primaryStudentId = $students->first()->id;
 
         // Tandai setiap kuesioner dengan status respons
         $questionnaires->each(function ($q) use ($responses, $primaryStudentId) {
             $key = $q->id . '_' . $primaryStudentId;
             $response = $responses->get($key);
 
-            $q->has_responded   = $response !== null;
+            // Siswa sudah mengerjakan jika status = completed
+            $q->has_responded   = $response?->status === 'completed';
             $q->student_response = $response;
             $q->evaluated_at    = $response?->evaluated_at;
         });
@@ -186,12 +170,9 @@ class MyQuestionnaires extends Page implements HasForms
     /**
      * Submit jawaban kuesioner siswa.
      *
-     * Data disimpan dalam satu DB transaction untuk menjamin konsistensi:
-     * 1. Buat BkStudentResponse (header)
-     * 2. Loop setiap pertanyaan dan buat BkAnswer:
-     *    - single_choice / scale: satu baris dengan selected_option_id
-     *    - multiple_choice: satu baris per opsi yang dipilih (relasional, bukan JSON)
-     *    - text: satu baris dengan text_answer
+     * TICKETING SYSTEM: Siswa TIDAK membuat BkStudentResponse baru.
+     * Sistem mencari tiket 'pending' yang sudah dibuat oleh Guru BK,
+     * menyimpan jawaban ke dalamnya, lalu mengubah status ke 'completed'.
      *
      * @param int   $questionnaireId  ID kuesioner yang diisi
      * @param array $formData         Data jawaban dari form ['question_{id}' => value]
@@ -210,16 +191,17 @@ class MyQuestionnaires extends Page implements HasForms
             return;
         }
 
-        // Guard: cegah duplikat submission
-        $existingResponse = BkStudentResponse::where('questionnaire_id', $questionnaireId)
+        // Guard: cari tiket pending — siswa HARUS memiliki tiket dari Guru BK
+        $response = BkStudentResponse::where('questionnaire_id', $questionnaireId)
             ->where('student_id', $student->id)
-            ->exists();
+            ->where('status', 'pending')
+            ->first();
 
-        if ($existingResponse) {
+        if (! $response) {
             Notification::make()
-                ->title('Kuesioner Sudah Dikerjakan')
-                ->body('Kamu sudah mengisi kuesioner ini sebelumnya.')
-                ->warning()
+                ->title('Akses Ditolak')
+                ->body('Kamu belum diberikan akses untuk mengerjakan kuesioner ini oleh Guru BK.')
+                ->danger()
                 ->send();
             return;
         }
@@ -229,15 +211,14 @@ class MyQuestionnaires extends Page implements HasForms
             ->get()
             ->keyBy('id');
 
-        DB::transaction(function () use ($questionnaireId, $student, $formData, $questions) {
-            // 1. Buat header respons
-            $response = BkStudentResponse::create([
-                'questionnaire_id' => $questionnaireId,
-                'student_id'       => $student->id,
-                'submitted_at'     => now(),
+        DB::transaction(function () use ($response, $formData, $questions) {
+            // Update header respons: set submitted_at dan status
+            $response->update([
+                'submitted_at' => now(),
+                'status' => 'completed',
             ]);
 
-            // 2. Simpan jawaban per pertanyaan
+            // Simpan jawaban per pertanyaan
             foreach ($questions as $question) {
                 $key   = "question_{$question->id}";
                 $value = $formData[$key] ?? null;
@@ -245,7 +226,6 @@ class MyQuestionnaires extends Page implements HasForms
                 switch ($question->question_type) {
                     case 'single_choice':
                     case 'scale':
-                        // Satu baris, satu opsi terpilih
                         if ($value) {
                             BkAnswer::create([
                                 'response_id'        => $response->id,
@@ -257,7 +237,6 @@ class MyQuestionnaires extends Page implements HasForms
                         break;
 
                     case 'multiple_choice':
-                        // Satu baris per opsi yang dipilih (relasional)
                         if (is_array($value)) {
                             foreach ($value as $optionId) {
                                 BkAnswer::create([
@@ -271,7 +250,6 @@ class MyQuestionnaires extends Page implements HasForms
                         break;
 
                     case 'text':
-                        // Jawaban teks bebas (essay)
                         BkAnswer::create([
                             'response_id'        => $response->id,
                             'question_id'        => $question->id,
@@ -284,26 +262,20 @@ class MyQuestionnaires extends Page implements HasForms
         });
 
         // --- VAK SCORING INTEGRATION (Out of Transaction) ---
-        // Cek apakah kuesioner ini adalah kuesioner VAK
         $questionnaire = BkQuestionnaire::find($questionnaireId);
         if ($questionnaire && str_contains(strtolower($questionnaire->title), 'vak')) {
-            // Kita perlu ngambil response terbaru dengan relasi jawaban
-            $response = BkStudentResponse::where('questionnaire_id', $questionnaireId)
-                ->where('student_id', $student->id)
-                ->first();
+            $response->refresh(); // Reload setelah transaction commit
 
-            if ($response) {
-                $vakService = new \App\Services\VakScoringService();
-                $result = $vakService->score($response);
+            $vakService = new \App\Services\VakScoringService();
+            $result = $vakService->score($response);
 
-                $response->update([
-                    'score' => $result['dominant_percentage'],
-                    'score_distribution' => $result['score_distribution'],
-                    'feedback' => "Gaya belajar dominan: {$result['dominant_style']}",
-                    'recommendation' => $result['recommendation'],
-                    'evaluated_at' => now(), // Auto-evaluated by system
-                ]);
-            }
+            $response->update([
+                'score' => $result['dominant_percentage'],
+                'score_distribution' => $result['score_distribution'],
+                'feedback' => "Gaya belajar dominan: {$result['dominant_style']}",
+                'recommendation' => $result['recommendation'],
+                'evaluated_at' => now(),
+            ]);
         }
 
         Notification::make()

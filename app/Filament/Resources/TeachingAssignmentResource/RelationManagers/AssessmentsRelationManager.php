@@ -374,7 +374,9 @@ class AssessmentsRelationManager extends RelationManager
                         $kktp = $assignment->kktp ?? 75;
 
                         // Ambil semua nilai untuk asesmen ini yang di bawah KKTP
+                        // PENTING: whereNotNull mencegah null scores dievaluasi sebagai true
                         $belowKktpGrades = Grade::where('assessment_id', $record->id)
+                            ->whereNotNull('score')
                             ->where('score', '<', $kktp)
                             ->with('student')
                             ->get();
@@ -405,14 +407,15 @@ class AssessmentsRelationManager extends RelationManager
                             $grade = Grade::find($item['grade_id']);
                             if (!$grade) continue;
 
-                            // Simpan nilai asli sebelum remedial, lalu update dengan nilai baru.
+                            // Simpan nilai asli hanya pada percobaan remedial pertama.
+                            // Increment remedial_attempts untuk audit trail.
                             // Menggunakan Eloquent update() untuk memicu GradeObserver->saved()
                             // yang akan otomatis recalculate final_grades + A-E letter grade.
                             $grade->update([
                                 'original_score' => $grade->original_score ?? $grade->score, // Jangan timpa jika sudah ada
                                 'score' => (int) $item['remedial_score'],
-                                'is_remedial' => true,
                             ]);
+                            $grade->increment('remedial_attempts');
                             $count++;
                         }
 

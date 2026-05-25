@@ -83,24 +83,24 @@ class RemedialWorkflowTest extends TestCase
             'score' => 60,
         ]);
 
-        // Verify: original_score belum terisi, is_remedial falsy
+        // Verify: original_score belum terisi, remedial_attempts = 0
         $grade->refresh(); // Reload from DB to get defaults
         $this->assertNull($grade->original_score);
-        $this->assertFalse($grade->is_remedial);
+        $this->assertEquals(0, $grade->remedial_attempts);
 
         // 2. Simulasikan remedial: simpan nilai asli, update dengan nilai baru
         $grade->update([
             'original_score' => $grade->score,
             'score' => 80,
-            'is_remedial' => true,
         ]);
+        $grade->increment('remedial_attempts');
 
         $grade->refresh();
 
         // 3. Assertions
         $this->assertEquals(60, $grade->original_score);  // Nilai asli tersimpan
         $this->assertEquals(80, $grade->score);            // Nilai baru terupdate
-        $this->assertTrue($grade->is_remedial);            // Flag remedial aktif
+        $this->assertEquals(1, $grade->remedial_attempts); // Counter terupdate
     }
 
     /**
@@ -129,8 +129,8 @@ class RemedialWorkflowTest extends TestCase
         $grade->update([
             'original_score' => $grade->score,
             'score' => 85,
-            'is_remedial' => true,
         ]);
+        $grade->increment('remedial_attempts');
 
         // 3. FinalGrade harus ter-recalculate oleh GradeObserver
         $finalGrade->refresh();
@@ -141,9 +141,9 @@ class RemedialWorkflowTest extends TestCase
     }
 
     /**
-     * Test: Double remedial does NOT overwrite the first original_score.
+     * Test: Double remedial preserves first original_score and increments attempts.
      */
-    public function test_double_remedial_preserves_first_original_score(): void
+    public function test_double_remedial_preserves_first_original_score_and_increments(): void
     {
         $grade = Grade::create([
             'assessment_id' => $this->assessment->id,
@@ -155,21 +155,21 @@ class RemedialWorkflowTest extends TestCase
         $grade->update([
             'original_score' => $grade->original_score ?? $grade->score,
             'score' => 65,
-            'is_remedial' => true,
         ]);
+        $grade->increment('remedial_attempts');
 
         // Remedial 2: 65 -> 80 (original_score HARUS tetap 50, bukan 65)
         $grade->refresh();
         $grade->update([
             'original_score' => $grade->original_score ?? $grade->score,
             'score' => 80,
-            'is_remedial' => true,
         ]);
+        $grade->increment('remedial_attempts');
 
         $grade->refresh();
 
         $this->assertEquals(50, $grade->original_score); // Tetap nilai pertama
         $this->assertEquals(80, $grade->score);           // Nilai terbaru
-        $this->assertTrue($grade->is_remedial);
+        $this->assertEquals(2, $grade->remedial_attempts); // Akumulasi percobaan
     }
 }

@@ -15,12 +15,12 @@ class Grade extends Model
         'student_id',       // Link ke Siswanya
         'score',            // Angka (0-100)
         'original_score',   // Nilai asli sebelum remedial
-        'is_remedial',      // Flag apakah nilai ini hasil remedial
+        'remedial_attempts', // Jumlah percobaan remedial
         'feedback',         // Catatan Guru (Penting di Kurikulum Merdeka)
     ];
 
     protected $casts = [
-        'is_remedial' => 'boolean',
+        'remedial_attempts' => 'integer',
     ];
 
     public function assessment(): BelongsTo

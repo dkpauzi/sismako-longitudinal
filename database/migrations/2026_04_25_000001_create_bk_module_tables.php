@@ -61,6 +61,8 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('questionnaire_id')->constrained('bk_questionnaires')->cascadeOnDelete();
             $table->foreignId('student_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('academic_period_id')->constrained()->cascadeOnDelete();
+            $table->enum('status', ['pending', 'completed'])->default('pending');
             $table->dateTime('submitted_at')->nullable();
 
             // ── KOLOM EVALUASI GURU BK ──────────────────────────────

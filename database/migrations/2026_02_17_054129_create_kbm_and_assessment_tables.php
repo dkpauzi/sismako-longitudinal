@@ -125,8 +125,8 @@ return new class extends Migration {
             $table->foreignId('assessment_id')->constrained('assessments')->cascadeOnDelete();
             $table->foreignId('student_id')->constrained()->cascadeOnDelete();
             $table->integer('score')->nullable();
-            $table->integer('original_score')->nullable();    // Menyimpan nilai asli sebelum remedial
-            $table->boolean('is_remedial')->default(false);   // Flag apakah nilai ini hasil remedial
+            $table->integer('original_score')->nullable();          // Menyimpan nilai asli sebelum remedial pertama
+            $table->unsignedInteger('remedial_attempts')->default(0); // Jumlah percobaan remedial
             $table->text('feedback')->nullable(); // Sangat berguna untuk deskripsi opsional Formatif
             $table->timestamps();
 

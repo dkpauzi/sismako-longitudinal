@@ -6,12 +6,15 @@ use App\Filament\Resources\BkQuestionnaireResource\Pages;
 use App\Filament\Resources\BkQuestionnaireResource\RelationManagers;
 use App\Models\AcademicPeriod;
 use App\Models\BkQuestionnaire;
+use App\Models\BkStudentResponse;
 use App\Models\Classroom;
+use App\Models\Enrollment;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 
@@ -192,6 +195,64 @@ class BkQuestionnaireResource extends Resource
             ->actions([
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
+
+                // --- BUKA AKSES ASESMEN (Ticketing System) ---
+                Tables\Actions\Action::make('buka_akses')
+                    ->label('Buka Akses Asesmen')
+                    ->icon('heroicon-o-lock-open')
+                    ->color('success')
+                    ->modalWidth('xl')
+                    ->modalHeading('Buka Akses Asesmen untuk Siswa')
+                    ->modalDescription('Pilih kelas yang ingin diberikan akses mengerjakan kuesioner ini. Sistem akan membuat tiket "pending" untuk setiap siswa aktif di kelas tersebut.')
+                    ->modalSubmitActionLabel('Buat Tiket Akses')
+                    ->form([
+                        Forms\Components\Select::make('classroom_ids')
+                            ->label('Pilih Kelas')
+                            ->options(Classroom::pluck('name', 'id'))
+                            ->multiple()
+                            ->required()
+                            ->searchable(),
+                    ])
+                    ->action(function (BkQuestionnaire $record, array $data) {
+                        $activePeriod = AcademicPeriod::where('is_active', true)->first();
+                        if (!$activePeriod) {
+                            Notification::make()->title('Gagal')->body('Tidak ada periode akademik aktif.')->danger()->send();
+                            return;
+                        }
+
+                        $classroomIds = $data['classroom_ids'];
+                        $count = 0;
+
+                        // Ambil semua siswa aktif dari kelas yang dipilih
+                        $enrollments = Enrollment::whereIn('classroom_id', $classroomIds)
+                            ->where('academic_period_id', $activePeriod->id)
+                            ->where('status', 'active')
+                            ->get();
+
+                        foreach ($enrollments as $enrollment) {
+                            // Cegah duplikat tiket
+                            $exists = BkStudentResponse::where('questionnaire_id', $record->id)
+                                ->where('student_id', $enrollment->student_id)
+                                ->exists();
+
+                            if (!$exists) {
+                                BkStudentResponse::create([
+                                    'questionnaire_id' => $record->id,
+                                    'student_id' => $enrollment->student_id,
+                                    'academic_period_id' => $activePeriod->id,
+                                    'status' => 'pending',
+                                ]);
+                                $count++;
+                            }
+                        }
+
+                        Notification::make()
+                            ->title('Akses Berhasil Dibuka')
+                            ->body("{$count} tiket asesmen baru telah dibuat untuk siswa.")
+                            ->success()
+                            ->send();
+                    })
+                    ->visible(fn (BkQuestionnaire $record) => $record->status === 'published'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

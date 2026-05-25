@@ -15,6 +15,8 @@ class BkStudentResponse extends Model
     protected $fillable = [
         'questionnaire_id',
         'student_id',
+        'academic_period_id',
+        'status',
         'submitted_at',
 
         // Evaluasi Guru BK
@@ -38,6 +40,7 @@ class BkStudentResponse extends Model
         'score_distribution' => 'array',
         'ai_suggested_score' => 'decimal:2',
         'is_ai_assisted' => 'boolean',
+        'status'         => 'string',
     ];
 
     // ── RELASI ────────────────────────────────────────────────────
