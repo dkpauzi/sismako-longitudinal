@@ -66,6 +66,7 @@ class VakScoringService
             'dominant_style' => $dominantStyleString,
             'dominant_percentage' => round($percentage, 2),
             'scores' => $counts,
+            'score_distribution' => $counts,
             'recommendation' => $recommendation,
         ];
     }

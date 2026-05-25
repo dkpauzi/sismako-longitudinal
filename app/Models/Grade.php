@@ -11,10 +11,16 @@ class Grade extends Model
     use HasFactory;
 
     protected $fillable = [
-        'assessment_id', // Link ke Ujiannya
-        'student_id',    // Link ke Siswanya
-        'score',         // Angka (0-100)
-        'feedback',      // Catatan Guru (Penting di Kurikulum Merdeka)
+        'assessment_id',    // Link ke Ujiannya
+        'student_id',       // Link ke Siswanya
+        'score',            // Angka (0-100)
+        'original_score',   // Nilai asli sebelum remedial
+        'is_remedial',      // Flag apakah nilai ini hasil remedial
+        'feedback',         // Catatan Guru (Penting di Kurikulum Merdeka)
+    ];
+
+    protected $casts = [
+        'is_remedial' => 'boolean',
     ];
 
     public function assessment(): BelongsTo

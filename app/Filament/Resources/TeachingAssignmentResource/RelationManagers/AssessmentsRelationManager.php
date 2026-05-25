@@ -330,6 +330,98 @@ class AssessmentsRelationManager extends RelationManager
 
                         Notification::make()->title('Data Nilai Berhasil Disimpan')->success()->send();
                     }),
+
+                // --- TOMBOL INPUT REMEDIAL ---
+                Tables\Actions\Action::make('input_remedial')
+                    ->label('Input Remedial')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('warning')
+                    ->modalWidth('4xl')
+                    ->modalHeading(fn (Assessment $record) => 'Input Nilai Remedial: ' . $record->name)
+                    ->modalDescription('Masukkan nilai remedial untuk siswa yang belum tuntas (di bawah KKTP). Nilai asli akan disimpan secara otomatis.')
+                    ->modalSubmitActionLabel('Simpan Nilai Remedial')
+                    ->form(function (Assessment $record) {
+                        return [
+                            Forms\Components\Repeater::make('remedial_data')
+                                ->label('Siswa di Bawah KKTP')
+                                ->schema([
+                                    Forms\Components\TextInput::make('student_name')
+                                        ->label('Nama Siswa')
+                                        ->disabled()
+                                        ->dehydrated(false),
+                                    Forms\Components\Hidden::make('student_id'),
+                                    Forms\Components\Hidden::make('grade_id'),
+                                    Forms\Components\TextInput::make('current_score')
+                                        ->label('Nilai Saat Ini')
+                                        ->disabled()
+                                        ->dehydrated(false),
+                                    Forms\Components\TextInput::make('remedial_score')
+                                        ->label('Nilai Remedial (0-100)')
+                                        ->numeric()
+                                        ->minValue(0)
+                                        ->maxValue(100)
+                                        ->required(),
+                                ])
+                                ->addable(false)
+                                ->deletable(false)
+                                ->reorderable(false)
+                                ->columns(4)
+                                ->columnSpanFull(),
+                        ];
+                    })
+                    ->mountUsing(function (Forms\Form $form, Assessment $record) {
+                        $assignment = $record->teachingAssignment;
+                        $kktp = $assignment->kktp ?? 75;
+
+                        // Ambil semua nilai untuk asesmen ini yang di bawah KKTP
+                        $belowKktpGrades = Grade::where('assessment_id', $record->id)
+                            ->where('score', '<', $kktp)
+                            ->with('student')
+                            ->get();
+
+                        if ($belowKktpGrades->isEmpty()) {
+                            Notification::make()
+                                ->title('Semua Siswa Sudah Tuntas')
+                                ->body('Tidak ada siswa dengan nilai di bawah KKTP (' . $kktp . ').')
+                                ->info()
+                                ->send();
+                        }
+
+                        $form->fill([
+                            'remedial_data' => $belowKktpGrades->map(fn ($grade) => [
+                                'student_id' => $grade->student_id,
+                                'grade_id' => $grade->id,
+                                'student_name' => $grade->student?->name ?? 'N/A',
+                                'current_score' => $grade->score,
+                                'remedial_score' => null,
+                            ])->values()->toArray(),
+                        ]);
+                    })
+                    ->action(function (Assessment $record, array $data) {
+                        $count = 0;
+                        foreach ($data['remedial_data'] as $item) {
+                            if ($item['remedial_score'] === null) continue;
+
+                            $grade = Grade::find($item['grade_id']);
+                            if (!$grade) continue;
+
+                            // Simpan nilai asli sebelum remedial, lalu update dengan nilai baru.
+                            // Menggunakan Eloquent update() untuk memicu GradeObserver->saved()
+                            // yang akan otomatis recalculate final_grades + A-E letter grade.
+                            $grade->update([
+                                'original_score' => $grade->original_score ?? $grade->score, // Jangan timpa jika sudah ada
+                                'score' => (int) $item['remedial_score'],
+                                'is_remedial' => true,
+                            ]);
+                            $count++;
+                        }
+
+                        Notification::make()
+                            ->title('Nilai Remedial Berhasil Disimpan')
+                            ->body("{$count} siswa telah diperbarui. Nilai akhir rapor sudah dihitung ulang secara otomatis.")
+                            ->success()
+                            ->send();
+                    }),
             ]);
     }
 }

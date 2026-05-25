@@ -147,6 +147,37 @@ class BkStudentResponseRelationManager extends RelationManager
                             ->success()
                             ->send();
                     }),
+
+                // --- MITIGASI ORPHANED EVALUATION ---
+                // Tombol ini hanya muncul jika score_distribution kosong/null,
+                // menandakan server crash setelah transaction commit tapi sebelum
+                // VakScoringService selesai menghitung.
+                Tables\Actions\Action::make('recalculate')
+                    ->label('Hitung Ulang Nilai')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('warning')
+                    ->visible(fn (BkStudentResponse $record) => empty($record->score_distribution))
+                    ->requiresConfirmation()
+                    ->modalHeading('Hitung Ulang Nilai VAK')
+                    ->modalDescription('Apakah Anda yakin ingin menghitung ulang skor gaya belajar untuk respons ini?')
+                    ->action(function (BkStudentResponse $record) {
+                        $vakService = new \App\Services\VakScoringService();
+                        $result = $vakService->score($record);
+
+                        $record->update([
+                            'score' => $result['dominant_percentage'],
+                            'score_distribution' => $result['score_distribution'],
+                            'feedback' => "Gaya belajar dominan: {$result['dominant_style']}",
+                            'recommendation' => $result['recommendation'],
+                            'evaluated_at' => now(),
+                        ]);
+
+                        Notification::make()
+                            ->title('Nilai Berhasil Dihitung Ulang')
+                            ->body("Gaya belajar dominan: {$result['dominant_style']}")
+                            ->success()
+                            ->send();
+                    }),
             ]);
     }
 

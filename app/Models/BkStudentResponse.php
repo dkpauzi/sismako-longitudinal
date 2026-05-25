@@ -19,6 +19,7 @@ class BkStudentResponse extends Model
 
         // Evaluasi Guru BK
         'score',
+        'score_distribution',
         'feedback',
         'recommendation',
         'evaluated_at',
@@ -34,6 +35,7 @@ class BkStudentResponse extends Model
         'submitted_at'   => 'datetime',
         'evaluated_at'   => 'datetime',
         'score'          => 'decimal:2',
+        'score_distribution' => 'array',
         'ai_suggested_score' => 'decimal:2',
         'is_ai_assisted' => 'boolean',
     ];

@@ -18,12 +18,6 @@ return new class extends Migration {
             // Config Penilaian Dasar
             $table->string('grading_formula')->default('average');
             $table->integer('kktp')->default(75)->nullable();
-
-            // --- FITUR BARU: PENDONGKRAK NILAI FORMATIF ---
-            // Apakah nilai formatif akan diikutsertakan ke perhitungan akhir sumatif?
-            $table->boolean('use_formative_boost')->default(false);
-            // Jika iya, berapa persen bobot formatif yang diambil? (Misal: 20%)
-            $table->integer('formative_boost_percentage')->default(0)->nullable();
             // Override type dari subjects. NULL = ikuti type di subjects.
             $table->enum('subject_type', ['mandatory', 'kokurikuler', 'elective', 'extracurricular'])
                 ->nullable();
@@ -131,6 +125,8 @@ return new class extends Migration {
             $table->foreignId('assessment_id')->constrained('assessments')->cascadeOnDelete();
             $table->foreignId('student_id')->constrained()->cascadeOnDelete();
             $table->integer('score')->nullable();
+            $table->integer('original_score')->nullable();    // Menyimpan nilai asli sebelum remedial
+            $table->boolean('is_remedial')->default(false);   // Flag apakah nilai ini hasil remedial
             $table->text('feedback')->nullable(); // Sangat berguna untuk deskripsi opsional Formatif
             $table->timestamps();
 

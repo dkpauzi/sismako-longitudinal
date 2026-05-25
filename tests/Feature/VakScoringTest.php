@@ -35,7 +35,9 @@ class VakScoringTest extends TestCase
             'start_year' => 2026,
             'end_year' => 2027,
             'semester' => 'odd',
-            'is_active' => true
+            'is_active' => true,
+            'start_date' => '2026-07-01',
+            'end_date' => '2026-12-31'
         ]);
 
         $questionnaire = BkQuestionnaire::create([
@@ -98,6 +100,7 @@ class VakScoringTest extends TestCase
         $this->assertEquals('Visual', $result['dominant_style']);
         $this->assertEquals(round((6 / 14) * 100, 2), $result['dominant_percentage']);
         $this->assertStringContainsString('Visual:', $result['recommendation']);
+        $this->assertEquals(['VISUAL' => 6, 'AUDITORI' => 5, 'KINESTETIK' => 3], $result['score_distribution']);
     }
 
     public function test_it_handles_tied_scores()
@@ -116,6 +119,7 @@ class VakScoringTest extends TestCase
         $this->assertStringContainsString('Anda memiliki gaya belajar campuran', $result['recommendation']);
         $this->assertStringContainsString('Visual:', $result['recommendation']);
         $this->assertStringContainsString('Auditori:', $result['recommendation']);
+        $this->assertEquals(['VISUAL' => 5, 'AUDITORI' => 5, 'KINESTETIK' => 4], $result['score_distribution']);
     }
 
     public function test_it_handles_empty_answers()

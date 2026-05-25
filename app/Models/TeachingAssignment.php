@@ -17,8 +17,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $classroom_id
  * @property string $grading_formula
  * @property int|null $kktp
- * @property bool $use_formative_boost
- * @property int|null $formative_boost_percentage
  * * Relasi:
  * @property AcademicPeriod $academicPeriod
  * @property Teacher $teacher
@@ -36,16 +34,12 @@ class TeachingAssignment extends Model
         'classroom_id',
         'grading_formula',
         'kktp',
-        'use_formative_boost',
-        'formative_boost_percentage',
         'subject_type',
     ];
 
     protected $casts = [
-        'use_formative_boost' => 'boolean',
         'subject_type' => 'string',
         'kktp' => 'integer',
-        'formative_boost_percentage' => 'integer',
     ];
 
     /*
@@ -225,31 +219,8 @@ class TeachingAssignment extends Model
             }
         }
 
-        // --- TAHAP 2: HITUNG TOTAL POIN FORMATIF (BOOSTER) ---
-        $formativeBoosterScore = 0;
-
-        // Hanya dieksekusi jika fitur diaktifkan di pengaturan kelas
-        if ($this->use_formative_boost && $this->formative_boost_percentage > 0) {
-            $boosterAssessments = $assessments->filter(function ($assessment) {
-                return $assessment->category === 'formatif_poin';
-            });
-
-            $totalRawPoints = 0;
-            foreach ($boosterAssessments as $assessment) {
-                $grade = $assessment->grades->first();
-                if ($grade && $grade->score !== null) {
-                    // Di UI, jika siswa menceklis, score menyimpan angka poin (misal: 2)
-                    $totalRawPoints += (float) $grade->score;
-                }
-            }
-
-            // Hitung bonus akhir = Total Poin x (Persentase Booster / 100)
-            $percentage = (float) $this->formative_boost_percentage / 100;
-            $formativeBoosterScore = $totalRawPoints * $percentage;
-        }
-
-        // --- TAHAP 3: KALKULASI AKHIR & PEMBULATAN ---
-        $finalGrade = $summativeScore + $formativeBoosterScore;
+        // --- TAHAP 2: KALKULASI AKHIR & PEMBULATAN ---
+        $finalGrade = $summativeScore;
 
         // PENGAMAN: Nilai tidak boleh lebih dari 100
         if ($finalGrade > 100) {

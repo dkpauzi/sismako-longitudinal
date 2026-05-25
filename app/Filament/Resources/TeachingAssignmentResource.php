@@ -176,23 +176,6 @@ class TeachingAssignmentResource extends Resource
                             ->suffix('/ 100')
                             ->disabled(false) // KKTP boleh diedit siapa saja yang punya akses ke record ini
                             ->required(),
-
-                        // --- FITUR PENDONGKRAK FORMATIF (Booster Poin) ---
-                        Forms\Components\Toggle::make('use_formative_boost')
-                            ->label('Gunakan Nilai Formatif sebagai Pendongkrak Nilai Akhir')
-                            ->helperText('Aktifkan jika nilai formatif (Latihan, PR, Keaktifan) ingin diikutsertakan ke dalam perhitungan nilai akhir rapor.')
-                            ->live()
-                            ->default(false),
-
-                        Forms\Components\TextInput::make('formative_boost_percentage')
-                            ->label('Bobot Nilai Formatif (%)')
-                            ->helperText('Berapa persen pengaruh nilai formatif terhadap nilai akhir? (Sisa persentasenya akan diambil dari nilai Sumatif).')
-                            ->numeric()
-                            ->suffix('%')
-                            ->minValue(1)
-                            ->maxValue(100)
-                            ->visible(fn(Forms\Get $get) => $get('use_formative_boost') === true)
-                            ->required(fn(Forms\Get $get) => $get('use_formative_boost') === true),
                     ])
                     ->collapsed(false),
             ]);

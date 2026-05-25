@@ -66,6 +66,7 @@ return new class extends Migration {
             // ── KOLOM EVALUASI GURU BK ──────────────────────────────
             // Diisi oleh Guru BK setelah meninjau jawaban siswa
             $table->decimal('score', 5, 2)->nullable();       // Skor kognitif final
+            $table->json('score_distribution')->nullable();    // Distribusi absolut frekuensi (misal: V=5, A=5, K=4)
             $table->text('feedback')->nullable();              // Umpan balik akhir
             $table->text('recommendation')->nullable();        // Saran metode belajar
             $table->dateTime('evaluated_at')->nullable();      // Waktu evaluasi selesai
