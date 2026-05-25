@@ -1,0 +1,17 @@
+# Architectural Changelog: SRS v1.0.0 vs SRS v2.0.0 (Implementation Baseline)
+
+This comparison outlines the evolution of the system's technical specifications. The architecture was fundamentally redesigned to adapt to the strict hardware constraints of Shared Hosting infrastructure, to ensure absolute compliance with the bureaucratic realities of the Indonesian education system (Kurikulum Merdeka), and to establish a scientifically valid, rule-based approach for non-cognitive assessments.
+
+| System Component | Version 1.0.0 (Initial Architecture) | Version 2.0.0 (Implementation Baseline) | Reason for Change (Academic/Technical Justification) |
+| :--- | :--- | :--- | :--- |
+| **System Positioning** | Primary SIAKAD Application. | **Companion System & Pre-Compilation Platform.** | Mitigates legal conflicts with the official Ministry of Education e-Rapor system and bypasses strict certified Digital Signature (Peruri) requirements. |
+| **Co-curricular Module (P5)** | Undefined. | **Added** utilizing a subject `type` enum and qualitative ordinal assessments. | Absolute requirement for Kurikulum Merdeka validity. Strictly isolates numeric intra-curricular grading from qualitative P5 character grading. |
+| **Extracurricular Module** | Undefined. | **Added** utilizing an independent Flat-Pivot (Cross-Rombel) architecture. | Ensures that cross-functional extracurricular enrollments do not contaminate or break the core classroom (Rombel) and scheduling schemas. |
+| **Guidance & Counseling (BK) Module** | Dynamic question creation by teachers / Undefined Expert System AI. | **Rule-Based Scoring System (VAK)** with immutable, hardcoded standard questions. | Dynamic questions break algorithmic logic. Adopting the official 2018 Ministry of Education VAK instrument guarantees scientific validity and flawless auto-calculation without requiring complex AI inference engines. |
+| **Smart Importer Optimization** | Asynchronous using **Redis / Database Queue** (Job Batching). | Synchronous using **Synchronous Chunking** (Max 50 rows per batch). | Resolves strict Shared Hosting limitations where background workers and terminal daemons (Supervisor) are completely blocked. |
+| **Grade Manipulation Logic** | Formative *Auto-Booster* (Automatic inflation). | **Remedial Calibration Intervention Module** (Manual Approval). | *Auto-boosters* explicitly violate Kurikulum Merdeka guidelines. Manual calibration legally returns assessment autonomy to the teacher while maintaining data integrity. |
+| **Analytics Dashboard (Visualization)** | Limited to server-side aggregate data recaps. | **Client-Side Longitudinal Graphical Visualization** (via Chart.js / ApexCharts). | Eliminates heavy server CPU rendering loads on shared hosting while significantly elevating the analytical and scientific weight of the thesis. |
+| **Security Log (Audit Trail)** | Undefined. | **Explicitly added** with granular forensic logging and an automated Log Pruning strategy. | Prevents database bloating on limited hosting and provides irrefutable forensic validation for grade modifications (Non-repudiation). |
+
+**Transition Conclusion:**
+Version 1.0.0 was an idealistic blueprint. Version 2.0.0 is the **"Implementation Baseline"**—a battle-tested architecture specifically engineered to pass the academic thesis defense, ensure Kurikulum Merdeka compliance, and remain completely crash-proof on low-resource Shared Hosting environments.

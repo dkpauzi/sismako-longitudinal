@@ -35,6 +35,9 @@ class DatabaseSeeder extends Seeder
 
             // 8. Struktur Organisasi
             //SchoolOrganizationSeeder::class,
+
+            // 9. Instrumen VAK
+            VakQuestionnaireSeeder::class,
         ]);
     }
 }

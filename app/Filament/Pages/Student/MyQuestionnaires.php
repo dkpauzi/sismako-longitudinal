@@ -281,6 +281,21 @@ class MyQuestionnaires extends Page implements HasForms
                         break;
                 }
             }
+
+            // --- VAK SCORING INTEGRATION ---
+            // Cek apakah kuesioner ini adalah kuesioner VAK
+            $questionnaire = BkQuestionnaire::find($questionnaireId);
+            if ($questionnaire && str_contains(strtolower($questionnaire->title), 'vak')) {
+                $vakService = new \App\Services\VakScoringService();
+                $result = $vakService->score($response);
+
+                $response->update([
+                    'score' => $result['dominant_percentage'],
+                    'feedback' => "Gaya belajar dominan: {$result['dominant_style']}",
+                    'recommendation' => $result['recommendation'],
+                    'evaluated_at' => now(), // Auto-evaluated by system
+                ]);
+            }
         });
 
         Notification::make()
