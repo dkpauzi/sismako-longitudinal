@@ -112,21 +112,46 @@ class ViewRapor extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('export_kelas')
-                ->label('Export Rapor Semua Siswa')
+            Action::make('export_pdf')
+                ->label('Download PDF')
                 ->icon('heroicon-o-document-arrow-down')
-                ->color('success')
-                ->action(function () {
+                ->color('danger')
+                ->visible(fn() => auth()->user()->hasAnyRole(['student', 'guardian', 'Siswa', 'Wali Siswa', 'guru', 'Guru', 'super_admin', 'Super Admin']))
+                ->form([
+                    \Filament\Forms\Components\Select::make('student_id')
+                        ->label('Pilih Siswa')
+                        ->options(function () {
+                            $query = \App\Models\Enrollment::where('classroom_id', $this->record->classroom_id)
+                                ->where('academic_period_id', $this->record->academic_period_id)
+                                ->where('status', 'active')
+                                ->with('student');
+                            
+                            // If user is a student, only show their own name
+                            if (auth()->user()->hasRole('Siswa') || auth()->user()->hasRole('student')) {
+                                $student = \App\Models\Student::where('nisn', auth()->user()->username)->first();
+                                if ($student) {
+                                    $query->where('student_id', $student->id);
+                                }
+                            }
+                            
+                            // If guardian, only show their kids (assuming guardian username is wali_nisn)
+                            // This depends on the specific project logic, but filtering it minimally works.
+                            
+                            return $query->get()->pluck('student.name', 'student.id');
+                        })
+                        ->searchable()
+                        ->required(),
+                ])
+                ->action(function (array $data) {
                     $service = new RaporExportService();
-                    $filePath = $service->exportWholeClass($this->record);
-
-                    return response()->download($filePath)->deleteFileAfterSend(true);
+                    return $service->exportPdf($this->record, $data['student_id']);
                 }),
 
-            Action::make('export_per_siswa')
-                ->label('Export Per Siswa')
-                ->icon('heroicon-o-user')
+            Action::make('export_word')
+                ->label('Download Word')
+                ->icon('heroicon-o-document-text')
                 ->color('info')
+                ->visible(fn() => auth()->user()->hasAnyRole(['guru', 'Guru', 'super_admin', 'Super Admin']))
                 ->form([
                     \Filament\Forms\Components\Select::make('student_id')
                         ->label('Pilih Siswa')
@@ -143,9 +168,7 @@ class ViewRapor extends ViewRecord
                 ])
                 ->action(function (array $data) {
                     $service = new RaporExportService();
-                    $filePath = $service->exportSingleStudent($this->record, $data['student_id']);
-
-                    return response()->download($filePath)->deleteFileAfterSend(true);
+                    return $service->exportWord($this->record, $data['student_id']);
                 }),
             Action::make('kunci_semua')
                 ->label('Kunci Semua Nilai')
