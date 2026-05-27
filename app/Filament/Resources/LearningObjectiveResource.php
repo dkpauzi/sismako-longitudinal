@@ -29,7 +29,7 @@ class LearningObjectiveResource extends Resource
         $query = parent::getEloquentQuery();
 
         if (auth()->check() && auth()->user()->hasRole('teacher')) {
-            $query->where('teacher_id', auth()->user()->teacher->id);
+            $query->where('teacher_id', auth()->user()->teacher?->id);
         }
 
         return $query;
@@ -44,7 +44,7 @@ class LearningObjectiveResource extends Resource
                     ->schema([
                         // 1. Teacher ID (Hidden & Otomatis)
                         Forms\Components\Hidden::make('teacher_id')
-                            ->default(fn() => auth()->user()->hasRole('teacher') ? auth()->user()->teacher->id : null)
+                            ->default(fn() => auth()->user()->hasRole('teacher') ? auth()->user()->teacher?->id : null)
                             ->required(),
 
                         // 2. Tahun Ajaran (Otomatis Aktif & Readonly buat Guru)
@@ -73,7 +73,7 @@ class LearningObjectiveResource extends Resource
                             ->relationship('subject', 'name', modifyQueryUsing: function (Builder $query) {
                                 // JIKA YANG LOGIN GURU:
                                 if (auth()->user()->hasRole('teacher')) {
-                                    $teacherId = auth()->user()->teacher->id;
+                                    $teacherId = auth()->user()->teacher?->id;
 
                                     // Cari ID Mapel yang diajar oleh Guru ini saja
                                     $assignedSubjectIds = \App\Models\TeachingAssignment::where('teacher_id', $teacherId)
@@ -88,7 +88,7 @@ class LearningObjectiveResource extends Resource
                             // Fitur Tambahan: Jika cuma punya 1 mapel, otomatis terpilih!
                             ->default(function () {
                                 if (auth()->user()->hasRole('teacher')) {
-                                    $teacherId = auth()->user()->teacher->id;
+                                    $teacherId = auth()->user()->teacher?->id;
                                     $subjects = \App\Models\TeachingAssignment::where('teacher_id', $teacherId)
                                         ->pluck('subject_id')
                                         ->unique();

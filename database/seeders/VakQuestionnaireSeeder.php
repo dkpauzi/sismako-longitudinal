@@ -18,14 +18,8 @@ class VakQuestionnaireSeeder extends Seeder
         DB::transaction(function () {
             $now = Carbon::now();
 
-            // Find a valid counselor (or fallback to super admin)
+            // Find a valid counselor, if any
             $counselor = User::role('guru_bk')->first();
-            if (!$counselor) {
-                $counselor = User::role('super_admin')->first();
-            }
-            if (!$counselor) {
-                $counselor = User::first(); // Ultimate fallback
-            }
 
             // Find an active academic period (or fallback to any)
             $academicPeriod = AcademicPeriod::where('is_active', true)->first();
@@ -38,7 +32,7 @@ class VakQuestionnaireSeeder extends Seeder
                 'title' => 'Asesmen Diagnostik Non-Kognitif: Gaya Belajar (VAK)',
                 'description' => 'Instrumen ini bertujuan untuk memetakan kecenderungan gaya belajar siswa (Visual, Auditori, atau Kinestetik). Diadopsi dari Seri Manual GLS Kemdikbud 2018.',
                 'instructions' => 'Pilih satu jawaban yang paling menggambarkan kebiasaan atau reaksi spontan Anda dalam situasi belajar maupun aktivitas sehari-hari. Tidak ada jawaban benar atau salah.',
-                'counselor_id' => $counselor->id,
+                'counselor_id' => $counselor?->id,
                 'academic_period_id' => $academicPeriod ? $academicPeriod->id : 1,
                 'status' => 'published',
                 'starts_at' => $now,

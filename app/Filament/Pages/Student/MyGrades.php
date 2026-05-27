@@ -159,7 +159,7 @@ class MyGrades extends Page implements HasForms
             $studentData[] = [
                 'subject' => $ta->subject->name,
                 'is_kokurikuler' => $isKokurikuler,
-                'teacher' => $ta->teacher->name ?? '-',
+                'teacher' => $ta->teacher?->name ?? '-',
                 'kktp' => $ta->kktp ?? 75,
                 
                 'final_grade' => $finalGrades->get($ta->id),

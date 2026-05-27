@@ -13,7 +13,7 @@ return new class extends Migration {
             $table->string('title');
             $table->text('description')->nullable();
             $table->text('instructions')->nullable();
-            $table->foreignId('counselor_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('counselor_id')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('academic_period_id')->constrained()->cascadeOnDelete();
             $table->enum('status', ['draft', 'published', 'closed'])->default('draft');
             $table->dateTime('starts_at')->nullable();
