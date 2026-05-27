@@ -18,21 +18,35 @@ use Filament\Actions\Imports\Exceptions\RowImportFailedException;
 /**
  * SMART IMPORTER: Auto-Account Generation untuk Siswa & Wali.
  *
+ * ARSITEKTUR SHARED HOSTING (QUEUE_CONNECTION=sync):
+ * - $chunkSize = 50 → Filament memproses 50 baris per batch, bukan seluruh CSV.
+ * - Setiap baris dibungkus dalam DB::transaction() tersendiri.
+ * - Kegagalan baris N TIDAK mempengaruhi baris N-1 atau N+1.
+ * - gc_collect_cycles() dipanggil setiap 25 baris untuk mencegah memory leak.
+ *
  * Untuk setiap baris Excel, importer ini akan:
  *   1. Buat/Update akun User Siswa (username = NISN, password = NISN)
  *   2. Buat/Update akun User Wali  (username = WALI_{NISN}, password = WALI_{NISN})
  *   3. Buat/Update profil Student (link ke kedua akun di atas)
  *   4. Buat Enrollment ke kelas aktif (opsional, jika kolom kelas diisi)
- *
- * Semua operasi dibungkus dalam DB::transaction() untuk menjaga konsistensi data.
  */
 class StudentImporter extends Importer
 {
     protected static ?string $model = Student::class;
 
-    // ✅ OPTIMASI: Cache role di level instance agar tidak query per baris Excel.
+    /**
+     * OPTIMASI SHARED HOSTING: Ukuran chunk kecil.
+     * Filament akan memproses 50 baris per batch synchronous,
+     * bukan seluruh file sekaligus.
+     */
+    public static int $chunkSize = 50;
+
+    // Cache role di level instance agar tidak query DB per baris Excel.
     private ?Role $studentRole = null;
     private ?Role $guardianRole = null;
+
+    // Counter internal untuk GC trigger
+    private int $rowCounter = 0;
 
     public static function getColumns(): array
     {
@@ -132,6 +146,16 @@ class StudentImporter extends Importer
         ];
     }
 
+    /**
+     * Proses satu baris CSV.
+     *
+     * FAULT TOLERANCE:
+     * - Setiap baris dibungkus dalam DB::transaction() sendiri.
+     * - Jika baris 12 gagal (duplikat, validation error), baris 11 sudah commit
+     *   dan baris 13 akan tetap diproses.
+     * - RowImportFailedException dicatat di Failed Rows Log (CSV downloadable).
+     * - gc_collect_cycles() dipanggil setiap 25 baris untuk mengontrol RAM.
+     */
     public function resolveRecord(): ?Student
     {
         $data = $this->data;
@@ -145,8 +169,13 @@ class StudentImporter extends Importer
         $jkInput = strtoupper(trim($data['jenis_kelamin'] ?? ''));
         $gender = ($jkInput === 'P' || $jkInput === 'PEREMPUAN') ? 'P' : 'L';
 
-        // ── SELURUH PROSES DIBUNGKUS DALAM TRANSAKSI ──────────────
-        return DB::transaction(function () use ($data, $nisn, $nama, $namaWali, $gender) {
+        // ── VALIDASI BISNIS TAMBAHAN ─────────────────────────────────
+        if ($nisn === '') {
+            throw new RowImportFailedException('NISN kosong atau tidak valid.');
+        }
+
+        // ── SELURUH PROSES DIBUNGKUS DALAM TRANSAKSI PER BARIS ──────
+        $student = DB::transaction(function () use ($data, $nisn, $nama, $namaWali, $gender) {
 
             // ── STEP 1: BUAT/UPDATE AKUN USER SISWA ───────────────
             $studentUser = User::updateOrCreate(
@@ -236,6 +265,16 @@ class StudentImporter extends Importer
 
             return $student;
         });
+
+        // ── GARBAGE COLLECTION ───────────────────────────────────────
+        // Panggil gc setiap 25 baris untuk mencegah memory leak
+        // saat memproses CSV besar secara synchronous.
+        $this->rowCounter++;
+        if ($this->rowCounter % 25 === 0) {
+            gc_collect_cycles();
+        }
+
+        return $student;
     }
 
     public static function getCompletedNotificationBody(Import $import): string
