@@ -23,7 +23,8 @@ return new class extends Migration {
             $table->foreignId('student_id')->constrained()->cascadeOnDelete();
             $table->foreignId('classroom_id')->constrained()->cascadeOnDelete();
             $table->foreignId('academic_period_id')->constrained()->cascadeOnDelete();
-            $table->string('status')->default('active'); // active, moved, dropped
+            $table->enum('status', ['active', 'promoted', 'retained', 'graduated', 'dropped'])->default('active');
+            $table->foreignId('promoted_from_enrollment_id')->nullable()->constrained('enrollments')->nullOnDelete();
             $table->timestamps();
 
             // Aturan: 1 Siswa hanya boleh ada di 1 kelas pada tahun ajaran yang sama

@@ -197,4 +197,47 @@ class BkTicketingTest extends TestCase
 
         $this->assertEquals(1, $count);
     }
+
+    /**
+     * Test: Tiket pending bisa di-revoke dan berubah status ke 'revoked'.
+     */
+    public function test_pending_ticket_can_be_revoked(): void
+    {
+        $response = BkStudentResponse::create([
+            'questionnaire_id' => $this->questionnaire->id,
+            'student_id' => $this->student->id,
+            'academic_period_id' => $this->academicPeriod->id,
+            'status' => 'pending',
+        ]);
+
+        $this->assertEquals('pending', $response->status);
+
+        // Simulasikan aksi "Batalkan Tiket"
+        $response->update(['status' => 'revoked']);
+        $response->refresh();
+
+        $this->assertEquals('revoked', $response->status);
+        $this->assertNull($response->submitted_at);
+    }
+
+    /**
+     * Test: Tiket revoked TIDAK terlihat oleh siswa (difilter dari query).
+     */
+    public function test_revoked_ticket_is_invisible_to_student(): void
+    {
+        // Buat tiket lalu revoke
+        BkStudentResponse::create([
+            'questionnaire_id' => $this->questionnaire->id,
+            'student_id' => $this->student->id,
+            'academic_period_id' => $this->academicPeriod->id,
+            'status' => 'revoked',
+        ]);
+
+        // Query yang sama dengan MyQuestionnaires: exclude 'revoked'
+        $visibleResponses = BkStudentResponse::where('student_id', $this->student->id)
+            ->where('status', '!=', 'revoked')
+            ->get();
+
+        $this->assertCount(0, $visibleResponses, 'Tiket revoked tidak boleh terlihat oleh siswa.');
+    }
 }

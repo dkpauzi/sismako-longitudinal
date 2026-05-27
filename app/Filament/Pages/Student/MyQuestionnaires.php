@@ -102,8 +102,9 @@ class MyQuestionnaires extends Page implements HasForms
 
         $studentIds = $students->pluck('id')->toArray();
 
-        // Ambil semua respons siswa (termasuk pending dan completed)
+        // Ambil semua respons siswa (pending dan completed, BUKAN revoked)
         $responses = BkStudentResponse::whereIn('student_id', $studentIds)
+            ->where('status', '!=', 'revoked')
             ->get()
             ->keyBy(function ($r) {
                 return $r->questionnaire_id . '_' . $r->student_id;

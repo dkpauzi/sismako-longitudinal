@@ -50,6 +50,19 @@ class BkStudentResponseRelationManager extends RelationManager
                     ->badge()
                     ->formatStateUsing(fn ($state) => $state ? 'Sudah Dievaluasi' : 'Belum Dievaluasi')
                     ->color(fn ($state) => $state ? 'success' : 'warning'),
+                Tables\Columns\TextColumn::make('status')
+                    ->label('Status Tiket')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'pending' => 'warning',
+                        'completed' => 'success',
+                        'revoked' => 'danger',
+                    })
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'pending' => 'Menunggu',
+                        'completed' => 'Selesai',
+                        'revoked' => 'Dibatalkan',
+                    }),
             ])
             ->defaultSort('submitted_at', 'desc')
             ->filters([
@@ -178,6 +191,45 @@ class BkStudentResponseRelationManager extends RelationManager
                             ->success()
                             ->send();
                     }),
+
+                // --- BATALKAN TIKET (Revoke) ---
+                Tables\Actions\Action::make('revoke')
+                    ->label('Batalkan Tiket')
+                    ->icon('heroicon-o-x-circle')
+                    ->color('danger')
+                    ->visible(fn (BkStudentResponse $record) => $record->status === 'pending')
+                    ->requiresConfirmation()
+                    ->modalHeading('Batalkan Tiket Asesmen')
+                    ->modalDescription('Apakah Anda yakin ingin membatalkan tiket ini? Siswa tidak akan bisa mengerjakan kuesioner.')
+                    ->action(function (BkStudentResponse $record) {
+                        $record->update(['status' => 'revoked']);
+
+                        Notification::make()
+                            ->title('Tiket Dibatalkan')
+                            ->body('Tiket asesmen siswa berhasil dibatalkan.')
+                            ->success()
+                            ->send();
+                    }),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkAction::make('bulk_revoke')
+                    ->label('Batalkan Tiket Terpilih')
+                    ->icon('heroicon-o-x-circle')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading('Batalkan Tiket Terpilih')
+                    ->modalDescription('Apakah Anda yakin ingin membatalkan semua tiket terpilih yang berstatus pending?')
+                    ->action(function (\Illuminate\Database\Eloquent\Collection $records) {
+                        $count = $records->where('status', 'pending')->count();
+                        $records->where('status', 'pending')->each(fn ($r) => $r->update(['status' => 'revoked']));
+
+                        Notification::make()
+                            ->title('Tiket Dibatalkan')
+                            ->body("{$count} tiket berhasil dibatalkan.")
+                            ->success()
+                            ->send();
+                    })
+                    ->deselectRecordsAfterCompletion(),
             ]);
     }
 

@@ -17,6 +17,10 @@ class Enrollment extends Model
         'promoted_from_enrollment_id',
     ];
 
+    protected $casts = [
+        'status' => 'string',
+    ];
+
     // Relasi ke Siswa
     public function student()
     {
@@ -35,9 +39,15 @@ class Enrollment extends Model
         return $this->belongsTo(AcademicPeriod::class);
     }
 
-    // Relasi rekursif ke enrollment sebelumnya
+    // Relasi rekursif ke enrollment sebelumnya (asal promosi)
     public function promotedFrom()
     {
         return $this->belongsTo(Enrollment::class, 'promoted_from_enrollment_id');
+    }
+
+    // Relasi rekursif ke enrollment berikutnya (tujuan promosi)
+    public function promotedTo()
+    {
+        return $this->hasOne(Enrollment::class, 'promoted_from_enrollment_id');
     }
 }
