@@ -178,13 +178,18 @@
     <table class="content-table">
         <thead>
             <tr>
-                <th>Kokurikuler</th>
+                <th>Proyek Penguatan Profil Pelajar Pancasila (Kokurikuler)</th>
             </tr>
         </thead>
         <tbody>
             <tr>
                 <td style="text-align: justify; padding: 10px;">
-                    {{ $kokurikulerGrade ? $kokurikulerGrade->narrative_description : 'Belum ada catatan kokurikuler untuk semester ini.' }}
+                    @if($kokurikulerGrade)
+                        <strong>Tema/Proyek: {{ $kokurikulerGrade->project_title }}</strong><br><br>
+                        {{ $kokurikulerGrade->narrative_description }}
+                    @else
+                        Belum ada catatan kokurikuler untuk semester ini.
+                    @endif
                 </td>
             </tr>
         </tbody>

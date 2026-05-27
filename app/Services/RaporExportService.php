@@ -45,7 +45,7 @@ class RaporExportService
 
         // Kokurikuler Grades (for the P5 narrative)
         $kokurikulerGrade = KokurikulerGrade::where('student_id', $studentId)
-            ->whereHas('teachingAssignment', fn($q) => $q->where('classroom_id', $classroom->id)->where('academic_period_id', $period->id))
+            ->where('academic_period_id', $period->id)
             ->first();
 
         // Ekstrakurikuler

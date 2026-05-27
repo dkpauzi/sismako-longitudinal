@@ -13,12 +13,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * * @property int $id
  * @property int $teaching_assignment_id
  * @property int $student_id
- * @property string|null $description
+ * @property int $academic_period_id
+ * @property string|null $project_title
+ * @property string|null $narrative_description
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * * Relasi:
  * @property-read TeachingAssignment $teachingAssignment
  * @property-read Student $student
+ * @property-read AcademicPeriod $academicPeriod
  */
 class KokurikulerGrade extends Model
 {
@@ -35,7 +38,9 @@ class KokurikulerGrade extends Model
     protected $fillable = [
         'teaching_assignment_id',
         'student_id',
-        'description',
+        'academic_period_id',
+        'project_title',
+        'narrative_description',
     ];
 
     /*
@@ -60,5 +65,13 @@ class KokurikulerGrade extends Model
     public function student(): BelongsTo
     {
         return $this->belongsTo(Student::class);
+    }
+
+    /**
+     * Relasi ke AcademicPeriod.
+     */
+    public function academicPeriod(): BelongsTo
+    {
+        return $this->belongsTo(AcademicPeriod::class);
     }
 }
