@@ -138,6 +138,11 @@ class TeachingAssignment extends Model
         return $this->getEffectiveType() === 'kokurikuler';
     }
 
+    public function isExtracurricular(): bool
+    {
+        return $this->getEffectiveType() === 'extracurricular';
+    }
+
 
     /*
     |--------------------------------------------------------------------------

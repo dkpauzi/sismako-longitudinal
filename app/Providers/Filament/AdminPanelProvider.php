@@ -71,8 +71,9 @@ class AdminPanelProvider extends PanelProvider
                 Widgets\AccountWidget::class,
                 // Widgets\FilamentInfoWidget::class, // Widget info bawaan (disembunyikan)
                 \App\Filament\Widgets\NilaiSiswaWidget::class,
-    \App\Filament\Widgets\RingkasanNilaiKelasWidget::class,
-    \App\Filament\Widgets\KinerjaGuruWidget::class,
+                \App\Filament\Widgets\RingkasanNilaiKelasWidget::class,
+                \App\Filament\Widgets\KinerjaGuruWidget::class,
+                \App\Filament\Widgets\MyExtracurricularsWidget::class,
             ])
             ->middleware([
                 EncryptCookies::class,

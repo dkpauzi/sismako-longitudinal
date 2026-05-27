@@ -204,7 +204,7 @@
                 <tr>
                     <td class="text-center">{{ $idx + 1 }}</td>
                     <td>{{ $ekskul->teachingAssignment->subject->name }}</td>
-                    <td style="text-align: justify;">{{ $ekskul->note ?? '-' }}</td>
+                    <td style="text-align: justify;">{{ $ekskul->description ?? '-' }}</td>
                 </tr>
             @empty
                 <tr>

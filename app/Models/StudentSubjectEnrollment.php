@@ -12,6 +12,8 @@ class StudentSubjectEnrollment extends Model
         'student_id',
         'teaching_assignment_id',
         'note',
+        'predicate',
+        'description',
     ];
 
     public function student(): BelongsTo
