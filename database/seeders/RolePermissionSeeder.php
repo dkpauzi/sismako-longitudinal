@@ -26,7 +26,7 @@ class RolePermissionSeeder extends Seeder
         // Reset cache izin Spatie agar perubahan langsung berlaku
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
-        // ── BUAT ROLE JIKA BELUM ADA ────────────────────────────
+        // ── BUAT ROLE JIKA BELUM ADA (Diseragamkan Menggunakan Slugs Standar) ──
         $superAdmin = Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
         $admin      = Role::firstOrCreate(['name' => 'admin',       'guard_name' => 'web']);
         $teacher    = Role::firstOrCreate(['name' => 'teacher',     'guard_name' => 'web']);
@@ -35,256 +35,170 @@ class RolePermissionSeeder extends Seeder
         $guardian   = Role::firstOrCreate(['name' => 'guardian',    'guard_name' => 'web']);
         $guruBk     = Role::firstOrCreate(['name' => 'guru_bk',     'guard_name' => 'web']);
 
-        // ── SUPER ADMIN: Dapat semua izin ────────────────────────
-        // Super Admin tidak perlu didaftarkan permission satu per satu.
-        // Filament Shield menangani ini via gate_intercept di config.
-        // Cukup pastikan nama role-nya 'super_admin'.
+        // ── SUPER ADMIN: Dapat semua izin secara otomatis via Gate Intercept ──
         $this->command->info('✅ Super Admin: Mendapat semua izin secara otomatis.');
 
-        // ── KEPALA SEKOLAH ────────────────────────────────────────
-        // Bisa melihat semua data, tidak bisa mengubah pengaturan sistem.
+        // ── KEPALA SEKOLAH (HEADMASTER) ────────────────────────────────────────
         $headmasterPermissions = $this->resolvePermissions([
-            // Akademik - READ ONLY untuk data master
+            // Akademik - READ ONLY untuk pemantauan data master
             'view_any_academic::period', 'view_academic::period',
             'view_any_classroom',        'view_classroom',
             'view_any_subject',          'view_subject',
             'view_any_teacher',          'view_teacher',
             'view_any_student',          'view_student',
 
-            // SK Mengajar - lihat semua kelas semua guru
+            // SK Mengajar & Manajemen Ekstrakurikuler (Read-only)
             'view_any_teaching::assignment', 'view_teaching::assignment',
+            'view_any_student::subject::enrollment',
 
-            // Jurnal & TP - bisa lihat semua
+            // Jurnal, TP, & Penilaian Kokurikuler (P5)
             'view_any_lesson::journal', 'view_lesson::journal',
             'view_any_learning::objective', 'view_learning::objective',
+            'view_any_kokurikuler::grade', 'view_kokurikuler::grade',
 
-            // Rapor - bisa lihat semua & generate narasi
+            // Rapor - Pemantauan Transkrip & Hasil Akhir
             'view_any_rapor', 'view_rapor',
 
-            // Konten Website - bisa kelola semua
-            'view_any_school::profile',   'view_school::profile',
-            'update_school::profile',
+            // Konten Website Resmi Sekolah
+            'view_any_school::profile',   'view_school::profile', 'update_school::profile',
+            'view_any_school::activity',  'view_school::activity', 'create_school::activity', 'update_school::activity', 'delete_school::activity',
+            'view_any_school::post',      'view_school::post', 'create_school::post', 'update_school::post', 'delete_school::post',
+            'view_any_school::organization::structure', 'view_school::organization::structure',
 
-            'view_any_school::activity',  'view_school::activity',
-            'create_school::activity',    'update_school::activity',
-            'delete_school::activity',
-
-            'view_any_school::post',      'view_school::post',
-            'create_school::post',        'update_school::post',
-            'delete_school::post',
-
-            'view_any_school::organization::structure',
-            'view_school::organization::structure',
-
-            // Hasil Asesmen BK - bisa melihat hasil evaluasi semua kelas
+            // Hasil Evaluasi Psikologis / Asesmen VAK Guru BK
             'page_StudentBkResults',
         ]);
         $headmaster->syncPermissions($headmasterPermissions);
         $this->command->info('✅ Kepala Sekolah: ' . count($headmasterPermissions) . ' izin diberikan.');
 
-        // ── ADMIN ─────────────────────────────────────────────────
-        // Kelola semua data akademik & konten, tapi tidak bisa ubah Role/Permission.
+        // ── ADMIN / TATA USAHA ─────────────────────────────────────────────────
         $adminPermissions = $this->resolvePermissions([
-            // Manajemen Akun (bisa kelola user, tapi bukan role)
-            'view_any_user',  'view_user',
-            'create_user',    'update_user',
-            'delete_user',
+            // Manajemen Kredensial Pengguna (Siswa, Wali, Guru)
+            'view_any_user',  'view_user', 'create_user', 'update_user', 'delete_user',
 
-            // Tahun Ajaran - full CRUD
-            'view_any_academic::period', 'view_academic::period',
-            'create_academic::period',   'update_academic::period',
-            'delete_academic::period',
+            // Tahun Ajaran Terstruktur - Full CRUD
+            'view_any_academic::period', 'view_academic::period', 'create_academic::period', 'update_academic::period', 'delete_academic::period',
 
-            // Kelas, Mapel, Guru, Siswa - full CRUD
-            'view_any_classroom',  'view_classroom',  'create_classroom',
-            'update_classroom',    'delete_classroom',
+            // Data Master Entitas Pendidikan - Full CRUD
+            'view_any_classroom',  'view_classroom',  'create_classroom',  'update_classroom',  'delete_classroom',
+            'view_any_subject',    'view_subject',    'create_subject',    'update_subject',    'delete_subject',
+            'view_any_teacher',    'view_teacher',    'create_teacher',    'update_teacher',    'delete_teacher', 'delete_any_teacher',
+            'view_any_student',    'view_student',    'create_student',    'update_student',    'delete_student', 'delete_any_student',
 
-            'view_any_subject',    'view_subject',    'create_subject',
-            'update_subject',      'delete_subject',
+            // SK Mengajar / Pembina Ekskul - Full CRUD
+            'view_any_teaching::assignment', 'view_teaching::assignment', 'create_teaching::assignment', 'update_teaching::assignment', 'delete_teaching::assignment', 'delete_any_teaching::assignment',
 
-            'view_any_teacher',    'view_teacher',    'create_teacher',
-            'update_teacher',      'delete_teacher',  'delete_any_teacher',
+            // Manajemen Pendaftaran Anggota Ekstrakurikuler Siswa
+            'view_any_student::subject::enrollment', 'create_student::subject::enrollment', 'update_student::subject::enrollment', 'delete_student::subject::enrollment',
 
-            'view_any_student',    'view_student',    'create_student',
-            'update_student',      'delete_student',  'delete_any_student',
+            // Penilaian Nilai Akhir Modul Kokurikuler (P5) - Full CRUD
+            'view_any_kokurikuler::grade', 'view_kokurikuler::grade', 'create_kokurikuler::grade', 'update_kokurikuler::grade', 'delete_kokurikuler::grade',
 
-            // SK Mengajar - full CRUD (admin yang atur jadwal)
-            'view_any_teaching::assignment', 'view_teaching::assignment',
-            'create_teaching::assignment',   'update_teaching::assignment',
-            'delete_teaching::assignment',   'delete_any_teaching::assignment',
+            // Hak Akses Log Purge & Pengawasan Jurnal/TP
+            'view_any_learning::objective', 'view_learning::objective', 'delete_learning::objective',
+            'view_any_lesson::journal',     'view_lesson::journal',     'delete_lesson::journal',
 
-            // TP & Jurnal - lihat dan hapus jika perlu
-            'view_any_learning::objective', 'view_learning::objective',
-            'delete_learning::objective',
-
-            'view_any_lesson::journal',     'view_lesson::journal',
-            'delete_lesson::journal',
-
-            // Mapel Pilihan Siswa SMA
-            'view_any_student::subject::enrollment',
-            'create_student::subject::enrollment',
-            'update_student::subject::enrollment',
-            'delete_student::subject::enrollment',
-
-            // Rapor - full akses
+            // Output Layer Rapor Cetak
             'view_any_rapor', 'view_rapor',
 
-            // Konten Website - full CRUD
-            'view_any_school::profile',    'view_school::profile',
-            'create_school::profile',      'update_school::profile',
+            // Konten Website & Pengaturan Parameter Aplikasi
+            'view_any_school::profile',    'view_school::profile', 'create_school::profile', 'update_school::profile',
+            'view_any_school::activity',   'view_school::activity', 'create_school::activity', 'update_school::activity', 'delete_school::activity', 'delete_any_school::activity',
+            'view_any_school::post',       'view_school::post', 'create_school::post', 'update_school::post', 'delete_school::post', 'delete_any_school::post',
+            'view_any_school::organization::structure', 'view_school::organization::structure', 'create_school::organization::structure', 'update_school::organization::structure', 'delete_school::organization::structure',
+            'view_any_school::setting',    'view_school::setting', 'create_school::setting', 'update_school::setting',
+            'view_any_narrative::template', 'view_narrative::template', 'create_narrative::template', 'update_narrative::template', 'delete_narrative::template',
 
-            'view_any_school::activity',   'view_school::activity',
-            'create_school::activity',     'update_school::activity',
-            'delete_school::activity',     'delete_any_school::activity',
-
-            'view_any_school::post',       'view_school::post',
-            'create_school::post',         'update_school::post',
-            'delete_school::post',         'delete_any_school::post',
-
-            'view_any_school::organization::structure',
-            'view_school::organization::structure',
-            'create_school::organization::structure',
-            'update_school::organization::structure',
-            'delete_school::organization::structure',
-
-            // Pengaturan Sekolah
-            'view_any_school::setting', 'view_school::setting',
-            'create_school::setting',   'update_school::setting',
-
-            // Template Narasi Rapor - full CRUD (Admin kelola template default)
-            'view_any_narrative::template', 'view_narrative::template',
-            'create_narrative::template',   'update_narrative::template',
-            'delete_narrative::template',
+            // Izin Halaman Kenaikan Kelas Kritis (Promotion Wizard Page)
+            'page_StudentPromotionWizard',
         ]);
         $admin->syncPermissions($adminPermissions);
         $this->command->info('✅ Admin: ' . count($adminPermissions) . ' izin diberikan.');
 
-        // ── GURU ──────────────────────────────────────────────────
-        // Hanya bisa mengelola data yang berkaitan dengan tugasnya sendiri.
-        // Filter "hanya kelas milik sendiri" ditangani di getEloquentQuery() Resource.
+        // ── GURU / TEACHER ──────────────────────────────────────────────────
         $teacherPermissions = $this->resolvePermissions([
-            // SK Mengajar - hanya bisa lihat & edit (tidak bisa buat/hapus)
-            // Create & Delete dikelola Admin
-            'view_any_teaching::assignment', 'view_teaching::assignment',
-            'update_teaching::assignment',
+            // SK Mengajar - Lihat Tugas & Update Beban Kelas
+            'view_any_teaching::assignment', 'view_teaching::assignment', 'update_teaching::assignment',
 
-            // Template Narasi Rapor - guru bisa lihat dan edit override kelasnya
-            'view_any_narrative::template', 'view_narrative::template',
-            'create_narrative::template',   'update_narrative::template',
-            'delete_narrative::template',
+            // Akses Mengisi Predikat & Deskripsi Narasi Evaluasi Ekstrakurikuler Siswa
+            'view_any_student::subject::enrollment', 'update_student::subject::enrollment',
 
-            // Tujuan Pembelajaran (TP) - full CRUD untuk TPnya sendiri
-            'view_any_learning::objective', 'view_learning::objective',
-            'create_learning::objective',   'update_learning::objective',
-            'delete_learning::objective',
+            // Akses Mengisi Nilai Akhir Narasi Projek Kokurikuler (P5)
+            'view_any_kokurikuler::grade', 'view_kokurikuler::grade', 'create_kokurikuler::grade', 'update_kokurikuler::grade', 'delete_kokurikuler::grade',
 
-            // Jurnal KBM - full CRUD
-            'view_any_lesson::journal', 'view_lesson::journal',
-            'create_lesson::journal',   'update_lesson::journal',
-            'delete_lesson::journal',
+            // Kamus Narasi Otomatis Rapor (Rule Engine Overrides)
+            'view_any_narrative::template', 'view_narrative::template', 'create_narrative::template', 'update_narrative::template', 'delete_narrative::template',
 
-            // Siswa - hanya bisa lihat (tidak bisa edit data pribadi siswa)
+            // Pembuatan Kompetensi Dasar / Tujuan Pembelajaran (TP)
+            'view_any_learning::objective', 'view_learning::objective', 'create_learning::objective', 'update_learning::objective', 'delete_learning::objective',
+
+            // Pencatatan Harian Jurnal KBM
+            'view_any_lesson::journal', 'view_lesson::journal', 'create_lesson::journal', 'update_lesson::journal', 'delete_lesson::journal',
+
+            // Read-Only Profil Siswa & Wadah Kelas
             'view_any_student', 'view_student',
-
-            // Kelas - hanya bisa lihat
             'view_any_classroom', 'view_classroom',
 
-            // Rapor - bisa lihat kelasnya sendiri
+            // Output Layer Rapor Kelas Sendiri
             'view_any_rapor', 'view_rapor',
 
-            // Konten Website - bisa buat postingan/galeri (sebagai kontribusi)
-            'view_any_school::post',    'view_school::post',
-            'create_school::post',      'update_school::post',
+            // Publikasi Konten Informasi Sekolah
+            'view_any_school::post', 'view_school::post', 'create_school::post', 'update_school::post',
+            'view_any_school::activity', 'view_school::activity', 'create_school::activity', 'update_school::activity',
 
-            'view_any_school::activity', 'view_school::activity',
-            'create_school::activity',   'update_school::activity',
-
-            // Hasil Asesmen BK - bisa melihat hasil evaluasi siswa di kelasnya sendiri
+            // Pemantauan Gaya Belajar Siswa dari Hasil BK
             'page_StudentBkResults',
         ]);
         $teacher->syncPermissions($teacherPermissions);
         $this->command->info('✅ Guru: ' . count($teacherPermissions) . ' izin diberikan.');
 
         // ── GURU BK ───────────────────────────────────────────────
-        // Mengelola rekam bimbingan, kuesioner BK, serta dapat melihat data siswa dan kelas.
         $guruBkPermissions = $this->resolvePermissions([
-            // Rekam Bimbingan (CRUD untuk rekam yang dibuatnya sendiri, difilter di Resource)
-            'view_any_bk::counseling::record', 'view_bk::counseling::record',
-            'create_bk::counseling::record',   'update_bk::counseling::record',
-            'delete_bk::counseling::record',
+            // Rekam Kasus Bimbingan Konseling - Full CRUD
+            'view_any_bk::counseling::record', 'view_bk::counseling::record', 'create_bk::counseling::record', 'update_bk::counseling::record', 'delete_bk::counseling::record',
 
-            // Kuesioner BK (CRUD untuk kuesioner yang dibuatnya sendiri, difilter di Resource)
-            'view_any_bk::questionnaire', 'view_bk::questionnaire',
-            'create_bk::questionnaire',   'update_bk::questionnaire',
-            'delete_bk::questionnaire',
+            // Manajemen Instrumen Tes Psikologi VAK & Kontrol Tiket Akses
+            'view_any_bk::questionnaire', 'view_bk::questionnaire', 'create_bk::questionnaire', 'update_bk::questionnaire', 'delete_bk::questionnaire',
 
-            // Siswa - hanya bisa lihat
+            // Hak Akses Peninjauan Lintas Kelas & Guru untuk Koordinasi Kasus
             'view_any_student', 'view_student',
-
-            // Kelas - hanya bisa lihat
             'view_any_classroom', 'view_classroom',
-            
-            // Guru - melihat data guru/wali kelas untuk koordinasi
             'view_any_teacher', 'view_teacher',
-
-            // Rapor - bisa melihat rapor siswa untuk keperluan konseling
             'view_any_rapor', 'view_rapor',
 
-            // Konten Website - bisa buat postingan/informasi (sebagai kontribusi)
-            'view_any_school::post',    'view_school::post',
-            'create_school::post',      'update_school::post',
+            // Publikasi Buletin Bimbingan Remaja di Website
+            'view_any_school::post', 'view_school::post', 'create_school::post', 'update_school::post',
+            'view_any_school::activity', 'view_school::activity', 'create_school::activity', 'update_school::activity',
 
-            'view_any_school::activity', 'view_school::activity',
-            'create_school::activity',   'update_school::activity',
-
-            // Hasil Asesmen BK - bisa melihat hasil evaluasi semua kelas
+            // Halaman Hasil Distribusi Gaya Belajar VAK Siswa Secara Global
             'page_StudentBkResults',
         ]);
         $guruBk->syncPermissions($guruBkPermissions);
         $this->command->info('✅ Guru BK: ' . count($guruBkPermissions) . ' izin diberikan.');
 
-        // ── SISWA ─────────────────────────────────────────────────
-        // Hanya bisa melihat datanya sendiri.
-        // Filter "hanya data milik sendiri" ditangani di logika aplikasi.
+        // ── SISWA (STUDENT) ─────────────────────────────────────────────────
         $studentPermissions = $this->resolvePermissions([
-            // Hanya bisa lihat nilai & rapor diri sendiri
-            // (difilter di DetailNilaiSiswa Page dan NilaiSiswaWidget)
-            'view_any_rapor', 'view_rapor',
-            'widget_StudentScheduleWidget',
-
-            // Kuesioner BK — siswa bisa melihat & mengisi kuesioner yang ditargetkan ke kelasnya
-            'page_MyQuestionnaires',
+            'view_any_rapor', 'view_rapor',            // Akses Transkrip Pemantauan Nilai Mandiri
+            'widget_StudentScheduleWidget',           // Peninjauan Jadwal Pelajaran Aktif
+            'page_MyQuestionnaires',                  // Mengisi Angket VAK Saat Tiket Dibuka Guru BK
         ]);
         $student->syncPermissions($studentPermissions);
         $this->command->info('✅ Siswa: ' . count($studentPermissions) . ' izin diberikan.');
 
-        // ── WALI SISWA ───────────────────────────────────────────
-        // Saat ini mendapat izin yang SAMA dengan Siswa.
-        // Dipisahkan agar nanti modul Konseling (Guru BK) bisa mengatur
-        // visibilitas per role — misalnya: "Apakah wali bisa melihat
-        // catatan konseling ini?" tanpa mempengaruhi akses siswa.
-        $waliSiswa = Role::firstOrCreate(['name' => 'wali_siswa', 'guard_name' => 'web']);
-
-        $waliPermissions = $this->resolvePermissions([
-            // Bisa lihat nilai & rapor anak
-            'view_any_rapor', 'view_rapor',
-            'widget_StudentScheduleWidget',
-
-            // Kuesioner BK — wali bisa melihat kuesioner & hasil evaluasi anak
-            'page_MyQuestionnaires',
+        // ── WALI SISWA (GUARDIAN) ───────────────────────────────────────────
+        $guardianPermissions = $this->resolvePermissions([
+            'view_any_rapor', 'view_rapor',            // Memantau Grafik Perkembangan & Rapor Bayangan Anak
+            'widget_StudentScheduleWidget',           // Meninjau Kehadiran & Jadwal Belajar Anak
+            'page_MyQuestionnaires',                  // Meninjau Profil Gaya Belajar Hasil Angket Anak
         ]);
-        $waliSiswa->syncPermissions($waliPermissions);
-        $this->command->info('✅ Wali Siswa: ' . count($waliPermissions) . ' izin diberikan.');
+        $guardian->syncPermissions($guardianPermissions);
+        $this->command->info('✅ Wali Siswa: ' . count($guardianPermissions) . ' izin diberikan.');
 
         $this->command->newLine();
-        $this->command->info('🎉 Selesai! Semua role telah dikonfigurasi.');
+        $this->command->info('🎉 Selesai! Semua role telah dikonfigurasi secara sinkron.');
         $this->command->info('   Jalankan: php artisan permission:cache-reset untuk membersihkan cache.');
     }
 
-    /**
-     * Helper: ambil Permission yang ada di database saja.
-     * Menghindari error jika ada nama permission yang belum dibuat.
-     */
     private function resolvePermissions(array $names): \Illuminate\Support\Collection
     {
         $found  = Permission::whereIn('name', $names)->get();
