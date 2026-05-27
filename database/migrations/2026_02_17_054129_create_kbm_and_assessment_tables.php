@@ -36,7 +36,7 @@ return new class extends Migration {
             $table->timestamps();
         });
 
-        // 3. JURNAL KBM — [TAMBAH] Dibuat sebelum attendances karena attendances FK ke sini
+        // 3. JURNAL KBM — Dibuat sebelum attendances karena attendances FK ke sini
         Schema::create('lesson_journals', function (Blueprint $table) {
             $table->id();
             $table->foreignId('teaching_assignment_id')
@@ -55,16 +55,14 @@ return new class extends Migration {
             );
         });
 
-
-
-        // 4. JURNAL ABSENSI — [EDIT] Tambah kolom lesson_journal_id
+        // 4. JURNAL ABSENSI
         Schema::create('attendances', function (Blueprint $table) {
             $table->id();
             $table->foreignId('teaching_assignment_id')
                 ->constrained('teaching_assignments')
                 ->cascadeOnDelete();
 
-            // [TAMBAH] Link opsional ke jurnal KBM. Nullable agar absensi tetap valid
+            // Link opsional ke jurnal KBM. Nullable agar absensi tetap valid
             // jika guru mengisi absensi tanpa membuat jurnal terlebih dahulu.
             $table->foreignId('lesson_journal_id')
                 ->nullable()
@@ -83,7 +81,6 @@ return new class extends Migration {
                 'unique_attendance_per_student_per_date'
             );
         });
-
 
         // 5. TUJUAN PEMBELAJARAN (TP)
         Schema::create('learning_objectives', function (Blueprint $table) {
@@ -136,21 +133,19 @@ return new class extends Migration {
             );
         });
 
-        // 9. NILAI KOKURIKULER (P5)
+        // 9. NILAI KOKURIKULER (P5) - [DIREVISI SESUAI BATASAN SKRIPSI]
         Schema::create('kokurikuler_grades', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('teaching_assignment_id')->constrained('teaching_assignments')->cascadeOnDelete();
             $table->foreignId('student_id')->constrained('students')->cascadeOnDelete();
-            $table->text('description')->nullable();
+            $table->foreignId('academic_period_id')->constrained('academic_periods')->cascadeOnDelete();
+            $table->string('project_title'); 
+            $table->text('narrative_description'); 
             $table->timestamps();
-
-            $table->unique(
-                ['teaching_assignment_id', 'student_id'],
-                'unique_kokurikuler_grade_per_student'
-            );
+            // Catatan: Tidak ada batasan unique untuk student_id + academic_period_id
+            // karena satu siswa bisa mengikuti banyak projek P5 per semester.
         });
 
-        // 10. REKAP ABSENSI — [TAMBAH] Snapshot H/I/S/A per semester, diperbarui oleh Observer
+        // 10. REKAP ABSENSI — Snapshot H/I/S/A per semester, diperbarui oleh Observer
         Schema::create('attendance_summaries', function (Blueprint $table) {
             $table->id();
             $table->foreignId('student_id')->constrained('students')->cascadeOnDelete();
@@ -171,7 +166,7 @@ return new class extends Migration {
             );
         });
 
-        // 11. NILAI AKHIR RAPOR — [TAMBAH] Snapshot calculateFinalGrade() untuk rapor
+        // 11. NILAI AKHIR RAPOR — Snapshot calculateFinalGrade() untuk rapor
         Schema::create('final_grades', function (Blueprint $table) {
             $table->id();
             $table->foreignId('student_id')->constrained('students')->cascadeOnDelete();
@@ -212,7 +207,7 @@ return new class extends Migration {
             );
         });
 
-        // MAPEL PILIHAN & EKSKUL — Pivot siswa ↔ teaching_assignment
+        // 13. MAPEL PILIHAN & EKSKUL — Pivot siswa ↔ teaching_assignment
         // Hanya diisi untuk type 'elective' dan 'extracurricular'
         Schema::create('student_subject_enrollments', function (Blueprint $table) {
             $table->id();
@@ -226,6 +221,10 @@ return new class extends Migration {
                 ->cascadeOnDelete();
 
             $table->string('note')->nullable(); // Cth: "Peminatan IPA", "Lintas Minat"
+            
+            // [DIREVISI] Penilaian Narasi Ekstrakurikuler
+            $table->string('predicate')->nullable(); 
+            $table->text('description')->nullable(); 
 
             $table->timestamps();
 
@@ -234,8 +233,6 @@ return new class extends Migration {
                 'unique_student_subject_enrollment'
             );
         });
-
-
     }
 
     public function down(): void
