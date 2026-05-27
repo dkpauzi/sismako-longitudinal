@@ -17,6 +17,7 @@ use Filament\Pages\Page;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Illuminate\Support\HtmlString;
+use Livewire\Attributes\On;
 
 class StudentPromotionWizard extends Page
 {
@@ -28,6 +29,28 @@ class StudentPromotionWizard extends Page
     protected static ?int $navigationSort = 10;
 
     public ?array $data = [];
+
+    // ── CHUNKING STATE ──────────────────────────────────────────────
+    // Properti ini menyimpan state proses chunking yang berjalan.
+    // Livewire menjaga state ini di antara request melalui dehydration/hydration.
+
+    /** Antrian data promosi yang belum diproses */
+    public array $pendingQueue = [];
+
+    /** ID Tahun Ajaran Tujuan (disimpan saat startProcessing) */
+    public ?int $targetPeriodId = null;
+
+    /** Jumlah siswa yang sudah berhasil diproses */
+    public int $processedCount = 0;
+
+    /** Total siswa yang harus diproses */
+    public int $totalCount = 0;
+
+    /** Flag apakah sedang dalam proses chunking */
+    public bool $isProcessing = false;
+
+    /** Pesan error jika ada chunk yang gagal */
+    public ?string $errorMessage = null;
 
     public function mount(): void
     {
@@ -82,12 +105,12 @@ class StudentPromotionWizard extends Page
                                 ->columns(4)
                                 ->schema([
                                     Hidden::make('enrollment_id'),
-                                    
+
                                     TextInput::make('student_name')
                                         ->label('Nama Siswa')
                                         ->disabled()
                                         ->columnSpan(1),
-                                        
+
                                     Select::make('action')
                                         ->label('Status')
                                         ->options([
@@ -99,16 +122,12 @@ class StudentPromotionWizard extends Page
                                         ->required()
                                         ->live()
                                         ->afterStateUpdated(function (Set $set, Get $get, $state) {
-                                            if ($state === 'retained') {
-                                                // Jika tinggal kelas, otomatis set ke kelas asal (default suggestion)
-                                                // We can't access parent state easily in nested, but we try to set it to current classroom logic
-                                                $set('target_classroom_id', null); 
-                                            } elseif ($state === 'graduated') {
+                                            if ($state === 'retained' || $state === 'graduated') {
                                                 $set('target_classroom_id', null);
                                             }
                                         })
                                         ->columnSpan(1),
-                                        
+
                                     Select::make('target_classroom_id')
                                         ->label('Kelas Tujuan')
                                         ->options(Classroom::pluck('name', 'id'))
@@ -118,12 +137,12 @@ class StudentPromotionWizard extends Page
                                 ]),
                         ]),
                 ])
-                ->submitAction(new HtmlString('<button type="submit" class="fi-btn fi-btn-color-primary">Proses Kenaikan Kelas</button>'))
+                ->submitAction(new HtmlString('<button type="submit" class="fi-btn fi-btn-color-primary" id="btn-submit-promotion">Proses Kenaikan Kelas</button>'))
             ])
             ->statePath('data');
     }
 
-    protected function populateStudents(Set $set, Get $get)
+    protected function populateStudents(Set $set, Get $get): void
     {
         $periodId = $get('source_academic_period_id');
         $classroomId = $get('source_classroom_id');
@@ -145,19 +164,27 @@ class StudentPromotionWizard extends Page
                 'enrollment_id' => $enrollment->id,
                 'student_name' => $enrollment->student->name . ' (' . $enrollment->student->nisn . ')',
                 'action' => 'promoted',
-                'target_classroom_id' => null, // Admin needs to pick this, or we can auto-suggest
+                'target_classroom_id' => null,
             ];
         }
 
         $set('students', $students);
     }
 
-    public function submit(PromotionService $service)
+    /**
+     * Dipanggil oleh wire:submit pada form.
+     * Validasi data, populate antrian, dan mulai proses chunking.
+     */
+    public function submit(): void
     {
-        $data = $this->form->getState();
+        // Cegah submit ganda saat masih memproses
+        if ($this->isProcessing) {
+            return;
+        }
 
+        $data = $this->form->getState();
         $promotions = $data['students'] ?? [];
-        $targetPeriodId = $data['target_academic_period_id'];
+        $this->targetPeriodId = (int) $data['target_academic_period_id'];
 
         if (empty($promotions)) {
             Notification::make()
@@ -167,23 +194,93 @@ class StudentPromotionWizard extends Page
             return;
         }
 
-        $result = $service->processBatchPromotions($promotions, $targetPeriodId);
+        // Inisialisasi state chunking
+        $this->pendingQueue = $promotions;
+        $this->totalCount = count($promotions);
+        $this->processedCount = 0;
+        $this->isProcessing = true;
+        $this->errorMessage = null;
 
-        if ($result['success']) {
-            Notification::make()
-                ->title('Proses Berhasil')
-                ->body($result['message'])
-                ->success()
-                ->send();
-                
-            // Reset form
-            $this->form->fill();
-        } else {
+        // Dispatch event ke browser → browser akan segera memanggilnya kembali.
+        // Ini memastikan PHP mendapatkan execution timer BARU untuk setiap chunk.
+        $this->dispatch('process-next-batch');
+    }
+
+    /**
+     * Proses satu chunk dari antrian.
+     *
+     * ARSITEKTUR SHARED HOSTING:
+     * Livewire event recursion: setiap kali method ini selesai, response
+     * dikirim ke browser. Browser menerima instruksi dispatch('process-next-batch'),
+     * lalu mengirim request HTTP baru. Request baru = PHP execution timer di-reset.
+     *
+     * Ini menghindari timeout pada shared hosting yang memiliki
+     * max_execution_time rendah (30-60 detik).
+     */
+    #[On('process-next-batch')]
+    public function processNextBatch(): void
+    {
+        if (empty($this->pendingQueue)) {
+            $this->finishProcessing();
+            return;
+        }
+
+        // Ambil chunk dari depan antrian
+        $chunk = array_splice($this->pendingQueue, 0, PromotionService::CHUNK_SIZE);
+
+        $service = app(PromotionService::class);
+        $result = $service->processChunk($chunk, $this->targetPeriodId);
+
+        if (!$result['success']) {
+            // Hentikan proses jika chunk gagal
+            $this->isProcessing = false;
+            $this->errorMessage = $result['message'];
+
             Notification::make()
                 ->title('Proses Gagal')
-                ->body($result['message'])
+                ->body($result['message'] . " ({$this->processedCount}/{$this->totalCount} sudah diproses)")
                 ->danger()
                 ->send();
+            return;
         }
+
+        $this->processedCount += $result['processed'];
+
+        // Jika masih ada antrian, dispatch lagi → browser round-trip → timer reset
+        if (!empty($this->pendingQueue)) {
+            $this->dispatch('process-next-batch');
+        } else {
+            $this->finishProcessing();
+        }
+    }
+
+    /**
+     * Selesaikan proses dan tampilkan notifikasi sukses.
+     */
+    private function finishProcessing(): void
+    {
+        $this->isProcessing = false;
+
+        Notification::make()
+            ->title('Proses Berhasil')
+            ->body("{$this->processedCount} siswa berhasil diproses.")
+            ->success()
+            ->send();
+
+        // Reset form untuk siklus berikutnya
+        $this->form->fill();
+        $this->pendingQueue = [];
+    }
+
+    /**
+     * Hitung persentase progress untuk progress bar di blade view.
+     */
+    public function getProgressPercentageProperty(): int
+    {
+        if ($this->totalCount === 0) {
+            return 0;
+        }
+
+        return (int) round(($this->processedCount / $this->totalCount) * 100);
     }
 }
