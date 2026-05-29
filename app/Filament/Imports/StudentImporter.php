@@ -93,8 +93,8 @@ class StudentImporter extends Importer
                 ->fillRecordUsing(fn() => null),
 
             ImportColumn::make('tanggal_lahir')
-                ->rules(['nullable', 'date_format:Y-m-d'])
-                ->example('2010-08-17')
+                ->rules(['nullable'])
+                ->example('17-08-2010 (Gunakan format teks DD-MM-YYYY)')
                 ->fillRecordUsing(fn() => null),
 
             ImportColumn::make('agama')
@@ -142,7 +142,7 @@ class StudentImporter extends Importer
             'nama_wali.required' => 'Nama wali wajib diisi.',
             'nama_wali.string' => 'Nama wali harus berupa teks.',
             'nama_wali.max' => 'Nama wali maksimal 255 karakter.',
-            'tanggal_lahir.date_format' => 'Format tanggal lahir harus YYYY-MM-DD (contoh: 2010-08-17).',
+            // Keterangan tanggal lahir dihapus karena sekarang otomatis di-parse
         ];
     }
 
@@ -174,8 +174,40 @@ class StudentImporter extends Importer
             throw new RowImportFailedException('NISN kosong atau tidak valid.');
         }
 
+        // ── TRIPLE-LAYER DATE SANITIZATION (TANGGAL LAHIR) ───────────
+        $rawDate = $data['tanggal_lahir'] ?? null;
+        $parsedDate = null;
+
+        if (!empty($rawDate)) {
+            try {
+                if ($rawDate instanceof \DateTimeInterface) {
+                    // Scenario A: Object
+                    $parsedDate = $rawDate->format('Y-m-d');
+                } elseif (is_numeric($rawDate)) {
+                    // Scenario B: Excel Serial Date atau Unix Timestamp
+                    // Excel epoch = 1900-01-01. Offset 25569 hari ke Unix epoch 1970
+                    if ($rawDate > 25569) {
+                        $parsedDate = \Carbon\Carbon::createFromTimestamp(($rawDate - 25569) * 86400)->format('Y-m-d');
+                    } else {
+                        $parsedDate = null;
+                    }
+                } else {
+                    // Scenario C: String parsing
+                    // Jika format DD-MM-YYYY (Indonesian format)
+                    if (preg_match('/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}$/', $rawDate)) {
+                        $parsedDate = \Carbon\Carbon::createFromFormat('d-m-Y', str_replace('/', '-', $rawDate))->format('Y-m-d');
+                    } else {
+                        $parsedDate = \Carbon\Carbon::parse($rawDate)->format('Y-m-d');
+                    }
+                }
+            } catch (\Exception $e) {
+                // Scenario D: Fallback to null on failure
+                $parsedDate = null;
+            }
+        }
+
         // ── SELURUH PROSES DIBUNGKUS DALAM TRANSAKSI PER BARIS ──────
-        $student = DB::transaction(function () use ($data, $nisn, $nama, $namaWali, $gender) {
+        $student = DB::transaction(function () use ($data, $nisn, $nama, $namaWali, $gender, $parsedDate) {
 
             // ── STEP 1: BUAT/UPDATE AKUN USER SISWA ───────────────
             $studentUser = User::updateOrCreate(
@@ -225,7 +257,7 @@ class StudentImporter extends Importer
                     'nik' => trim($data['nik'] ?? '') ?: null,
                     'gender' => $gender,
                     'place_of_birth' => trim($data['tempat_lahir'] ?? '') ?: null,
-                    'date_of_birth' => trim($data['tanggal_lahir'] ?? '') ?: null,
+                    'date_of_birth' => $parsedDate,
                     'religion' => trim($data['agama'] ?? '') ?: null,
                     'address' => trim($data['alamat'] ?? '') ?: null,
                     'father_name' => trim($data['nama_ayah'] ?? '') ?: null,
