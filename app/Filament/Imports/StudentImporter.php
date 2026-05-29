@@ -94,7 +94,7 @@ class StudentImporter extends Importer
 
             ImportColumn::make('tanggal_lahir')
                 ->rules(['nullable'])
-                ->example('17-08-2010 (Gunakan format teks DD-MM-YYYY)')
+                ->example('2010-08-17 (Gunakan format teks YYYY-MM-DD)')
                 ->fillRecordUsing(fn() => null),
 
             ImportColumn::make('agama')
@@ -192,13 +192,8 @@ class StudentImporter extends Importer
                         $parsedDate = null;
                     }
                 } else {
-                    // Scenario C: String parsing
-                    // Jika format DD-MM-YYYY (Indonesian format)
-                    if (preg_match('/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}$/', $rawDate)) {
-                        $parsedDate = \Carbon\Carbon::createFromFormat('d-m-Y', str_replace('/', '-', $rawDate))->format('Y-m-d');
-                    } else {
-                        $parsedDate = \Carbon\Carbon::parse($rawDate)->format('Y-m-d');
-                    }
+                    // Scenario C: String parsing (ISO 8601 format YYYY-MM-DD)
+                    $parsedDate = \Carbon\Carbon::parse($rawDate)->format('Y-m-d');
                 }
             } catch (\Exception $e) {
                 // Scenario D: Fallback to null on failure
