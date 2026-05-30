@@ -191,8 +191,30 @@ class LearningObjectiveResource extends Resource
                     ->options([7 => 'Kelas 7', 8 => 'Kelas 8', 9 => 'Kelas 9']),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->visible(function ($record) {
+                        $user = auth()->user();
+                        if ($user->hasRole(['super_admin', 'admin'])) {
+                            return true;
+                        }
+                        if ($user->hasRole('teacher')) {
+                            if ($record->teacher_id === null) return false;
+                            return $record->teacher_id === $user->teacher?->id;
+                        }
+                        return false;
+                    }),
+                Tables\Actions\DeleteAction::make()
+                    ->visible(function ($record) {
+                        $user = auth()->user();
+                        if ($user->hasRole(['super_admin', 'admin'])) {
+                            return true;
+                        }
+                        if ($user->hasRole('teacher')) {
+                            if ($record->teacher_id === null) return false;
+                            return $record->teacher_id === $user->teacher?->id;
+                        }
+                        return false;
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\DeleteBulkAction::make(),
