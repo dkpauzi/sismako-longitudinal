@@ -70,51 +70,9 @@ class StudentImporter extends Importer
                 ->example('L (Pilihan: L, P, Laki-laki, Perempuan)')
                 ->fillRecordUsing(fn() => null),
 
-            ImportColumn::make('nama_wali')
-                ->requiredMapping()
-                ->rules(['required', 'string', 'max:255'])
-                ->example('Suryadi')
-                ->fillRecordUsing(fn() => null),
-
-            // --- KOLOM OPSIONAL ---
-            ImportColumn::make('nipd')
-                ->rules(['nullable', 'string', 'max:20'])
-                ->example('25.396')
-                ->fillRecordUsing(fn() => null),
-
-            ImportColumn::make('nik')
-                ->rules(['nullable', 'string', 'max:20'])
-                ->example('1303041805130002')
-                ->fillRecordUsing(fn() => null),
-
-            ImportColumn::make('tempat_lahir')
-                ->rules(['nullable', 'string'])
-                ->example('Sijunjung')
-                ->fillRecordUsing(fn() => null),
-
             ImportColumn::make('tanggal_lahir')
                 ->rules(['nullable'])
                 ->example('2010-08-17 (Format YYYY-MM-DD)')
-                ->fillRecordUsing(fn() => null),
-
-            ImportColumn::make('agama')
-                ->rules(['nullable', 'string'])
-                ->example('Islam')
-                ->fillRecordUsing(fn() => null),
-
-            ImportColumn::make('alamat')
-                ->rules(['nullable', 'string'])
-                ->example('Jorong Pematang Anjuang')
-                ->fillRecordUsing(fn() => null),
-
-            ImportColumn::make('nama_ayah')
-                ->rules(['nullable', 'string'])
-                ->example('Suryadi')
-                ->fillRecordUsing(fn() => null),
-
-            ImportColumn::make('nama_ibu')
-                ->rules(['nullable', 'string'])
-                ->example('Siti')
                 ->fillRecordUsing(fn() => null),
 
             ImportColumn::make('kelas_sekarang')
@@ -138,10 +96,6 @@ class StudentImporter extends Importer
             'nama_siswa.string' => 'Nama siswa harus berupa teks.',
             'nama_siswa.max' => 'Nama siswa maksimal 255 karakter.',
             'jenis_kelamin.required' => 'Jenis kelamin wajib diisi.',
-            'jenis_kelamin.in' => 'Format jenis kelamin harus L atau P.',
-            'nama_wali.required' => 'Nama wali wajib diisi.',
-            'nama_wali.string' => 'Nama wali harus berupa teks.',
-            'nama_wali.max' => 'Nama wali maksimal 255 karakter.',
             // Keterangan tanggal lahir dihapus karena sekarang otomatis di-parse
         ];
     }
@@ -163,7 +117,7 @@ class StudentImporter extends Importer
         // Ambil data utama
         $nisn = trim($data['nisn'] ?? '');
         $nama = trim($data['nama_siswa'] ?? '');
-        $namaWali = trim($data['nama_wali'] ?? '');
+        $namaWali = 'Orang Tua/Wali dari ' . $nama;
 
         // Format Jenis Kelamin
         $jkInput = strtoupper(trim($data['jenis_kelamin'] ?? ''));
