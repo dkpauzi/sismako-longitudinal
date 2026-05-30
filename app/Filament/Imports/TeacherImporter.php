@@ -7,6 +7,7 @@ use Exception;
 use App\Models\Teacher;
 use App\Models\User;
 use Spatie\Permission\Models\Role;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Filament\Actions\Imports\ImportColumn;
 use Filament\Actions\Imports\Importer;
@@ -18,7 +19,12 @@ class TeacherImporter extends Importer
     protected static ?string $model = Teacher::class;
 
     /**
-     * Mendefinisikan struktur kolom yang akan dibaca dari file Excel (CSV).
+     * Cache Spatie Role agar tidak query berulang per baris.
+     */
+    private ?Role $teacherRole = null;
+
+    /**
+     * Mendefinisikan struktur kolom yang akan dibaca dari file Excel (.xlsx).
      */
     public static function getColumns(): array
     {
@@ -57,10 +63,9 @@ class TeacherImporter extends Importer
                 ->example('Padang')
                 ->fillRecordUsing(fn() => null),
 
-            // Tanggal lahir diset sebagai string agar Admin bebas mengetik format Indonesia
             ImportColumn::make('tanggal_lahir')
-                ->rules(['nullable', 'string'])
-                ->example('17-08-1980')
+                ->rules(['nullable'])
+                ->example('1980-08-17 (Gunakan format teks YYYY-MM-DD)')
                 ->fillRecordUsing(fn() => null),
 
             ImportColumn::make('alamat')
@@ -111,16 +116,48 @@ class TeacherImporter extends Importer
                 ->example('Penata Muda Tingkat I')
                 ->fillRecordUsing(fn() => null),
 
-            // Mulai dinas diset sebagai string agar Admin bebas mengetik format Indonesia
             ImportColumn::make('mulai_dinas')
-                ->rules(['nullable', 'string'])
-                ->example('01-01-2006')
+                ->rules(['nullable'])
+                ->example('2006-01-01 (Gunakan format teks YYYY-MM-DD)')
                 ->fillRecordUsing(fn() => null),
         ];
     }
 
     /**
-     * Memproses setiap baris dari file CSV secara individual.
+     * Triple-Layer Date Sanitization.
+     * Menangani: DateTimeInterface (OpenSpout), Excel Serial Number, dan String ISO 8601.
+     */
+    private function sanitizeDate(mixed $rawDate): ?string
+    {
+        if (empty($rawDate)) {
+            return null;
+        }
+
+        try {
+            // Scenario A: OpenSpout/Excel mengirim objek DateTime
+            if ($rawDate instanceof \DateTimeInterface) {
+                return $rawDate->format('Y-m-d');
+            }
+
+            // Scenario B: Excel Serial Date (angka seperti 29400, 44560, dsb.)
+            if (is_numeric($rawDate)) {
+                if ($rawDate > 25569) {
+                    return Carbon::createFromTimestamp(($rawDate - 25569) * 86400)->format('Y-m-d');
+                }
+                return null; // Serial tidak valid
+            }
+
+            // Scenario C: String biasa — Carbon::parse menangani ISO 8601 (YYYY-MM-DD) secara native
+            return Carbon::parse($rawDate)->format('Y-m-d');
+        } catch (Exception $e) {
+            // Scenario D: Format tidak dikenali, jangan crash — simpan null
+            return null;
+        }
+    }
+
+    /**
+     * Memproses setiap baris dari file Excel secara individual.
+     * Seluruh proses User + Teacher dibungkus dalam DB::transaction().
      */
     public function resolveRecord(): ?Teacher
     {
@@ -142,77 +179,70 @@ class TeacherImporter extends Importer
         $username = !empty($nip) ? $nip : $email;
         $password = !empty($nip) ? $nip : 'guru123';
 
-        // 4. BUAT ATAU UPDATE AKUN USER (LOGIN)
-        $user = User::firstOrCreate(
-            ['username' => $username],
-            [
-                'name' => $nama,
-                'email' => !empty($email) ? $email : null,
-                'password' => Hash::make($password),
-                'role' => 'teacher',
-                'is_active' => true,
-            ]
-        );
+        // 4. TRIPLE-LAYER DATE SANITIZATION
+        $tglLahirFix = $this->sanitizeDate($data['tanggal_lahir'] ?? null);
+        $mulaiDinasFix = $this->sanitizeDate($data['mulai_dinas'] ?? null);
 
-        // Pastikan role 'teacher' dari Spatie diberikan ke akun tersebut
-        if (method_exists($user, 'assignRole') && !$user->hasRole('teacher')) {
-            $roleGuru = Role::firstOrCreate(['name' => 'teacher']);
-            $user->assignRole($roleGuru);
-        }
-
-        // --- 5. MESIN PENERJEMAH TANGGAL (INDONESIA KE MYSQL) ---
-        // Mengubah format (DD-MM-YYYY atau DD/MM/YYYY) menjadi (YYYY-MM-DD)
-        $parseIndonesianDate = function ($dateString) {
-            if (empty(trim($dateString)))
-                return null;
-            try {
-                // Ubah garis miring (/) menjadi strip (-) agar seragam
-                $cleanDate = str_replace('/', '-', trim($dateString));
-                // Terjemahkan ke format Database MySQL
-                return Carbon::createFromFormat('d-m-Y', $cleanDate)->format('Y-m-d');
-            } catch (Exception $e) {
-                // Jika Admin mengetik format ngawur (misal: "17 Agustus"), beri pesan error spesifik
-                throw new RowImportFailedException("Gagal: Format tanggal '{$dateString}' tidak dikenali. Gunakan format Hari-Bulan-Tahun (Contoh: 31-12-1990).");
-            }
-        };
-
-        // Eksekusi penerjemahan tanggal
-        $tglLahirFix = $parseIndonesianDate($data['tanggal_lahir'] ?? null);
-        $mulaiDinasFix = $parseIndonesianDate($data['mulai_dinas'] ?? null);
-        // --------------------------------------------------------
-
-        // 6. TENTUKAN JENIS KELAMIN
+        // 5. TENTUKAN JENIS KELAMIN
         $jkInput = strtoupper(trim($data['jenis_kelamin'] ?? ''));
         $gender = ($jkInput === 'P' || $jkInput === 'PEREMPUAN') ? 'P' : 'L';
 
-        // 7. BUAT ATAU UPDATE PROFIL GURU DI DATABASE
-        // Kita jadikan 'nip' sebagai patokan update. Jika NIP kosong (Honorer), jadikan 'email' patokannya.
-        $searchCriteria = !empty($nip) ? ['nip' => $nip] : ['email' => $email];
+        // ══════════════════════════════════════════════════════════════
+        // SELURUH PROSES USER + TEACHER DIBUNGKUS DALAM DB::transaction()
+        // Jika Teacher gagal disimpan, User juga akan di-rollback.
+        // ══════════════════════════════════════════════════════════════
+        $teacher = DB::transaction(function () use ($data, $nip, $email, $nama, $username, $password, $gender, $tglLahirFix, $mulaiDinasFix) {
 
-        $teacher = Teacher::updateOrCreate(
-            $searchCriteria,
-            [
-                'user_id' => $user->id,
-                'nip' => !empty($nip) ? $nip : null,
-                'name' => $nama,
-                'email' => !empty($email) ? $email : null,
-                'phone' => trim($data['no_hp'] ?? null),
-                'gender' => $gender,
-                'place_of_birth' => trim($data['tempat_lahir'] ?? null),
-                'date_of_birth' => $tglLahirFix,            // Menggunakan tanggal yang sudah diterjemahkan
-                'address' => trim($data['alamat'] ?? null),
-                'degree' => trim($data['gelar_pendidikan'] ?? null),
-                'major' => trim($data['jurusan'] ?? null),
-                'university' => trim($data['asal_kampus'] ?? null),
-                'graduation_year' => trim($data['tahun_lulus'] ?? null),
-                'employment_status' => trim($data['status_pegawai'] ?? null),
-                'position' => trim($data['jabatan'] ?? null),
-                'grade' => trim($data['golongan'] ?? null),
-                'rank' => trim($data['pangkat'] ?? null),
-                'assignment_date' => $mulaiDinasFix,        // Menggunakan tanggal yang sudah diterjemahkan
-                'is_active' => true,
-            ]
-        );
+            // STEP A: BUAT ATAU UPDATE AKUN USER (LOGIN)
+            $user = User::firstOrCreate(
+                ['username' => $username],
+                [
+                    'name' => $nama,
+                    'email' => !empty($email) ? $email : null,
+                    'password' => Hash::make($password),
+                    // SECURITY HARDCODE: Role enum di tabel users SELALU 'teacher'.
+                    // Jangan pernah membaca role dari Excel — mencegah privilege escalation.
+                    'role' => 'teacher',
+                    'is_active' => true,
+                ]
+            );
+
+            // STEP B: Assign Spatie role 'teacher' secara KETAT
+            // Tidak pernah assign admin/headmaster dari importer.
+            if (!$user->hasRole('teacher')) {
+                $this->teacherRole ??= Role::firstOrCreate(['name' => 'teacher', 'guard_name' => 'web']);
+                $user->assignRole($this->teacherRole);
+            }
+
+            // STEP C: BUAT ATAU UPDATE PROFIL GURU DI DATABASE
+            // Kita jadikan 'nip' sebagai patokan update. Jika NIP kosong (Honorer), jadikan 'email' patokannya.
+            $searchCriteria = !empty($nip) ? ['nip' => $nip] : ['email' => $email];
+
+            return Teacher::updateOrCreate(
+                $searchCriteria,
+                [
+                    'user_id' => $user->id,
+                    'nip' => !empty($nip) ? $nip : null,
+                    'name' => $nama,
+                    'email' => !empty($email) ? $email : null,
+                    'phone' => trim($data['no_hp'] ?? null),
+                    'gender' => $gender,
+                    'place_of_birth' => trim($data['tempat_lahir'] ?? null),
+                    'date_of_birth' => $tglLahirFix,
+                    'address' => trim($data['alamat'] ?? null),
+                    'degree' => trim($data['gelar_pendidikan'] ?? null),
+                    'major' => trim($data['jurusan'] ?? null),
+                    'university' => trim($data['asal_kampus'] ?? null),
+                    'graduation_year' => trim($data['tahun_lulus'] ?? null),
+                    'employment_status' => trim($data['status_pegawai'] ?? null),
+                    'position' => trim($data['jabatan'] ?? null),
+                    'grade' => trim($data['golongan'] ?? null),
+                    'rank' => trim($data['pangkat'] ?? null),
+                    'assignment_date' => $mulaiDinasFix,
+                    'is_active' => true,
+                ]
+            );
+        });
 
         return $teacher;
     }
