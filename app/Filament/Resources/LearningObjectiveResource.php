@@ -29,7 +29,9 @@ class LearningObjectiveResource extends Resource
         $query = parent::getEloquentQuery();
 
         if (auth()->check() && auth()->user()->hasRole('teacher')) {
-            $query->where('teacher_id', auth()->user()->teacher?->id);
+            $subjectIds = \App\Models\TeachingAssignment::where('teacher_id', auth()->user()->teacher?->id)
+                ->pluck('subject_id');
+            $query->whereIn('subject_id', $subjectIds);
         }
 
         return $query;
@@ -44,8 +46,7 @@ class LearningObjectiveResource extends Resource
                     ->schema([
                         // 1. Teacher ID (Hidden & Otomatis)
                         Forms\Components\Hidden::make('teacher_id')
-                            ->default(fn() => auth()->user()->hasRole('teacher') ? auth()->user()->teacher?->id : null)
-                            ->required(),
+                            ->default(fn() => auth()->user()->hasRole('teacher') ? auth()->user()->teacher?->id : null),
 
                         // 2. Tahun Ajaran (Otomatis Aktif & Readonly buat Guru)
                         Forms\Components\Select::make('academic_period_id')

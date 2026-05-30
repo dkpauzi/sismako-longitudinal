@@ -136,7 +136,6 @@ class AssessmentsRelationManager extends RelationManager
 
                             return $query
                                 ->where('subject_id', $assignment->subject_id)
-                                ->where('teacher_id', $assignment->teacher_id)
                                 ->where('academic_period_id', $assignment->academic_period_id)
                                 ->when($gradeLevel, fn($q) => $q->where('grade_level', $gradeLevel));
                         }
