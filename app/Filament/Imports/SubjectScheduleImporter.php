@@ -36,45 +36,45 @@ class SubjectScheduleImporter extends Importer
 
             ImportColumn::make('semester')
                 ->requiredMapping()
-                ->rules(['required', 'in:Ganjil,Genap,odd,even'])
-                ->example('Ganjil')
+                ->rules(['required'])
+                ->example('Ganjil (Pilihan: Ganjil, Genap)')
                 ->fillRecordUsing(fn() => null),
 
             ImportColumn::make('guru')
                 ->requiredMapping()
                 ->rules(['required'])
-                ->example('Yuli Asman, S.Sos')
+                ->example('Yuli Asman, S.Sos (Gunakan Nama Guru)')
                 ->fillRecordUsing(fn() => null),
 
             ImportColumn::make('mata_pelajaran')
                 ->requiredMapping()
                 ->rules(['required'])
-                ->example('Pendidikan Pancasila')
+                ->example('Pendidikan Pancasila (Gunakan Nama Mapel)')
                 ->fillRecordUsing(fn() => null),
 
             ImportColumn::make('kelas')
                 ->requiredMapping()
                 ->rules(['required'])
-                ->example('Kelas 7.1')
+                ->example('Kelas 7.1 (Gunakan Nama Kelas)')
                 ->fillRecordUsing(fn() => null),
 
             // --- DATA INTI JADWAL ---
             ImportColumn::make('hari')
                 ->requiredMapping()
                 ->rules(['required'])
-                ->example('Senin')
+                ->example('Senin (Pilihan: Senin, Selasa, Rabu, Kamis, Jumat, Sabtu, Minggu)')
                 ->fillRecordUsing(fn() => null),
 
             ImportColumn::make('jam_mulai')
                 ->requiredMapping()
                 ->rules(['required'])
-                ->example('07:30')
+                ->example('07:30 (Format HH:MM)')
                 ->fillRecordUsing(fn() => null),
 
             ImportColumn::make('jam_selesai')
                 ->requiredMapping()
                 ->rules(['required'])
-                ->example('08:50')
+                ->example('08:50 (Format HH:MM)')
                 ->fillRecordUsing(fn() => null),
         ];
     }

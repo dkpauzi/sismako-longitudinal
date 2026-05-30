@@ -66,8 +66,8 @@ class StudentImporter extends Importer
 
             ImportColumn::make('jenis_kelamin')
                 ->requiredMapping()
-                ->rules(['required', 'in:L,P,Laki-laki,Perempuan,Laki-Laki'])
-                ->example('L')
+                ->rules(['required'])
+                ->example('L (Pilihan: L, P, Laki-laki, Perempuan)')
                 ->fillRecordUsing(fn() => null),
 
             ImportColumn::make('nama_wali')
@@ -94,7 +94,7 @@ class StudentImporter extends Importer
 
             ImportColumn::make('tanggal_lahir')
                 ->rules(['nullable'])
-                ->example('2010-08-17 (Gunakan format teks YYYY-MM-DD)')
+                ->example('2010-08-17 (Format YYYY-MM-DD)')
                 ->fillRecordUsing(fn() => null),
 
             ImportColumn::make('agama')
@@ -119,7 +119,7 @@ class StudentImporter extends Importer
 
             ImportColumn::make('kelas_sekarang')
                 ->rules(['nullable', 'string'])
-                ->example('Kelas 7.1')
+                ->example('Kelas 7.1 (Gunakan Nama Kelas)')
                 ->fillRecordUsing(fn() => null),
         ];
     }

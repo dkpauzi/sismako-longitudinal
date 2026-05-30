@@ -54,8 +54,8 @@ class TeacherImporter extends Importer
             // --- BIODATA PRIBADI ---
             ImportColumn::make('jenis_kelamin')
                 ->requiredMapping()
-                ->rules(['required', 'in:L,P,Laki-laki,Perempuan,Laki-Laki'])
-                ->example('L')
+                ->rules(['required'])
+                ->example('L (Pilihan: L, P, Laki-laki, Perempuan)')
                 ->fillRecordUsing(fn() => null),
 
             ImportColumn::make('tempat_lahir')
@@ -65,7 +65,7 @@ class TeacherImporter extends Importer
 
             ImportColumn::make('tanggal_lahir')
                 ->rules(['nullable'])
-                ->example('1980-08-17 (Gunakan format teks YYYY-MM-DD)')
+                ->example('1980-08-17 (Format YYYY-MM-DD)')
                 ->fillRecordUsing(fn() => null),
 
             ImportColumn::make('alamat')
@@ -118,7 +118,7 @@ class TeacherImporter extends Importer
 
             ImportColumn::make('mulai_dinas')
                 ->rules(['nullable'])
-                ->example('2006-01-01 (Gunakan format teks YYYY-MM-DD)')
+                ->example('2006-01-01 (Format YYYY-MM-DD)')
                 ->fillRecordUsing(fn() => null),
         ];
     }

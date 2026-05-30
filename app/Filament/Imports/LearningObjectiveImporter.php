@@ -20,30 +20,37 @@ class LearningObjectiveImporter extends Importer
             ImportColumn::make('subject')
                 ->requiredMapping()
                 ->relationship(resolveUsing: 'name')
-                ->rules(['required']),
+                ->rules(['required'])
+                ->example('Pendidikan Pancasila (Gunakan Nama Mapel)'),
 
             ImportColumn::make('teacher')
                 ->relationship(resolveUsing: 'name')
                 // Strictly optional. Teachers don't need to fill this in.
-                ->rules(['nullable']),
+                ->rules(['nullable'])
+                ->example('Budi Santoso, S.Pd (Opsional, Gunakan Nama Guru)'),
 
             ImportColumn::make('grade_level')
                 ->numeric()
-                ->rules(['nullable', 'integer']),
+                ->rules(['nullable', 'integer'])
+                ->example('7'),
 
             ImportColumn::make('phase')
-                ->rules(['nullable', 'string', 'in:A,B,C,D,E,F']),
+                ->rules(['nullable', 'string'])
+                ->example('D (Pilihan: A, B, C, D, E, F)'),
 
             ImportColumn::make('code')
-                ->rules(['nullable', 'string']),
+                ->rules(['nullable', 'string'])
+                ->example('TP.1.1'),
 
             ImportColumn::make('content')
                 ->requiredMapping()
-                ->rules(['required', 'string']),
+                ->rules(['required', 'string'])
+                ->example('Menganalisis sistem pencernaan manusia'),
 
             ImportColumn::make('attribute')
                 ->requiredMapping()
-                ->rules(['required', 'string']),
+                ->rules(['required', 'string'])
+                ->example('Sistem Pencernaan Manusia'),
         ];
     }
 
