@@ -85,7 +85,7 @@ return new class extends Migration {
         // 5. TUJUAN PEMBELAJARAN (TP)
         Schema::create('learning_objectives', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('teacher_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('teacher_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('subject_id')->constrained()->cascadeOnDelete();
             $table->foreignId('academic_period_id')->constrained()->cascadeOnDelete();
             $table->integer('grade_level')->nullable();

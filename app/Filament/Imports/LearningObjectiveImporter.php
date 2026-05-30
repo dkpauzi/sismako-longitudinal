@@ -63,10 +63,8 @@ class LearningObjectiveImporter extends Importer
             if ($resolvedTeacherId) {
                 $teacherId = $resolvedTeacherId;
             } else {
-                // Graceful fallback for Admin if they leave it blank.
-                // We fallback to the first teacher (or you should make `teacher_id` nullable in DB)
-                $fallbackTeacher = Teacher::first();
-                $teacherId = $fallbackTeacher ? $fallbackTeacher->id : null;
+                // Set explicitly to null instead of a random fallback
+                $teacherId = null;
             }
         }
 
