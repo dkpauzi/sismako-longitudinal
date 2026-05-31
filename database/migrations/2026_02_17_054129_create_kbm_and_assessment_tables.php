@@ -80,6 +80,9 @@ return new class extends Migration {
                 ['teaching_assignment_id', 'student_id', 'date'],
                 'unique_attendance_per_student_per_date'
             );
+
+            // Index untuk performa widget AttendanceMatrixWidget
+            $table->index(['teaching_assignment_id', 'date', 'status'], 'idx_attendance_widget');
         });
 
         // 5. TUJUAN PEMBELAJARAN (TP)

@@ -228,7 +228,7 @@ class StudentResource extends Resource
             ->headerActions([
                 // 1. TOMBOL DOWNLOAD DRAFT EXCEL
                 Tables\Actions\Action::make('download_draft')
-                    ->label('Download Draft Excel')
+                    ->label('Download Draft CSV')
                     ->icon('heroicon-o-document-arrow-down')
                     ->color('success') // Warna hijau agar mencolok
                     ->action(function () {
@@ -238,34 +238,18 @@ class StudentResource extends Resource
                             // Tulis Baris Header (Judul Kolom)
                             fputcsv($file, [
                                 'nisn',
-                                'nipd',
                                 'nama_siswa',
-                                'nik',
                                 'jenis_kelamin',
-                                'tempat_lahir',
                                 'tanggal_lahir',
-                                'agama',
-                                'alamat',
-                                'nama_ayah',
-                                'nama_ibu',
-                                'nama_wali',
                                 'kelas_sekarang'
                             ], ';');
 
                             // Tulis Baris Contoh
                             fputcsv($file, [
                                 '0012345678',
-                                '25.396',
                                 'Budi Santoso',
-                                '1303041805130002',
                                 'L',
-                                'Sijunjung',
                                 '2010-08-17',
-                                'Islam',
-                                'Jorong Pematang Anjuang',
-                                'Suryadi',
-                                'Siti',
-                                'Suryadi',
                                 'Kelas 7.1'
                             ], ';');
 

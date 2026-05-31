@@ -11,7 +11,7 @@ class TrendAkademikWidget extends ChartWidget
     protected static ?string $heading = 'Longitudinal Academic Trend (Average Score)';
     protected static ?string $description = 'Tracking school-wide average scores across academic periods based on classroom levels.';
     protected int | string | array $columnSpan = 'full';
-    protected static ?int $sort = 3;
+    protected static ?int $sort = 5;
 
     public static function canView(): bool
     {

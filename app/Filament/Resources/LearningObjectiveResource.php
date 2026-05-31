@@ -197,6 +197,39 @@ class LearningObjectiveResource extends Resource
                 Tables\Filters\SelectFilter::make('grade_level')
                     ->options([7 => 'Kelas 7', 8 => 'Kelas 8', 9 => 'Kelas 9']),
             ])
+            ->headerActions([
+                Tables\Actions\Action::make('download_draft')
+                    ->label('Download Draft CSV')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('success')
+                    ->action(function () {
+                        return response()->streamDownload(function () {
+                            $file = fopen('php://output', 'w');
+                            fputcsv($file, [
+                                'subject', 'teacher', 'grade_level', 'phase',
+                                'code', 'content', 'attribute',
+                            ], ';');
+                            fputcsv($file, [
+                                'Pendidikan Pancasila',
+                                'Budi Santoso, S.Pd',
+                                '7',
+                                'D',
+                                'TP.1.1',
+                                'Menganalisis sistem pencernaan manusia',
+                                'Sistem Pencernaan Manusia',
+                            ], ';');
+                            fclose($file);
+                        }, 'Draft_Import_Tujuan_Pembelajaran.csv');
+                    }),
+                Tables\Actions\ImportAction::make('import_tp')
+                    ->label('Import Data TP')
+                    ->icon('heroicon-o-arrow-up-tray')
+                    ->importer(\App\Filament\Imports\LearningObjectiveImporter::class)
+                    ->color('primary')
+                    ->csvDelimiter(';')
+                    ->modalHeading('Import Tujuan Pembelajaran')
+                    ->visible(fn() => auth()->user()->hasRole(['super_admin', 'admin', 'teacher'])),
+            ])
             ->actions([
                 Tables\Actions\EditAction::make()
                     ->visible(function ($record) {

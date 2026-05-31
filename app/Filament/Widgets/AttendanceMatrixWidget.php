@@ -10,6 +10,7 @@ class AttendanceMatrixWidget extends ChartWidget
 {
     protected static ?string $heading = 'Matriks Kedisiplinan & Absensi Bulanan';
     
+    protected static ?int $sort = 3;
     protected int | string | array $columnSpan = 'full';
 
     // Pemetaan angka bulan ke nama bulan dalam Bahasa Indonesia

@@ -10,7 +10,7 @@ class VakDistributionWidget extends ChartWidget
 {
     protected static ?string $heading = 'Distribusi Gaya Belajar Siswa (VAK)';
     protected int | string | array $columnSpan = 1;
-    protected static ?int $sort = 2; // Position it near other widgets
+    protected static ?int $sort = 4; // Position it near other widgets
 
     public static function canView(): bool
     {

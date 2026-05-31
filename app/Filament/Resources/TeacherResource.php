@@ -228,7 +228,7 @@ class TeacherResource extends Resource
             ->headerActions([
                 // 1. TOMBOL DOWNLOAD DRAFT EXCEL GURU
                 Tables\Actions\Action::make('download_draft')
-                    ->label('Download Draft Excel')
+                    ->label('Download Draft CSV')
                     ->icon('heroicon-o-document-arrow-down')
                     ->color('success')
                     ->action(function () {
@@ -263,39 +263,39 @@ class TeacherResource extends Resource
                                 'ahmad@sekolah.com',
                                 '081234567890',
                                 'L',
-                                'Padang',
-                                '01-01-1980',
-                                'Jorong Pematang Anjuang',
-                                'S1',
-                                'Pendidikan Sejarah',
-                                'Universitas Negeri Padang',
-                                '2004',
+                                'Bandung',
+                                '1980-01-01',
+                                'Jl. Merdeka No. 10',
+                                'S.Pd',
+                                'Pendidikan Matematika',
+                                'Universitas Pendidikan Indonesia',
+                                '2005',
                                 'PNS',
-                                'Guru Mapel',
-                                'III/b',
-                                'Penata Muda Tingkat I',
-                                '01-01-2005'
+                                'Guru Madya',
+                                'IV/a',
+                                'Pembina',
+                                '2005-01-01'
                             ], ';');
 
                             // Contoh Baris 2: Guru Honorer (Tanpa NIP, Wajib isi Email)
                             fputcsv($file, [
                                 '',
-                                'Siti Aminah, S.Kom.',
-                                'siti.aminah@gmail.com',
-                                '085311223344',
+                                'Siti Amalia, S.Pd',
+                                'siti.amalia@sekolah.sch.id',
+                                '081298765432',
                                 'P',
-                                'Solok',
-                                '15-05-1992',
-                                'Jorong Ilie Pasa Jumak',
-                                'S1',
-                                'Sistem Informasi',
-                                'Universitas Andalas',
+                                'Jakarta',
+                                '1992-05-15',
+                                'Jl. Sudirman No. 45',
+                                'S.Pd',
+                                'Pendidikan Bahasa Inggris',
+                                'Universitas Negeri Jakarta',
                                 '2015',
                                 'Honorer',
-                                'Guru TIK',
+                                'Guru Pertama',
                                 '',
                                 '',
-                                '07-01-2016'
+                                '2016-01-07'
                             ], ';');
 
                             fclose($file);
