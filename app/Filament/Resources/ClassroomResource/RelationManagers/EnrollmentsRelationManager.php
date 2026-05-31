@@ -57,7 +57,7 @@ class EnrollmentsRelationManager extends RelationManager
 
                 Forms\Components\Select::make('academic_period_id')
                     ->label('Tahun Ajaran')
-                    ->options(AcademicPeriod::where('is_active', true)->pluck('name', 'id'))
+                    ->options(AcademicPeriod::where('is_active', true)->get()->mapWithKeys(fn($p) => [$p->id => $p->name]))
                     ->default(fn() => AcademicPeriod::where('is_active', true)->first()?->id)
                     ->required(),
 
@@ -143,7 +143,7 @@ class EnrollmentsRelationManager extends RelationManager
                             // Pilih Tahun Baru
                             Forms\Components\Select::make('new_academic_period_id')
                                 ->label('Tahun Ajaran Baru')
-                                ->options(AcademicPeriod::all()->pluck('name', 'id'))
+                                ->options(AcademicPeriod::getSelectOptions())
                                 ->default(fn() => AcademicPeriod::where('is_active', true)->first()?->id)
                                 ->required(),
 

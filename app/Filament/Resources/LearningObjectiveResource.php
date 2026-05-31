@@ -17,8 +17,15 @@ class LearningObjectiveResource extends Resource
 
     protected static ?string $navigationGroup = 'Akademik';
     protected static ?string $navigationLabel = 'Tujuan Pembelajaran (TP)';
+    protected static ?string $modelLabel = 'Tujuan Pembelajaran';
+    protected static ?string $pluralModelLabel = 'Tujuan Pembelajaran';
     protected static ?int $navigationSort = 3; // Di bawah Kelas Ajar Saya
     protected static ?string $navigationIcon = 'heroicon-o-list-bullet';
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->user()?->hasRole(['super_admin', 'admin', 'teacher']) ?? false;
+    }
 
     /**
      * --- FILTER PENTING ---

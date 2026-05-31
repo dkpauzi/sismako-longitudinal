@@ -17,6 +17,8 @@ class SchoolActivityResource extends Resource
 {
     protected static ?string $navigationGroup = 'Web Sekolah';
     protected static ?string $navigationLabel = 'Galeri Kegiatan'; // Label Menu
+    protected static ?string $modelLabel = 'Kegiatan';
+    protected static ?string $pluralModelLabel = 'Galeri Kegiatan';
     protected static ?int $navigationSort = 3;
     protected static ?string $model = SchoolActivity::class;
 

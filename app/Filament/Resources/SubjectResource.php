@@ -16,6 +16,8 @@ class SubjectResource extends Resource
 
     protected static ?string $navigationGroup = 'Akademik';
     protected static ?string $navigationLabel = 'Mata Pelajaran';
+    protected static ?string $modelLabel = 'Mata Pelajaran';
+    protected static ?string $pluralModelLabel = 'Mata Pelajaran';
     protected static ?int $navigationSort = 3;
     protected static ?string $navigationIcon = 'heroicon-o-book-open';
 

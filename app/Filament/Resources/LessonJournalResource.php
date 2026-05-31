@@ -19,8 +19,15 @@ class LessonJournalResource extends Resource
 
     protected static ?string $navigationGroup = 'Akademik';
     protected static ?string $navigationLabel = 'Jurnal KBM';
+    protected static ?string $modelLabel = 'Jurnal KBM';
+    protected static ?string $pluralModelLabel = 'Jurnal KBM';
     protected static ?int $navigationSort = 3;
     protected static ?string $navigationIcon = 'heroicon-o-book-open';
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->user()?->hasRole(['super_admin', 'admin', 'teacher']) ?? false;
+    }
 
     /**
      * Guru hanya melihat jurnal dari kelas yang diajarnya sendiri.

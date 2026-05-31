@@ -15,6 +15,8 @@ class SchoolPostResource extends Resource
     protected static ?string $model = SchoolPost::class;
     protected static ?string $navigationGroup = 'Web Sekolah';
     protected static ?string $navigationLabel = 'Postingan & Pengumuman';
+    protected static ?string $modelLabel = 'Postingan';
+    protected static ?string $pluralModelLabel = 'Postingan & Pengumuman';
     protected static ?string $navigationIcon = 'heroicon-o-newspaper';
     protected static ?int $navigationSort = 4;
 

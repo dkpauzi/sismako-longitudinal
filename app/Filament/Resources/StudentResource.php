@@ -20,6 +20,8 @@ class StudentResource extends Resource
     protected static ?string $model = Student::class;
     protected static ?string $navigationGroup = 'Akademik';
     protected static ?string $navigationLabel = 'Data Siswa';
+    protected static ?string $modelLabel = 'Siswa';
+    protected static ?string $pluralModelLabel = 'Data Siswa';
     protected static ?int $navigationSort = 1;
     protected static ?string $navigationIcon = 'heroicon-o-academic-cap';
 

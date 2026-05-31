@@ -28,6 +28,11 @@ class StudentPromotionWizard extends Page
     protected static string $view = 'filament.pages.student-promotion-wizard';
     protected static ?int $navigationSort = 10;
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->user()?->hasRole(['super_admin', 'admin']) ?? false;
+    }
+
     public ?array $data = [];
 
     // ── CHUNKING STATE ──────────────────────────────────────────────
@@ -67,7 +72,7 @@ class StudentPromotionWizard extends Page
                         ->schema([
                             Select::make('source_academic_period_id')
                                 ->label('Tahun Ajaran Asal')
-                                ->options(AcademicPeriod::pluck('name', 'id'))
+                                ->options(AcademicPeriod::getSelectOptions())
                                 ->required()
                                 ->live(),
 
@@ -88,7 +93,8 @@ class StudentPromotionWizard extends Page
                                 ->label('Tahun Ajaran Tujuan')
                                 ->options(function (Get $get) {
                                     return AcademicPeriod::where('id', '!=', $get('source_academic_period_id'))
-                                        ->pluck('name', 'id');
+                                        ->get()
+                                        ->mapWithKeys(fn($p) => [$p->id => $p->name]);
                                 })
                                 ->required()
                                 ->live(),

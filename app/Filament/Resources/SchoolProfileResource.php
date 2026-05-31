@@ -19,6 +19,8 @@ class SchoolProfileResource extends Resource
 {
     protected static ?string $navigationGroup = 'Web Sekolah';
     protected static ?string $navigationLabel = 'Tentang Kami'; // Label Menu
+    protected static ?string $modelLabel = 'Profil Sekolah';
+    protected static ?string $pluralModelLabel = 'Tentang Kami';
     protected static ?int $navigationSort = 1;
     protected static ?string $model = SchoolProfile::class;
 

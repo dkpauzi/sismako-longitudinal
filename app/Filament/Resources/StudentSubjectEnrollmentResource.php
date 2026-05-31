@@ -23,6 +23,8 @@ class StudentSubjectEnrollmentResource extends Resource
 
     protected static ?string $navigationGroup = 'Akademik';
     protected static ?string $navigationLabel = 'Mapel Pilihan Siswa (SMA)';
+    protected static ?string $modelLabel = 'Mapel Pilihan';
+    protected static ?string $pluralModelLabel = 'Mapel Pilihan Siswa';
     protected static ?int $navigationSort = 6;
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 

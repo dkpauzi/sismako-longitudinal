@@ -48,7 +48,7 @@ class KokurikulerGradeResource extends Resource
             ->schema([
                 Forms\Components\Select::make('academic_period_id')
                     ->label('Tahun Ajaran')
-                    ->options(AcademicPeriod::all()->pluck('name', 'id'))
+                    ->options(AcademicPeriod::getSelectOptions())
                     ->default(fn () => AcademicPeriod::where('is_active', true)->first()?->id)
                     ->required(),
                     

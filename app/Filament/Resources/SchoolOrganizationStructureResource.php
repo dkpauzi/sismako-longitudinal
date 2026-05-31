@@ -19,6 +19,8 @@ class SchoolOrganizationStructureResource extends Resource
 {
     protected static ?string $navigationGroup = 'Web Sekolah';
     protected static ?string $navigationLabel = 'Struktur Organisasi'; // Label Menu
+    protected static ?string $modelLabel = 'Struktur Organisasi';
+    protected static ?string $pluralModelLabel = 'Struktur Organisasi';
     protected static ?int $navigationSort = 2;
     protected static ?string $model = SchoolOrganizationStructure::class;
 

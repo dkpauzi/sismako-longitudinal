@@ -17,6 +17,8 @@ class ClassroomResource extends Resource
     protected static ?string $model = Classroom::class;
     protected static ?string $navigationGroup = 'Akademik';
     protected static ?string $navigationLabel = 'Ruang Kelas';
+    protected static ?string $modelLabel = 'Kelas';
+    protected static ?string $pluralModelLabel = 'Ruang Kelas';
     protected static ?int $navigationSort = 4;
     protected static ?string $navigationIcon = 'heroicon-o-building-office-2';
 

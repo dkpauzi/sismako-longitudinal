@@ -28,6 +28,8 @@ class AcademicPeriodResource extends Resource
 
     protected static ?string $navigationGroup = 'Manajemen Sistem';
     protected static ?string $navigationLabel = 'Tahun Ajaran';
+    protected static ?string $modelLabel = 'Tahun Ajaran';
+    protected static ?string $pluralModelLabel = 'Tahun Ajaran';
     protected static ?int $navigationSort = 1;
     protected static ?string $navigationIcon = 'heroicon-o-calendar-days';
 

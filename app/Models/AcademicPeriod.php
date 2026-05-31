@@ -60,6 +60,20 @@ class AcademicPeriod extends Model
     }
 
     /**
+     * Helper untuk Select Options.
+     * Menggantikan pluck('name', 'id') yang crash karena 'name' adalah accessor.
+     */
+    public static function getSelectOptions(): array
+    {
+        return static::query()
+            ->orderByDesc('start_year')
+            ->orderByDesc('semester')
+            ->get()
+            ->mapWithKeys(fn($p) => [$p->id => $p->name])
+            ->toArray();
+    }
+
+    /**
      * ----------------------------------------------------------------
      * LOGIKA OTOMATIS (BOOT)
      * ----------------------------------------------------------------

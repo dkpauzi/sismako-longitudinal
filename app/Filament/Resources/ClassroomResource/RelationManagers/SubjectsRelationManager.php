@@ -20,7 +20,7 @@ class SubjectsRelationManager extends RelationManager
             ->schema([
                 Forms\Components\Select::make('academic_period_id')
                     ->label('Tahun Ajaran')
-                    ->options(\App\Models\AcademicPeriod::where('is_active', true)->pluck('name', 'id'))
+                    ->options(\App\Models\AcademicPeriod::where('is_active', true)->get()->mapWithKeys(fn($p) => [$p->id => $p->name]))
                     ->default(fn() => \App\Models\AcademicPeriod::where('is_active', true)->first()?->id)
                     ->required(),
 

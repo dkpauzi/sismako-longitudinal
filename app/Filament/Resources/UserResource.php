@@ -18,6 +18,8 @@ class UserResource extends Resource
     // --- KONFIGURASI NAVIGASI ---
     protected static ?string $navigationGroup = 'Manajemen Sistem';
     protected static ?string $navigationLabel = 'Manajemen Akun';
+    protected static ?string $modelLabel = 'Akun';
+    protected static ?string $pluralModelLabel = 'Manajemen Akun';
     protected static ?int $navigationSort = 1;
     protected static ?string $navigationIcon = 'heroicon-o-users'; // Ikon grup pengguna
 

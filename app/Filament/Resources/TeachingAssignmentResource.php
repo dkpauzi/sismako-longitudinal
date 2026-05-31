@@ -22,8 +22,15 @@ class TeachingAssignmentResource extends Resource
     protected static ?string $model = TeachingAssignment::class;
 
     protected static ?string $navigationLabel = 'Kelas Ajar Saya';
+    protected static ?string $modelLabel = 'Kelas Ajar';
+    protected static ?string $pluralModelLabel = 'Kelas Ajar';
     protected static ?int $navigationSort = 2;
     protected static ?string $navigationIcon = 'heroicon-o-briefcase';
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->user()?->hasRole(['super_admin', 'admin', 'teacher']) ?? false;
+    }
 
     public static function getNavigationGroup(): ?string
     {

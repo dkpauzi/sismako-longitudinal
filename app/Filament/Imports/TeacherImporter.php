@@ -233,7 +233,7 @@ class TeacherImporter extends Importer
                     'degree' => trim($data['gelar_pendidikan'] ?? null),
                     'major' => trim($data['jurusan'] ?? null),
                     'university' => trim($data['asal_kampus'] ?? null),
-                    'graduation_year' => trim($data['tahun_lulus'] ?? null),
+                    'graduation_year' => trim($data['tahun_lulus'] ?? '') ?: null,
                     'employment_status' => trim($data['status_pegawai'] ?? null),
                     'position' => trim($data['jabatan'] ?? null),
                     'grade' => trim($data['golongan'] ?? null),
