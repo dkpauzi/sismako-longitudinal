@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\GradeRangeResolver;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -210,7 +211,7 @@ class TeachingAssignment extends Model
 
             } elseif ($this->grading_formula === 'percentage') {
                 // Opsi 3: Persentase Ketuntasan KKTP
-                $kktp = (int) ($this->kktp ?? 75);
+                $kktp = (int) $this->kktp_or_default;
                 $passedCount = 0;
                 $totalCount = $summativeAssessments->count();
 
@@ -275,5 +276,19 @@ class TeachingAssignment extends Model
                 GradeRangeResolver::seedDefaults($model);
             }
         });
+    }
+
+    /**
+     * Accessor terpusat untuk KKTP.
+     * Fallback chain: DB value -> SchoolSetting default -> hardcoded 75.
+     * Satu-satunya sumber kebenaran untuk default KKTP di seluruh aplikasi.
+     */
+    protected function kktpOrDefault(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => (int) ($this->kktp 
+                ?? \App\Models\SchoolSetting::first()?->default_kkm 
+                ?? 75)
+        );
     }
 }

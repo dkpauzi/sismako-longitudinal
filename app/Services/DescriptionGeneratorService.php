@@ -32,7 +32,7 @@ class DescriptionGeneratorService
      */
     public function generate(TeachingAssignment $assignment, int $studentId): string
     {
-        $kktp = $assignment->kktp ?? 75;
+        $kktp = $assignment->kktp_or_default;
 
         // 1. Hitung rata-rata skor per TP
         $tpResults = $this->calculateScorePerTp($assignment, $studentId, $kktp);

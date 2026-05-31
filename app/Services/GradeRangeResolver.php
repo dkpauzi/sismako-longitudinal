@@ -41,7 +41,7 @@ class GradeRangeResolver
         }
 
         // Fallback: gunakan default formula jika grade_ranges belum di-seed
-        return self::resolveDefault($score, $assignment->kktp ?? 75);
+        return self::resolveDefault($score, $assignment->kktp_or_default);
     }
 
     /**
@@ -132,7 +132,7 @@ class GradeRangeResolver
      */
     public static function seedDefaults(TeachingAssignment $assignment): void
     {
-        $kktp = $assignment->kktp ?? 75;
+        $kktp = $assignment->kktp_or_default;
         $defaults = self::calculateDefaultRanges($kktp);
 
         foreach ($defaults as $letter => $range) {
