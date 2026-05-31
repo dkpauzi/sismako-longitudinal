@@ -424,6 +424,101 @@ class AssessmentsRelationManager extends RelationManager
                             ->success()
                             ->send();
                     }),
+
+                // --- TOMBOL KALIBRASI REMEDIAL (Anti-Auto-Booster) ---
+                // Menaikkan semua nilai di bawah KKTP ke ambang batas KKTP secara otomatis.
+                // Nilai asli disimpan untuk audit trail. Berbeda dengan input_remedial
+                // yang membutuhkan input manual per siswa.
+                Tables\Actions\Action::make('calibrate_remedial')
+                    ->label('Kalibrasi Remedial')
+                    ->icon('heroicon-o-arrow-trending-up')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->modalHeading('Konfirmasi Kalibrasi Remedial')
+                    ->modalDescription(function (Assessment $record) {
+                        $kktp = $record->teachingAssignment->kktp ?? 75;
+                        $belowCount = Grade::where('assessment_id', $record->id)
+                            ->whereNotNull('score')
+                            ->where('score', '<', $kktp)
+                            ->count();
+
+                        return "Tindakan ini akan menaikkan nilai {$belowCount} siswa ke ambang batas KKTP ({$kktp}). Nilai asli akan disimpan untuk keperluan audit. Apakah Anda yakin?";
+                    })
+                    ->visible(function (Assessment $record) {
+                        $kktp = $record->teachingAssignment->kktp ?? 75;
+
+                        // Hanya tampilkan jika ada siswa di bawah KKTP
+                        return Grade::where('assessment_id', $record->id)
+                            ->whereNotNull('score')
+                            ->where('score', '<', $kktp)
+                            ->exists();
+                    })
+                    ->action(function (Assessment $record) {
+                        $kktp = $record->teachingAssignment->kktp ?? 75;
+
+                        $belowKktpGrades = Grade::where('assessment_id', $record->id)
+                            ->whereNotNull('score')
+                            ->where('score', '<', $kktp)
+                            ->get();
+
+                        if ($belowKktpGrades->isEmpty()) {
+                            Notification::make()
+                                ->title('Tidak Ada Perubahan')
+                                ->body('Semua siswa sudah tuntas.')
+                                ->info()
+                                ->send();
+                            return;
+                        }
+
+                        $count = 0;
+
+                        \Illuminate\Support\Facades\DB::transaction(function () use ($belowKktpGrades, $kktp, &$count) {
+                            foreach ($belowKktpGrades as $grade) {
+                                // Audit Trail: Simpan nilai asli HANYA pada kalibrasi pertama
+                                if ($grade->original_score === null) {
+                                    $grade->original_score = $grade->score;
+                                }
+
+                                // Kalibrasi: Paksa nilai ke KKTP
+                                $grade->score = $kktp;
+
+                                // Track: Increment percobaan remedial
+                                $grade->remedial_attempts = ($grade->remedial_attempts ?? 0) + 1;
+
+                                $grade->save();
+                                $count++;
+                            }
+                        });
+
+                        // Recalculate final grades setelah kalibrasi
+                        $assignment = $record->teachingAssignment;
+                        $semester = $assignment->academicPeriod->semester;
+
+                        foreach ($belowKktpGrades as $grade) {
+                            $finalScore = $assignment->calculateFinalGrade($grade->student_id);
+                            $gradeLabel = $finalScore > 0
+                                ? GradeRangeResolver::resolve($assignment, $finalScore)
+                                : null;
+
+                            \App\Models\FinalGrade::updateOrCreate(
+                                [
+                                    'student_id' => $grade->student_id,
+                                    'teaching_assignment_id' => $assignment->id,
+                                    'semester' => $semester,
+                                ],
+                                [
+                                    'final_score' => $finalScore > 0 ? $finalScore : null,
+                                    'grade_label' => $gradeLabel,
+                                ]
+                            );
+                        }
+
+                        Notification::make()
+                            ->title('Kalibrasi berhasil')
+                            ->body("Nilai {$count} siswa telah disesuaikan ke KKTP ({$kktp}). Nilai akhir rapor sudah dihitung ulang.")
+                            ->success()
+                            ->send();
+                    }),
             ]);
     }
 }
