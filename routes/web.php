@@ -12,3 +12,8 @@ use App\Http\Controllers\GalerikegiatanController;
 Route::get('/', [DashboardController::class, 'index'])->name('home');
 Route::get('/struktur-organisasi', [StrukturorganisasiController::class, 'index']);
 Route::get('/galeri-kegiatan', [GalerikegiatanController::class, 'index']);
+
+Route::middleware('auth')->group(function () {
+    Route::get('/rapor/print/{homeroom}/{student}', [\App\Http\Controllers\RaporPrintController::class, 'show'])
+        ->name('rapor.print');
+});

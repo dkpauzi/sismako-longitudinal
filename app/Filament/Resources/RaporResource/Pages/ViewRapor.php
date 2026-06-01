@@ -235,6 +235,41 @@ class ViewRapor extends ViewRecord
                         ->send();
                 }),
 
+            Action::make('cetak_rapor')
+                ->label('Cetak Rapor')
+                ->icon('heroicon-o-printer')
+                ->color('success')
+                ->visible(fn() => auth()->user()->hasAnyRole(['student', 'guardian', 'Siswa', 'Wali Siswa', 'guru', 'Guru', 'super_admin', 'Super Admin']))
+                ->form([
+                    \Filament\Forms\Components\Select::make('student_id')
+                        ->label('Pilih Siswa')
+                        ->options(function () {
+                            $query = \App\Models\Enrollment::where('classroom_id', $this->record->classroom_id)
+                                ->where('academic_period_id', $this->record->academic_period_id)
+                                ->where('status', 'active')
+                                ->with('student');
+                            
+                            if (auth()->user()->hasRole('Siswa') || auth()->user()->hasRole('student')) {
+                                $student = \App\Models\Student::where('nisn', auth()->user()->username)->first();
+                                if ($student) {
+                                    $query->where('student_id', $student->id);
+                                }
+                            }
+                            
+                            return $query->get()->pluck('student.name', 'student.id');
+                        })
+                        ->searchable()
+                        ->required(),
+                ])
+                ->action(function (array $data) {
+                    $url = route('rapor.print', [
+                        'homeroom' => $this->record->id,
+                        'student' => $data['student_id'],
+                    ]);
+                    
+                    $this->js("window.open('{$url}', '_blank')");
+                }),
+
             Action::make('export_pdf')
                 ->label('Download PDF')
                 ->icon('heroicon-o-document-arrow-down')

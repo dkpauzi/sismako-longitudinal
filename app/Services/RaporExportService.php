@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\View;
 
 class RaporExportService
 {
-    private function getRaporData(ClassHomeroom $homeroom, int $studentId): array
+    public function getRaporData(ClassHomeroom $homeroom, int $studentId): array
     {
         $classroom = $homeroom->classroom;
         $period = $homeroom->academicPeriod;
