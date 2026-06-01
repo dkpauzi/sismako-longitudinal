@@ -8,6 +8,7 @@ use App\Models\AttendanceSummary;
 use App\Models\ClassHomeroom;
 use App\Models\Enrollment;
 use App\Models\FinalGrade;
+use App\Models\StudentReport;
 use App\Models\TeachingAssignment;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\ViewRecord;
@@ -97,6 +98,12 @@ class ViewRapor extends ViewRecord
             ];
         }
 
+        // 6. Ambil catatan wali kelas (student_reports) jika ada
+        $studentReports = StudentReport::whereIn('student_id', $studentIds)
+            ->where('academic_period_id', $academicPeriodId)
+            ->get()
+            ->keyBy('student_id');
+
         return [
             'homeroom' => $homeroom,
             'enrollments' => $enrollments,
@@ -104,6 +111,7 @@ class ViewRapor extends ViewRecord
             'kokurikulerAssignments' => $kokurikulerAssignments,
             'finalGrades' => $finalGrades,
             'attendanceSummaries' => $attendanceSummaries,
+            'studentReports' => $studentReports,
             'progressGuruMapel' => collect($progressGuruMapel)->sortBy('percentage')->values(),
             'semester' => $semester,
         ];
@@ -112,6 +120,121 @@ class ViewRapor extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('input_homeroom_notes')
+                ->label('Input Catatan & Absensi')
+                ->icon('heroicon-o-pencil-square')
+                ->color('warning')
+                ->visible(fn() => auth()->user()->hasAnyRole(['super_admin', 'admin', 'teacher']))
+                ->form(function () {
+                    return [
+                        \Filament\Forms\Components\Repeater::make('reports')
+                            ->label('Daftar Siswa')
+                            ->schema([
+                                \Filament\Forms\Components\Hidden::make('student_id'),
+                                \Filament\Forms\Components\TextInput::make('student_name')
+                                    ->label('Nama Siswa')
+                                    ->disabled()
+                                    ->dehydrated(false),
+                                \Filament\Forms\Components\Grid::make(3)->schema([
+                                    \Filament\Forms\Components\TextInput::make('sick_days')
+                                        ->numeric()
+                                        ->minValue(0)
+                                        ->label('Sakit'),
+                                    \Filament\Forms\Components\TextInput::make('excused_days')
+                                        ->numeric()
+                                        ->minValue(0)
+                                        ->label('Izin'),
+                                    \Filament\Forms\Components\TextInput::make('unexcused_days')
+                                        ->numeric()
+                                        ->minValue(0)
+                                        ->label('Alpha'),
+                                ]),
+                                \Filament\Forms\Components\Textarea::make('homeroom_notes')
+                                    ->label('Catatan Wali Kelas')
+                                    ->rows(2),
+                            ])
+                            ->addable(false)
+                            ->deletable(false)
+                            ->reorderable(false)
+                            ->columnSpanFull()
+                    ];
+                })
+                ->mountUsing(function (\Filament\Forms\Form $form) {
+                    $homeroom = $this->record;
+                    $classroomId = $homeroom->classroom_id;
+                    $academicPeriodId = $homeroom->academic_period_id;
+
+                    $enrollments = Enrollment::where('classroom_id', $classroomId)
+                        ->where('academic_period_id', $academicPeriodId)
+                        ->where('status', 'active')
+                        ->with('student')
+                        ->get()
+                        ->sortBy('student.name');
+
+                    $studentIds = $enrollments->pluck('student_id');
+
+                    // Ambil attendance otomatis (jika ada) sebagai prepopulate default
+                    $attendanceSummaries = AttendanceSummary::whereIn('student_id', $studentIds)
+                        ->whereIn('teaching_assignment_id', TeachingAssignment::where('classroom_id', $classroomId)
+                            ->where('academic_period_id', $academicPeriodId)->pluck('id'))
+                        ->get()
+                        ->groupBy('student_id');
+
+                    $existingReports = StudentReport::whereIn('student_id', $studentIds)
+                        ->where('academic_period_id', $academicPeriodId)
+                        ->get()
+                        ->keyBy('student_id');
+
+                    $form->fill([
+                        'reports' => $enrollments->map(function ($enrollment) use ($existingReports, $attendanceSummaries) {
+                            $studentId = $enrollment->student_id;
+                            $report = $existingReports[$studentId] ?? null;
+                            $absensi = $attendanceSummaries[$studentId] ?? collect();
+
+                            $sick = $report ? $report->sick_days : $absensi->sum('sick');
+                            $permit = $report ? $report->excused_days : $absensi->sum('permit');
+                            $alpha = $report ? $report->unexcused_days : $absensi->sum('alpha');
+
+                            return [
+                                'student_id' => $studentId,
+                                'student_name' => $enrollment->student->name,
+                                'sick_days' => $sick,
+                                'excused_days' => $permit,
+                                'unexcused_days' => $alpha,
+                                'homeroom_notes' => $report->homeroom_notes ?? null,
+                            ];
+                        })->values()->toArray()
+                    ]);
+                })
+                ->action(function (array $data) {
+                    $homeroom = $this->record;
+                    $classroomId = $homeroom->classroom_id;
+                    $academicPeriodId = $homeroom->academic_period_id;
+
+                    \Illuminate\Support\Facades\DB::transaction(function () use ($data, $classroomId, $academicPeriodId) {
+                        foreach ($data['reports'] as $reportData) {
+                            StudentReport::updateOrCreate(
+                                [
+                                    'student_id' => $reportData['student_id'],
+                                    'academic_period_id' => $academicPeriodId,
+                                ],
+                                [
+                                    'classroom_id' => $classroomId,
+                                    'sick_days' => $reportData['sick_days'] ?? 0,
+                                    'excused_days' => $reportData['excused_days'] ?? 0,
+                                    'unexcused_days' => $reportData['unexcused_days'] ?? 0,
+                                    'homeroom_notes' => $reportData['homeroom_notes'] ?? null,
+                                ]
+                            );
+                        }
+                    });
+
+                    \Filament\Notifications\Notification::make()
+                        ->title('Catatan berhasil disimpan')
+                        ->success()
+                        ->send();
+                }),
+
             Action::make('export_pdf')
                 ->label('Download PDF')
                 ->icon('heroicon-o-document-arrow-down')

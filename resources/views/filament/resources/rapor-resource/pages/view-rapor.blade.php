@@ -124,6 +124,11 @@
                             <span class="text-red-600 dark:text-red-400 block">A</span>
                             <span class="text-[10px] text-gray-400 font-normal normal-case">Alpha</span>
                         </th>
+                        
+                        {{-- Kolom Catatan Wali Kelas --}}
+                        <th class="px-4 py-3 border-r dark:border-gray-700 text-left min-w-[200px]">
+                            Catatan Wali Kelas
+                        </th>
                     </tr>
                 </thead>
 
@@ -133,12 +138,19 @@
                         @php
                             $student       = $enrollment->student;
                             $studentGrades = $finalGrades[$student->id] ?? collect();
-                            $studentAbsen  = $attendanceSummaries[$student->id] ?? collect();
+                            $studentReport = $studentReports[$student->id] ?? null;
 
-                            // Hitung total absensi dari semua mapel
-                            $totalSakit = $studentAbsen->sum('sick');
-                            $totalIzin  = $studentAbsen->sum('permit');
-                            $totalAlpha = $studentAbsen->sum('alpha');
+                            // Gunakan manual override jika ada, jika tidak, hitung otomatis
+                            if ($studentReport) {
+                                $totalSakit = $studentReport->sick_days;
+                                $totalIzin  = $studentReport->excused_days;
+                                $totalAlpha = $studentReport->unexcused_days;
+                            } else {
+                                $studentAbsen  = $attendanceSummaries[$student->id] ?? collect();
+                                $totalSakit = $studentAbsen->sum('sick');
+                                $totalIzin  = $studentAbsen->sum('permit');
+                                $totalAlpha = $studentAbsen->sum('alpha');
+                            }
                         @endphp
 
                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
@@ -202,6 +214,10 @@
                                 </span>
                             </td>
 
+                            {{-- Catatan Wali Kelas --}}
+                            <td class="px-4 py-3 border-r dark:border-gray-700 text-xs text-gray-600 dark:text-gray-300">
+                                {{ $studentReport?->homeroom_notes ?: '—' }}
+                            </td>
                         </tr>
                     @empty
                         <tr>
