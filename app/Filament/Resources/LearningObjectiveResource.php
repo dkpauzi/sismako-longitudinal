@@ -135,9 +135,10 @@ class LearningObjectiveResource extends Resource
                         // 6. Kode TP
                         Forms\Components\TextInput::make('code')
                             ->label('Kode TP')
-                            ->placeholder('Misal: TP.7.1')
+                            ->placeholder('Contoh: MTK-7-1-TP1')
+                            ->helperText('Format: [KODE_MAPEL]-[KELAS]-[SEMESTER]-[NOMOR]. Contoh: IPA-8-2-TP3')
                             ->required()
-                            ->maxLength(10),
+                            ->maxLength(20),
 
                         // 7. Deskripsi Lengkap
                         Forms\Components\Textarea::make('content')
@@ -214,7 +215,7 @@ class LearningObjectiveResource extends Resource
                                 'Budi Santoso, S.Pd',
                                 '7',
                                 'D',
-                                'TP.1.1',
+                                'MTK-7-1-TP1',
                                 'Menganalisis sistem pencernaan manusia',
                                 'Sistem Pencernaan Manusia',
                             ], ';');

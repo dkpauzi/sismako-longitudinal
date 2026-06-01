@@ -183,4 +183,14 @@ class Student extends Model
     {
         return $query->where('status', 'active');
     }
+
+    /**
+     * Relasi ke rekam nilai akhir rapor (bisa dioverride manual).
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function finalGrades(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(FinalGrade::class);
+    }
 }

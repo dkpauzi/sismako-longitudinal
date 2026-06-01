@@ -15,6 +15,7 @@ class FinalGrade extends Model
     protected $casts = [
         'final_score' => 'decimal:2',
         'is_locked' => 'boolean',
+        'is_manual_override' => 'boolean',
         'locked_at' => 'datetime',
     ];
 

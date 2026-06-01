@@ -284,6 +284,7 @@ class StudentResource extends Resource
     {
         return [
             RelationManagers\EnrollmentsRelationManager::class,
+            RelationManagers\FinalGradesRelationManager::class,
         ];
     }
 

@@ -40,7 +40,7 @@ class LearningObjectiveImporter extends Importer
 
             ImportColumn::make('code')
                 ->rules(['nullable', 'string'])
-                ->example('TP.1.1'),
+                ->example('MTK-7-1-TP1 (Format: MAPEL-KELAS-SEMESTER-NOMOR)'),
 
             ImportColumn::make('content')
                 ->requiredMapping()

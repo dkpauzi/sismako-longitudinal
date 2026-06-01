@@ -55,6 +55,10 @@ class GradeObserver
             return; // Nilai sudah dikunci, skip update
         }
 
+        if ($existing?->is_manual_override) {
+            return; // Nilai manual admin, jangan ditimpa oleh kalkulasi otomatis
+        }
+
         // Panggil method calculateFinalGrade() yang sudah ada di TeachingAssignment.
         // Method ini sudah menangani semua formula (average, weighting, percentage)
         // dan formative boost — kita tidak perlu duplikasi logikanya.
