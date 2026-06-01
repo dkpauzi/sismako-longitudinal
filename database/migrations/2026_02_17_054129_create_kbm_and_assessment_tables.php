@@ -181,7 +181,7 @@ return new class extends Migration {
             $table->enum('grade_label', ['A', 'B', 'C', 'D', 'E'])->nullable();
             $table->text('narrative_description')->nullable();
             $table->boolean('is_locked')->default(false);
-            $table->boolean('is_manual_override')->default(false)->after('is_locked');
+            $table->boolean('is_manual_override')->default(false);
             $table->timestamp('locked_at')->nullable();
             $table->timestamps();
 
