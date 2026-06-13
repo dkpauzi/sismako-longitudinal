@@ -20,5 +20,19 @@ class SchoolIdentityService
     {
         return $this->profile()?->address;
     }
-}
 
+    /**
+     * Mengembalikan array identitas sekolah untuk keperluan rapor.
+     * Kunci array ini selaras dengan variabel yang diharapkan oleh blade view rapor.
+     */
+    public function getIdentity(): array
+    {
+        $profile = $this->profile();
+
+        return [
+            'name'            => $profile?->name,
+            'address'         => $profile?->address,
+            'headmaster_name' => $profile?->principal_name,
+        ];
+    }
+}

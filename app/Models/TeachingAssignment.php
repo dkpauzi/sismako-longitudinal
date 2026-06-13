@@ -90,10 +90,6 @@ class TeachingAssignment extends Model
         return $this->hasMany(Assessment::class);
     }
 
-    public function kokurikulerGrades(): HasMany
-    {
-        return $this->hasMany(KokurikulerGrade::class);
-    }
     // Tambahkan di dalam class TeachingAssignment
     public function lessonJournals()
     {

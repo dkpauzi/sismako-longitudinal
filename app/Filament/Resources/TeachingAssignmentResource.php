@@ -314,7 +314,6 @@ class TeachingAssignmentResource extends Resource
         $relations = [
             RelationManagers\AttendancesRelationManager::class,       // Tab Absensi (Muncul terus)
             RelationManagers\AssessmentsRelationManager::class,       // Tab Rencana Nilai Akademik (Dinonaktifkan via UI jika P5)
-            RelationManagers\KokurikulerGradesRelationManager::class, // Tab Nilai P5 (Dinonaktifkan via UI jika Akademik)
             RelationManagers\NarrativeTemplatesRelationManager::class, // Tab Template Narasi (Override per kelas)
             RelationManagers\ExtracurricularStudentsRelationManager::class, // Tab Siswa Ekstrakurikuler
         ];
