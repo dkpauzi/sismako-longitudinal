@@ -124,7 +124,11 @@ class ViewRapor extends ViewRecord
                 ->label('Input Catatan & Absensi')
                 ->icon('heroicon-o-pencil-square')
                 ->color('warning')
-                ->visible(fn() => auth()->user()->hasAnyRole(['super_admin', 'admin', 'teacher']))
+                ->visible(fn() =>
+                    auth()->user()->hasAnyRole(['super_admin', 'admin', 'teacher'])
+                    && ($this->record->academicPeriod?->is_active
+                        || auth()->user()->hasAnyRole(['super_admin', 'admin']))
+                )
                 ->form(function () {
                     return [
                         \Filament\Forms\Components\Repeater::make('reports')
@@ -207,6 +211,17 @@ class ViewRapor extends ViewRecord
                     ]);
                 })
                 ->action(function (array $data) {
+                    // Guard defense-in-depth: cegah eksekusi jika periode terkunci
+                    if (!$this->record->academicPeriod?->is_active
+                        && !auth()->user()->hasAnyRole(['super_admin', 'admin'])) {
+                        \Filament\Notifications\Notification::make()
+                            ->title('Periode Terkunci')
+                            ->body('Tidak dapat mengubah catatan pada periode yang sudah dibekukan.')
+                            ->danger()
+                            ->send();
+                        return;
+                    }
+
                     $homeroom = $this->record;
                     $classroomId = $homeroom->classroom_id;
                     $academicPeriodId = $homeroom->academic_period_id;

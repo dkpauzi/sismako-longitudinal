@@ -12,6 +12,8 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use App\Models\AcademicPeriod;
 
 class LessonJournalResource extends Resource
 {
@@ -30,13 +32,46 @@ class LessonJournalResource extends Resource
     }
 
     /**
+     * Blokir pembuatan jurnal baru jika tidak ada periode aktif.
+     */
+    public static function canCreate(): bool
+    {
+        // Admin bypass
+        if (auth()->user()?->hasAnyRole(['super_admin', 'admin'])) {
+            return true;
+        }
+
+        return AcademicPeriod::where('is_active', true)->exists();
+    }
+
+    /**
+     * Blokir edit jurnal dari periode yang sudah dibekukan.
+     * Ini memblokir baik tombol Edit maupun akses URL /edit langsung.
+     */
+    public static function canEdit(Model $record): bool
+    {
+        // Admin bypass
+        if (auth()->user()?->hasAnyRole(['super_admin', 'admin'])) {
+            return true;
+        }
+
+        // Blokir jika jurnal terkunci
+        if ($record->status === 'locked') {
+            return false;
+        }
+
+        // Blokir jika periode tidak aktif
+        return (bool) $record->teachingAssignment?->academicPeriod?->is_active;
+    }
+
+    /**
      * Guru hanya melihat jurnal dari kelas yang diajarnya sendiri.
      * Admin melihat semua jurnal.
      */
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery()
-            ->with(['teachingAssignment.subject', 'teachingAssignment.classroom']);
+            ->with(['teachingAssignment.subject', 'teachingAssignment.classroom', 'teachingAssignment.academicPeriod']);
 
         if (auth()->check() && auth()->user()->hasRole('teacher')) {
             $teacher = auth()->user()->teacher;
@@ -237,7 +272,13 @@ class LessonJournalResource extends Resource
                     ->action(fn(LessonJournal $record) => $record->update(['status' => 'done'])),
 
                 Tables\Actions\EditAction::make()
-                    ->visible(fn(LessonJournal $record) => $record->status !== 'locked'),
+                    ->visible(function (LessonJournal $record) {
+                        if ($record->status === 'locked') return false;
+
+                        // Cek periode aktif (teacher-only guard)
+                        if (auth()->user()->hasAnyRole(['super_admin', 'admin'])) return true;
+                        return (bool) $record->teachingAssignment?->academicPeriod?->is_active;
+                    }),
 
                 Tables\Actions\DeleteAction::make()
                     ->visible(

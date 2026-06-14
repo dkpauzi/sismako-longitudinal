@@ -90,6 +90,15 @@ class TeachingAssignment extends Model
         return $this->hasMany(Assessment::class);
     }
 
+    /**
+     * Helper: Apakah periode akademik dari SK Mengajar ini masih aktif?
+     * Null-safe — mengembalikan false jika relasi tidak ter-load.
+     */
+    public function isPeriodActive(): bool
+    {
+        return (bool) $this->academicPeriod?->is_active;
+    }
+
     // Tambahkan di dalam class TeachingAssignment
     public function lessonJournals()
     {

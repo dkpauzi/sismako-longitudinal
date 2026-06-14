@@ -98,6 +98,21 @@ class AcademicPeriod extends Model
 
     /*
     |--------------------------------------------------------------------------
+    | HELPERS
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Apakah periode ini masih bisa diedit (belum dibekukan)?
+     * Dipakai oleh guard UI di seluruh modul Filament.
+     */
+    public function isEditable(): bool
+    {
+        return (bool) $this->is_active;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | RELASI (RELATIONSHIPS)
     |--------------------------------------------------------------------------
     */

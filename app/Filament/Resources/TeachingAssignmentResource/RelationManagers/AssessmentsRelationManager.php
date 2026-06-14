@@ -34,6 +34,16 @@ class AssessmentsRelationManager extends RelationManager
      * Helper: Hitung total bobot yang sudah ada di DB (Hanya untuk Sumatif)
      * Formatif sama sekali tidak dihitung dalam kuota 100%.
      */
+    /**
+     * Helper: Apakah periode ini terkunci untuk user saat ini?
+     * TRUE = periode non-aktif DAN user bukan admin/super_admin.
+     */
+    protected function isPeriodLocked(): bool
+    {
+        $active = (bool) $this->getOwnerRecord()->academicPeriod?->is_active;
+        return !$active && !auth()->user()->hasAnyRole(['super_admin', 'admin']);
+    }
+
     protected function getCurrentTotalWeight($excludeId = null): int
     {
         return $this->getOwnerRecord()->assessments()
@@ -184,6 +194,7 @@ class AssessmentsRelationManager extends RelationManager
             ->headerActions([
                 Tables\Actions\CreateAction::make()
                     ->label('Buat Rencana Nilai')
+                    ->visible(fn () => !$this->isPeriodLocked())
                     ->before(function (Tables\Actions\CreateAction $action, array $data, RelationManager $livewire) {
                         // Validasi persentase > 100% HANYA untuk Sumatif
                         if ($livewire->getOwnerRecord()->grading_formula === 'weighting' && !str_starts_with($data['category'], 'formatif')) {
@@ -197,6 +208,7 @@ class AssessmentsRelationManager extends RelationManager
             ])
             ->actions([
                 Tables\Actions\EditAction::make()
+                    ->visible(fn () => !$this->isPeriodLocked())
                     ->before(function (Tables\Actions\EditAction $action, array $data, RelationManager $livewire, Assessment $record) {
                         if ($livewire->getOwnerRecord()->grading_formula === 'weighting' && !str_starts_with($data['category'], 'formatif')) {
                             $dbTotalWithoutThis = $livewire->getCurrentTotalWeight($record->id);
@@ -207,12 +219,14 @@ class AssessmentsRelationManager extends RelationManager
                             }
                         }
                     }),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\DeleteAction::make()
+                    ->visible(fn () => !$this->isPeriodLocked()),
 
                 // --- TOMBOL INPUT NILAI MASSAL (BERUBAH DINAMIS) ---
                 Tables\Actions\Action::make('input_grades')
                     ->label('Input Nilai')
                     ->icon('heroicon-o-pencil-square')
+                    ->visible(fn () => !$this->isPeriodLocked())
                     ->modalWidth('5xl')
                     ->form(function (Assessment $record) {
                         // Merancang skema form berdasarkan kategori ujian
@@ -274,6 +288,12 @@ class AssessmentsRelationManager extends RelationManager
                         ]);
                     })
                     ->action(function ($record, array $data) {
+                        // Guard defense-in-depth: cegah eksekusi jika periode terkunci
+                        if ($this->isPeriodLocked()) {
+                            Notification::make()->title('Periode Terkunci')->body('Tidak dapat mengubah nilai pada periode yang sudah dibekukan.')->danger()->send();
+                            return;
+                        }
+
                         // ✅ PERBAIKAN PERFORMA: Matikan GradeObserver sementara.
                         // Sebelumnya setiap Grade::updateOrCreate memicu Observer
                         // yang menjalankan calculateFinalGrade() per siswa.
@@ -335,6 +355,7 @@ class AssessmentsRelationManager extends RelationManager
                     ->label('Input Remedial')
                     ->icon('heroicon-o-arrow-path')
                     ->color('warning')
+                    ->visible(fn () => !$this->isPeriodLocked())
                     ->modalWidth('4xl')
                     ->modalHeading(fn (Assessment $record) => 'Input Nilai Remedial: ' . $record->name)
                     ->modalDescription('Masukkan nilai remedial untuk siswa yang belum tuntas (di bawah KKTP). Nilai asli akan disimpan secara otomatis.')
@@ -399,6 +420,12 @@ class AssessmentsRelationManager extends RelationManager
                         ]);
                     })
                     ->action(function (Assessment $record, array $data) {
+                        // Guard defense-in-depth: cegah eksekusi jika periode terkunci
+                        if ($this->isPeriodLocked()) {
+                            Notification::make()->title('Periode Terkunci')->body('Tidak dapat mengubah nilai pada periode yang sudah dibekukan.')->danger()->send();
+                            return;
+                        }
+
                         $count = 0;
                         $updatedStudentIds = [];
 
@@ -471,6 +498,11 @@ class AssessmentsRelationManager extends RelationManager
                         return "Tindakan ini akan menaikkan nilai {$belowCount} siswa ke ambang batas KKTP ({$kktp}). Nilai asli akan disimpan untuk keperluan audit. Apakah Anda yakin?";
                     })
                     ->visible(function (Assessment $record) {
+                        // Sembunyikan jika periode terkunci
+                        if ($this->isPeriodLocked()) {
+                            return false;
+                        }
+
                         $kktp = $record->teachingAssignment->kktp_or_default;
 
                         // Hanya tampilkan jika ada siswa di bawah KKTP
@@ -480,6 +512,12 @@ class AssessmentsRelationManager extends RelationManager
                             ->exists();
                     })
                     ->action(function (Assessment $record) {
+                        // Guard defense-in-depth: cegah eksekusi jika periode terkunci
+                        if ($this->isPeriodLocked()) {
+                            Notification::make()->title('Periode Terkunci')->body('Tidak dapat mengubah nilai pada periode yang sudah dibekukan.')->danger()->send();
+                            return;
+                        }
+
                         $kktp = $record->teachingAssignment->kktp_or_default;
 
                         $belowKktpGrades = Grade::where('assessment_id', $record->id)
