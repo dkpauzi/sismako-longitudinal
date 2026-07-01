@@ -183,6 +183,33 @@ class TeachingAssignmentResource extends Resource
                             ->suffix('/ 100')
                             ->disabled(false) // KKTP boleh diedit siapa saja yang punya akses ke record ini
                             ->required(),
+
+                        // --- BOOSTER NILAI FORMATIF ---
+                        Forms\Components\Select::make('booster_mode')
+                            ->label('Booster Nilai Formatif')
+                            ->options([
+                                'none' => 'Nonaktif — nilai formatif tidak menambah',
+                                'weight' => 'Bobot Persen — nilai_formatif × %',
+                                'point' => 'Poin Tetap — per formatif terisi',
+                            ])
+                            ->default('none')
+                            ->helperText('Menambahkan kontribusi nilai formatif ke skor sumatif (berlaku di nilai akhir & deskripsi rapor).')
+                            ->live()
+                            ->required(),
+
+                        Forms\Components\TextInput::make('booster_value')
+                            ->label(fn(Forms\Get $get) => $get('booster_mode') === 'point'
+                                ? 'Poin per formatif terisi'
+                                : 'Persentase per nilai formatif (%)')
+                            ->helperText(fn(Forms\Get $get) => match ($get('booster_mode')) {
+                                'weight' => 'Kontribusi tiap formatif diakumulasi & dibatasi maksimal 100. Disarankan nilai kecil (5–10%).',
+                                'point' => 'Contoh: 2 → tiap formatif yang terisi menambah 2 poin.',
+                                default => null,
+                            })
+                            ->numeric()
+                            ->minValue(0)
+                            ->visible(fn(Forms\Get $get) => $get('booster_mode') !== 'none')
+                            ->required(fn(Forms\Get $get) => $get('booster_mode') !== 'none'),
                     ])
                     ->collapsed(false),
             ]);

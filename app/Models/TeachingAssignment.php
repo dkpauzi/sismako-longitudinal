@@ -36,11 +36,14 @@ class TeachingAssignment extends Model
         'grading_formula',
         'kktp',
         'subject_type',
+        'booster_mode',
+        'booster_value',
     ];
 
     protected $casts = [
         'subject_type' => 'string',
         'kktp' => 'integer',
+        'booster_value' => 'decimal:2',
     ];
 
     /*
@@ -230,16 +233,43 @@ class TeachingAssignment extends Model
             }
         }
 
-        // --- TAHAP 2: KALKULASI AKHIR & PEMBULATAN ---
-        $finalGrade = $summativeScore;
+        // --- TAHAP 1b: BOOSTER FORMATIF ---
+        // Ambil skor semua asesmen formatif siswa ini, lalu hitung kontribusinya
+        // sesuai mode booster (none/weight/point) yang diatur pada SK Mengajar.
+        $formativeScores = $assessments
+            ->filter(fn ($a) => str_starts_with($a->category, 'formatif'))
+            ->map(fn ($a) => $a->grades->first()?->score);
 
-        // PENGAMAN: Nilai tidak boleh lebih dari 100
-        if ($finalGrade > 100) {
-            $finalGrade = 100;
-        }
+        $booster = $this->boosterContribution($formativeScores);
 
-        // Kembalikan dalam bentuk angka bulat (atau maksimal 1 desimal jika Anda mau)
+        // --- TAHAP 2: GABUNG + CAP 100 + PEMBULATAN ---
+        $finalGrade = min(100, $summativeScore + $booster);
+
         return (float) round($finalGrade);
+    }
+
+    /**
+     * Hitung kontribusi booster dari sekumpulan nilai formatif.
+     *
+     * Aturan (berdasarkan booster_mode pada SK Mengajar):
+     * - none   : 0 (booster nonaktif)
+     * - weight : akumulasi (nilai_formatif x booster_value%) tiap formatif terisi
+     * - point  : (jumlah formatif terisi) x booster_value
+     *
+     * "Terisi" = skor tidak null dan > 0. Pembatasan maksimal 100 dilakukan
+     * di pemanggil (calculateFinalGrade / calculateScorePerTp).
+     *
+     * @param \Illuminate\Support\Collection $formativeScores Koleksi skor formatif (boleh berisi null).
+     */
+    public function boosterContribution(\Illuminate\Support\Collection $formativeScores): float
+    {
+        $scores = $formativeScores->filter(fn ($s) => $s !== null && (float) $s > 0);
+
+        return match ($this->booster_mode) {
+            'weight' => (float) $scores->sum(fn ($s) => (float) $s * ((float) $this->booster_value / 100)),
+            'point'  => (float) $scores->count() * (float) $this->booster_value,
+            default  => 0.0,
+        };
     }
     /**
      * Relasi ke grade_ranges: 5 baris (A-E) per SK Mengajar.
@@ -280,7 +310,51 @@ class TeachingAssignment extends Model
             if ($model->wasChanged('kktp')) {
                 GradeRangeResolver::seedDefaults($model);
             }
+
+            // Setelan booster berubah -> hitung ulang nilai akhir seluruh siswa.
+            if ($model->wasChanged(['booster_mode', 'booster_value'])) {
+                $model->recalculateFinalGrades();
+            }
         });
+    }
+
+    /**
+     * Hitung ulang FinalGrade seluruh siswa aktif di SK Mengajar ini.
+     * Menghormati is_locked & is_manual_override (tidak menimpa nilai terkunci/override).
+     */
+    public function recalculateFinalGrades(): void
+    {
+        $semester = $this->academicPeriod->semester;
+
+        $studentIds = \App\Models\Enrollment::where('classroom_id', $this->classroom_id)
+            ->where('academic_period_id', $this->academic_period_id)
+            ->where('status', 'active')
+            ->pluck('student_id');
+
+        foreach ($studentIds as $studentId) {
+            $existing = FinalGrade::where('student_id', $studentId)
+                ->where('teaching_assignment_id', $this->id)
+                ->where('semester', $semester)
+                ->first();
+
+            if ($existing?->is_locked || $existing?->is_manual_override) {
+                continue;
+            }
+
+            $score = $this->calculateFinalGrade($studentId);
+
+            FinalGrade::updateOrCreate(
+                [
+                    'student_id' => $studentId,
+                    'teaching_assignment_id' => $this->id,
+                    'semester' => $semester,
+                ],
+                [
+                    'final_score' => $score > 0 ? $score : null,
+                    'grade_label' => $score > 0 ? GradeRangeResolver::resolve($this, $score) : null,
+                ]
+            );
+        }
     }
 
     /**

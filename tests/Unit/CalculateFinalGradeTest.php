@@ -84,18 +84,18 @@ class CalculateFinalGradeTest extends TestCase
     private function createAssignment(
         string $formula = 'average',
         int $kktp = 75,
-        bool $useBoost = false,
-        int $boostPercentage = 0,
+        string $boosterMode = 'none',
+        float $boosterValue = 0,
     ): TeachingAssignment {
         return TeachingAssignment::create([
-            'academic_period_id'        => $this->academicPeriod->id,
-            'teacher_id'                => $this->teacher->id,
-            'subject_id'                => $this->subject->id,
-            'classroom_id'              => $this->classroom->id,
-            'grading_formula'           => $formula,
-            'kktp'                      => $kktp,
-            'use_formative_boost'       => $useBoost,
-            'formative_boost_percentage' => $boostPercentage,
+            'academic_period_id' => $this->academicPeriod->id,
+            'teacher_id'         => $this->teacher->id,
+            'subject_id'         => $this->subject->id,
+            'classroom_id'       => $this->classroom->id,
+            'grading_formula'    => $formula,
+            'kktp'               => $kktp,
+            'booster_mode'       => $boosterMode,
+            'booster_value'      => $boosterValue,
         ]);
     }
 
@@ -242,8 +242,8 @@ class CalculateFinalGradeTest extends TestCase
         // ── ARRANGE ──
         $assignment = $this->createAssignment(
             formula: 'average',
-            useBoost: true,
-            boostPercentage: 20,
+            boosterMode: 'weight',
+            boosterValue: 20,
         );
 
         // Sumatif
@@ -280,8 +280,8 @@ class CalculateFinalGradeTest extends TestCase
         // ── ARRANGE ──
         $assignment = $this->createAssignment(
             formula: 'average',
-            useBoost: true,
-            boostPercentage: 50,
+            boosterMode: 'weight',
+            boosterValue: 50,
         );
 
         $this->createAssessmentWithGrade($assignment, 'sumatif_lingkup_materi', 0, 99);
@@ -367,8 +367,8 @@ class CalculateFinalGradeTest extends TestCase
         // ── ARRANGE ──
         $assignment = $this->createAssignment(
             formula: 'average',
-            useBoost: true,
-            boostPercentage: 20,
+            boosterMode: 'weight',
+            boosterValue: 20,
         );
 
         // Hanya formatif poin, tidak ada sumatif
@@ -398,8 +398,8 @@ class CalculateFinalGradeTest extends TestCase
         // ── ARRANGE ──
         $assignment = $this->createAssignment(
             formula: 'average',
-            useBoost: false,        // ← Dimatikan
-            boostPercentage: 0,
+            boosterMode: 'none',        // ← Dimatikan
+            boosterValue: 0,
         );
 
         $this->createAssessmentWithGrade($assignment, 'sumatif_lingkup_materi', 0, 80);
@@ -434,5 +434,81 @@ class CalculateFinalGradeTest extends TestCase
 
         // ── ASSERT ──
         $this->assertIsFloat($result, 'calculateFinalGrade() harus mengembalikan tipe float');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | 11. BOOSTER MODE: POIN TETAP (point)
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Skenario: Mode 'point' menambah poin tetap per formatif terisi.
+     *
+     * Sumatif:  UH1 = 80, UAS = 90  →  Rata-rata = 85
+     * Formatif: 2 formatif terisi, poin per formatif = 2  →  Bonus = 2 × 2 = 4
+     * Total    = 85 + 4 = 89
+     */
+    public function test_point_mode_adds_fixed_points_per_filled_formative(): void
+    {
+        // ── ARRANGE ──
+        $assignment = $this->createAssignment(boosterMode: 'point', boosterValue: 2);
+
+        $this->createAssessmentWithGrade($assignment, 'sumatif_lingkup_materi', 0, 80);
+        $this->createAssessmentWithGrade($assignment, 'sumatif_akhir_semester', 0, 90);
+        $this->createAssessmentWithGrade($assignment, 'formatif_poin', 0, 1); // terisi
+        $this->createAssessmentWithGrade($assignment, 'formatif_poin', 0, 1); // terisi
+
+        // ── ACT ──
+        $result = $assignment->calculateFinalGrade($this->student->id);
+
+        // ── ASSERT ──
+        $this->assertEquals(89.0, $result);
+    }
+
+    /**
+     * Skenario: Mode 'point' mengabaikan formatif yang tidak terisi (skor 0 / null).
+     *
+     * Sumatif = 85. Dua formatif: skor 0 dan null → keduanya TIDAK dihitung.
+     * Total = 85 (tidak ada bonus).
+     */
+    public function test_point_mode_ignores_zero_and_null_formative(): void
+    {
+        // ── ARRANGE ──
+        $assignment = $this->createAssignment(boosterMode: 'point', boosterValue: 2);
+
+        $this->createAssessmentWithGrade($assignment, 'sumatif_lingkup_materi', 0, 80);
+        $this->createAssessmentWithGrade($assignment, 'sumatif_akhir_semester', 0, 90);
+        $this->createAssessmentWithGrade($assignment, 'formatif_poin', 0, 0);        // tidak terisi
+        $this->createAssessmentWithGrade($assignment, 'formatif_deskripsi', 0, null); // null
+
+        // ── ACT ──
+        $result = $assignment->calculateFinalGrade($this->student->id);
+
+        // ── ASSERT ──
+        $this->assertEquals(85.0, $result);
+    }
+
+    /**
+     * Skenario: Mode 'point' tetap dibatasi maksimal 100.
+     *
+     * Sumatif 99 & 99 → 99. Tiga formatif terisi, poin = 2 → bonus 6 → 105 → cap 100.
+     */
+    public function test_point_mode_capped_at_100(): void
+    {
+        // ── ARRANGE ──
+        $assignment = $this->createAssignment(boosterMode: 'point', boosterValue: 2);
+
+        $this->createAssessmentWithGrade($assignment, 'sumatif_lingkup_materi', 0, 99);
+        $this->createAssessmentWithGrade($assignment, 'sumatif_akhir_semester', 0, 99);
+        $this->createAssessmentWithGrade($assignment, 'formatif_poin', 0, 1);
+        $this->createAssessmentWithGrade($assignment, 'formatif_poin', 0, 1);
+        $this->createAssessmentWithGrade($assignment, 'formatif_poin', 0, 1);
+
+        // ── ACT ──
+        $result = $assignment->calculateFinalGrade($this->student->id);
+
+        // ── ASSERT ──
+        $this->assertEquals(100.0, $result);
     }
 }

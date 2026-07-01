@@ -81,18 +81,28 @@ class DescriptionGeneratorService
             ])
             ->get();
 
-        return $learningObjectives->map(function (LearningObjective $lo) use ($assessments, $kktp) {
-            // ✅ Filter dari collection (bukan query baru)
-            $scores = $assessments
-                ->filter(fn($a) => $a->learningObjectives->contains('id', $lo->id))
+        return $learningObjectives->map(function (LearningObjective $lo) use ($assessments, $assignment, $kktp) {
+            // BASIS: hanya asesmen SUMATIF yang tertaut TP ini.
+            // Nilai formatif TIDAK lagi mencampuri basis; ia hanya masuk sebagai booster.
+            $sumScores = $assessments
+                ->filter(fn($a) => str_starts_with($a->category, 'sumatif')
+                                && $a->learningObjectives->contains('id', $lo->id))
                 ->flatMap(fn($a) => $a->grades->pluck('score'));
 
-            // Jika tidak ada nilai untuk TP ini, skip
-            if ($scores->isEmpty()) {
+            // Jika tidak ada nilai sumatif untuk TP ini, skip
+            if ($sumScores->isEmpty()) {
                 return null;
             }
 
-            $average = round($scores->avg(), 2);
+            $base = round($sumScores->avg(), 2);
+
+            // BOOSTER: kontribusi nilai formatif yang tertaut TP ini (konsisten dg calculateFinalGrade)
+            $formativeScores = $assessments
+                ->filter(fn($a) => str_starts_with($a->category, 'formatif')
+                                && $a->learningObjectives->contains('id', $lo->id))
+                ->flatMap(fn($a) => $a->grades->pluck('score'));
+
+            $average = min(100, $base + $assignment->boosterContribution($formativeScores));
 
             return [
                 'id' => $lo->id,
@@ -101,7 +111,7 @@ class DescriptionGeneratorService
                 'average_score' => $average,
                 'is_tuntas' => $average >= $kktp,
             ];
-        })->filter()->values(); // Hapus null (TP tanpa nilai)
+        })->filter()->values(); // Hapus null (TP tanpa nilai sumatif)
     }
 
     /**
