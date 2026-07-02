@@ -101,7 +101,8 @@ class StudentImporterTest extends TestCase
         // User Wali harus ada
         $guardianUser = User::where('username', 'WALI_0012345678')->first();
         $this->assertNotNull($guardianUser);
-        $this->assertEquals('Suryadi', $guardianUser->name);
+        // Konvensi importer: nama wali digenerate dari nama siswa (nama_wali di file diabaikan)
+        $this->assertEquals('Orang Tua/Wali dari Budi Santoso', $guardianUser->name);
         $this->assertEquals('guardian', $guardianUser->role);
         $this->assertTrue($guardianUser->is_active);
         $this->assertEquals($guardianUser->id, $student->guardian_user_id);
@@ -164,7 +165,8 @@ class StudentImporterTest extends TestCase
         // Data ter-update
         $this->assertEquals('Cici Baru', $student->name);
         $guardianUser = User::where('username', 'WALI_1111111111')->first();
-        $this->assertEquals('Wali Baru', $guardianUser->name);
+        // Konvensi importer: nama wali digenerate dari nama siswa (ikut terupdate saat re-import)
+        $this->assertEquals('Orang Tua/Wali dari Cici Baru', $guardianUser->name);
     }
 
     /**

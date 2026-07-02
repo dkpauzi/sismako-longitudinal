@@ -137,21 +137,23 @@ class SmartImporterTest extends TestCase
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // TEST 4: Guardian user gets correct name from nama_wali column
+    // TEST 4: Guardian user name is GENERATED from student name
+    // (Konvensi importer: kolom nama_wali di file DIABAIKAN;
+    //  nama akun wali = "Orang Tua/Wali dari {nama_siswa}")
     // ═══════════════════════════════════════════════════════════════
 
     /** @test */
-    public function test_guardian_user_gets_nama_wali_as_name(): void
+    public function test_guardian_user_name_is_generated_from_student_name(): void
     {
         $this->runImporter([
             'nisn' => '0098765432',
             'nama_siswa' => 'Ahmad Rizki',
             'jenis_kelamin' => 'L',
-            'nama_wali' => 'Suryadi',
+            'nama_wali' => 'Suryadi', // diabaikan oleh importer (bukan kolom terdaftar)
         ]);
 
         $guardianUser = User::where('username', 'WALI_0098765432')->first();
-        $this->assertEquals('Suryadi', $guardianUser->name);
+        $this->assertEquals('Orang Tua/Wali dari Ahmad Rizki', $guardianUser->name);
     }
 
     // ═══════════════════════════════════════════════════════════════
