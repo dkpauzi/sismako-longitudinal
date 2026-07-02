@@ -106,9 +106,14 @@ class BkEvaluationTest extends TestCase
             'question_text' => 'Pertanyaan uji?', 'question_type' => 'text', 'order' => 1,
         ]);
 
+        // Alur ticketing: Guru BK membuat tiket (pending) via "Buka Akses",
+        // siswa submit -> tiket menjadi 'completed'. Di sini kita simulasikan
+        // kondisi PASCA-submit (tiket completed) sebagai bahan evaluasi.
         $this->response = BkStudentResponse::create([
             'questionnaire_id' => $this->questionnaire->id,
             'student_id' => $this->student->id,
+            'academic_period_id' => $this->activePeriod->id,
+            'status' => 'completed',
             'submitted_at' => now(),
         ]);
     }

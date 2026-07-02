@@ -133,15 +133,19 @@ class StudentMyQuestionnairesTest extends TestCase
         $this->assertFalse(MyQuestionnaires::canAccess());
     }
 
-    // ─── QUESTIONNAIRE VISIBILITY ────────────────────────────────
+    // ─── QUESTIONNAIRE VISIBILITY (TICKETING) ────────────────────
+    // Sistem ticketing: siswa HANYA melihat kuesioner published yang
+    // Guru BK telah membukakan tiket (BkStudentResponse pending) untuknya.
+    // Target kelas dipakai saat "Buka Akses" membuat tiket massal, bukan
+    // sebagai filter langsung di halaman siswa.
 
     /** @test */
-    public function test_only_published_questionnaires_targeted_to_students_classroom_are_loaded(): void
+    public function test_only_published_questionnaires_with_ticket_are_loaded(): void
     {
         // Create a counselor user
         $counselor = User::factory()->create(['name' => 'Guru BK', 'is_active' => true]);
 
-        // Questionnaire 1: published, targeted to the student's classroom ✅
+        // Questionnaire 1: published + tiket pending ✅ (satu-satunya yang tampil)
         $q1 = BkQuestionnaire::create([
             'title'              => 'Kuesioner Minat Bakat',
             'counselor_id'       => $counselor->id,
@@ -152,46 +156,51 @@ class StudentMyQuestionnairesTest extends TestCase
             'questionnaire_id' => $q1->id,
             'classroom_id'     => $this->classroom->id,
         ]);
+        BkStudentResponse::create([
+            'questionnaire_id'   => $q1->id,
+            'student_id'         => $this->student->id,
+            'academic_period_id' => $this->activePeriod->id,
+            'status'             => 'pending',
+        ]);
 
-        // Questionnaire 2: draft (should NOT appear) ❌
+        // Questionnaire 2: draft + tiket pending ❌ (draft tidak tampil walau bertiket)
         $q2 = BkQuestionnaire::create([
             'title'              => 'Kuesioner Draft',
             'counselor_id'       => $counselor->id,
             'academic_period_id' => $this->activePeriod->id,
             'status'             => 'draft',
         ]);
-        BkQuestionnaireTarget::create([
-            'questionnaire_id' => $q2->id,
-            'classroom_id'     => $this->classroom->id,
+        BkStudentResponse::create([
+            'questionnaire_id'   => $q2->id,
+            'student_id'         => $this->student->id,
+            'academic_period_id' => $this->activePeriod->id,
+            'status'             => 'pending',
         ]);
 
-        // Questionnaire 3: published, targeted to DIFFERENT classroom ❌
-        $otherClassroom = Classroom::create(['name' => 'Kelas 8.1', 'grade_level' => 8]);
+        // Questionnaire 3: published + target kelas siswa, TANPA tiket ❌
         $q3 = BkQuestionnaire::create([
-            'title'              => 'Kuesioner Kelas Lain',
+            'title'              => 'Kuesioner Tanpa Tiket',
             'counselor_id'       => $counselor->id,
             'academic_period_id' => $this->activePeriod->id,
             'status'             => 'published',
         ]);
         BkQuestionnaireTarget::create([
             'questionnaire_id' => $q3->id,
-            'classroom_id'     => $otherClassroom->id,
+            'classroom_id'     => $this->classroom->id,
         ]);
 
-        // Questionnaire 4: published, wrong academic period ❌
-        $oldPeriod = AcademicPeriod::create([
-            'start_year' => 2024, 'end_year' => 2025, 'semester' => 'even',
-            'start_date' => '2025-01-06', 'end_date' => '2025-06-20', 'is_active' => false,
-        ]);
+        // Questionnaire 4: published + tiket yang sudah DICABUT (revoked) ❌
         $q4 = BkQuestionnaire::create([
-            'title'              => 'Kuesioner Periode Lama',
+            'title'              => 'Kuesioner Tiket Dicabut',
             'counselor_id'       => $counselor->id,
-            'academic_period_id' => $oldPeriod->id,
+            'academic_period_id' => $this->activePeriod->id,
             'status'             => 'published',
         ]);
-        BkQuestionnaireTarget::create([
-            'questionnaire_id' => $q4->id,
-            'classroom_id'     => $this->classroom->id,
+        BkStudentResponse::create([
+            'questionnaire_id'   => $q4->id,
+            'student_id'         => $this->student->id,
+            'academic_period_id' => $this->activePeriod->id,
+            'status'             => 'revoked',
         ]);
 
         // Act: simulate loading the page as the student
@@ -354,6 +363,15 @@ class StudentMyQuestionnairesTest extends TestCase
             'question_id' => $q4->id, 'option_text' => 'Kadang-kadang', 'score_weight' => 2, 'order' => 2,
         ]);
 
+        // Ticketing: Guru BK membuka akses -> tiket pending dibuat lebih dulu.
+        // submitQuestionnaire() TIDAK membuat respons baru, melainkan mengisi tiket ini.
+        $ticket = BkStudentResponse::create([
+            'questionnaire_id'   => $questionnaire->id,
+            'student_id'         => $this->student->id,
+            'academic_period_id' => $this->activePeriod->id,
+            'status'             => 'pending',
+        ]);
+
         // Act: simulate form submission
         $this->actingAs($this->studentUser);
         $page = new MyQuestionnaires();
@@ -367,10 +385,12 @@ class StudentMyQuestionnairesTest extends TestCase
 
         $page->submitQuestionnaire($questionnaire->id, $formData);
 
-        // Assert: BkStudentResponse created
+        // Assert: tiket terisi menjadi completed (bukan membuat baris baru)
         $this->assertDatabaseHas('bk_student_responses', [
+            'id'               => $ticket->id,
             'questionnaire_id' => $questionnaire->id,
             'student_id'       => $this->student->id,
+            'status'           => 'completed',
         ]);
 
         $response = BkStudentResponse::where('questionnaire_id', $questionnaire->id)
@@ -447,11 +467,13 @@ class StudentMyQuestionnairesTest extends TestCase
             'order'            => 1,
         ]);
 
-        // First submission: should succeed
+        // Tiket yang SUDAH selesai (submit pertama telah terjadi)
         BkStudentResponse::create([
-            'questionnaire_id' => $questionnaire->id,
-            'student_id'       => $this->student->id,
-            'submitted_at'     => now(),
+            'questionnaire_id'   => $questionnaire->id,
+            'student_id'         => $this->student->id,
+            'academic_period_id' => $this->activePeriod->id,
+            'status'             => 'completed',
+            'submitted_at'       => now(),
         ]);
 
         // Verify the student has already responded
@@ -463,5 +485,16 @@ class StudentMyQuestionnairesTest extends TestCase
         $q = $questionnaires->firstWhere('id', $questionnaire->id);
         $this->assertNotNull($q);
         $this->assertTrue($q->has_responded);
+
+        // Submit kedua harus DITOLAK: tidak ada tiket 'pending' tersisa,
+        // sehingga tidak ada jawaban yang tercatat.
+        $page->submitQuestionnaire($questionnaire->id, [
+            "question_{$q1->id}" => 'Jawaban percobaan kedua',
+        ]);
+
+        $this->assertSame(0, BkAnswer::count(), 'Submit kedua tidak boleh membuat jawaban');
+        $this->assertSame(1, BkStudentResponse::where('questionnaire_id', $questionnaire->id)
+            ->where('student_id', $this->student->id)
+            ->count(), 'Tidak boleh ada respons ganda');
     }
 }
