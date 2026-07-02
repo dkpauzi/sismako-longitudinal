@@ -42,20 +42,38 @@ class AuditRedundancyFixTest extends TestCase
         $this->assertNotContains('academic_period_id', $columns);
     }
 
-    public function test_kokurikuler_grades_has_unique_constraint()
+    /**
+     * Desain disengaja: TIDAK ada unique constraint pada kokurikuler_grades —
+     * satu siswa boleh mengikuti banyak projek P5 dalam satu periode
+     * (lihat komentar migrasi create_kbm_and_assessment_tables).
+     */
+    public function test_kokurikuler_grades_allows_multiple_projects_per_student_per_period()
     {
-        $indexes = \Illuminate\Support\Facades\DB::select("PRAGMA index_list('kokurikuler_grades')");
-        $hasUnique = false;
-        foreach ($indexes as $index) {
-            if ($index->unique) {
-                $columns = \Illuminate\Support\Facades\DB::select("PRAGMA index_info('{$index->name}')");
-                $colNames = array_map(function($col) { return $col->name; }, $columns);
-                if (in_array('teaching_assignment_id', $colNames) && in_array('student_id', $colNames)) {
-                    $hasUnique = true;
-                    break;
-                }
-            }
+        $period = \App\Models\AcademicPeriod::create([
+            'start_year' => 2025,
+            'end_year' => 2026,
+            'semester' => 'odd',
+            'start_date' => '2025-07-14',
+            'end_date' => '2025-12-20',
+            'is_active' => true,
+        ]);
+
+        $student = \App\Models\Student::create([
+            'name' => 'Siswa P5',
+            'gender' => 'L',
+        ]);
+
+        foreach (['Sampahku Tanggung Jawabku', 'Kearifan Lokal Nagari'] as $title) {
+            \App\Models\KokurikulerGrade::create([
+                'student_id' => $student->id,
+                'academic_period_id' => $period->id,
+                'project_title' => $title,
+                'narrative_description' => 'Deskripsi projek ' . $title,
+            ]);
         }
-        $this->assertTrue($hasUnique, 'kokurikuler_grades is missing unique constraint on teaching_assignment_id and student_id');
+
+        $this->assertSame(2, \App\Models\KokurikulerGrade::where('student_id', $student->id)
+            ->where('academic_period_id', $period->id)
+            ->count());
     }
 }
