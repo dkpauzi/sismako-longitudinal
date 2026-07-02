@@ -9,7 +9,15 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote')->hourly();
 
-Artisan::command('siakad:audit-school-identity {--fix : Sinkronkan school_settings dari school_profiles}', function () {
+/**
+ * Audit konsistensi identitas sekolah.
+ *
+ * Pasca-konsolidasi identitas: school_profiles adalah SATU-SATUNYA sumber
+ * identitas (nama, alamat, kepsek, dll). school_settings hanya menyimpan
+ * konfigurasi sistem dan WAJIB tertaut ke profil via school_profile_id.
+ * Audit ini memverifikasi (dan dengan --fix, memperbaiki) tautan tersebut.
+ */
+Artisan::command('siakad:audit-school-identity {--fix : Tautkan ulang school_settings ke school_profiles}', function () {
     $profileCount = SchoolProfile::query()->count();
     $settingCount = SchoolSetting::query()->count();
 
@@ -37,65 +45,32 @@ Artisan::command('siakad:audit-school-identity {--fix : Sinkronkan school_settin
 
         SchoolSetting::query()->create([
             'school_profile_id' => $profile->id,
-            'school_name' => $profile->name,
-            'npsn' => $profile->npsn,
-            'address' => $profile->address,
-            'phone' => $profile->phone,
-            'email' => $profile->email,
-            'website' => $profile->website,
-            'principal_name' => $profile->principal_name,
             'default_kkm' => 75,
             'show_score_sd' => true,
         ]);
 
-        $this->info('SchoolSetting berhasil dibuat dari SchoolProfile.');
+        $this->info('SchoolSetting berhasil dibuat dan ditautkan ke SchoolProfile.');
         return 0;
     }
 
-    $checks = [
-        'school_profile_id' => [$setting->school_profile_id, $profile->id],
-        'school_name' => [$setting->getRawOriginal('school_name'), $profile->name],
-        'npsn' => [$setting->getRawOriginal('npsn'), $profile->npsn],
-        'address' => [$setting->getRawOriginal('address'), $profile->address],
-        'phone' => [$setting->getRawOriginal('phone'), $profile->phone],
-        'email' => [$setting->getRawOriginal('email'), $profile->email],
-        'website' => [$setting->getRawOriginal('website'), $profile->website],
-        'principal_name' => [$setting->getRawOriginal('principal_name'), $profile->principal_name],
-    ];
-
-    $mismatches = [];
-    foreach ($checks as $field => [$current, $expected]) {
-        if (($current ?? '') !== ($expected ?? '')) {
-            $mismatches[$field] = ['current' => $current, 'expected' => $expected];
-        }
-    }
-
-    if (empty($mismatches)) {
-        $this->info('Audit selesai: tidak ada mismatch identitas sekolah.');
+    if ((int) $setting->school_profile_id === (int) $profile->id) {
+        $this->info('Audit selesai: school_settings sudah tertaut ke school_profiles.');
         return 0;
     }
 
-    $this->warn('Ditemukan mismatch identitas:');
-    foreach ($mismatches as $field => $values) {
-        $this->line("- {$field}: current=\"{$values['current']}\" expected=\"{$values['expected']}\"");
-    }
+    $this->warn(sprintf(
+        'Ditemukan mismatch tautan: school_profile_id current="%s" expected="%s"',
+        $setting->school_profile_id ?? 'null',
+        $profile->id
+    ));
 
     if (!$this->option('fix')) {
-        $this->error('Jalankan ulang dengan --fix untuk sinkronisasi otomatis.');
+        $this->error('Jalankan ulang dengan --fix untuk menautkan ulang otomatis.');
         return 1;
     }
 
-    $setting->update([
-        'school_profile_id' => $profile->id,
-        'school_name' => $profile->name,
-        'npsn' => $profile->npsn,
-        'address' => $profile->address,
-        'phone' => $profile->phone,
-        'email' => $profile->email,
-        'website' => $profile->website,
-        'principal_name' => $profile->principal_name,
-    ]);
+    $setting->update(['school_profile_id' => $profile->id]);
 
-    $this->info('Sinkronisasi selesai. Data identitas sudah konsisten.');
+    $this->info('Sinkronisasi selesai. school_settings tertaut ke school_profiles.');
     return 0;
 })->purpose('Audit konsistensi identitas sekolah');
