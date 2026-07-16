@@ -34,7 +34,13 @@ class StudentResource extends Resource
             ->schema([
                 // BAGIAN 1: AKUN USER (LOGIN)
                 Forms\Components\Section::make('Akun & Login')
-                    ->description('Hubungkan siswa dengan akun untuk login ke sistem.')
+                    // Saat CREATE, akun siswa (username = NISN) dan akun wali
+                    // (username = WALI_{NISN}) digenerate OTOMATIS oleh
+                    // CreateStudent::handleRecordCreation — konsisten dengan
+                    // StudentImporter dan aturan 1 siswa = 1 akun wali.
+                    // Section ini hanya untuk penautan ulang manual saat EDIT.
+                    ->description('Akun login digenerate otomatis saat siswa dibuat. Gunakan bagian ini hanya untuk penautan ulang manual.')
+                    ->hiddenOn('create')
                     ->schema([
                         Forms\Components\Select::make('user_id')
                             ->label('Akun User')
@@ -71,6 +77,9 @@ class StudentResource extends Resource
                                 ->placeholder('Nomor Induk Siswa Nasional')
                                 ->rules(['numeric']) // Validasi hanya boleh angka, tapi inputnya tetap text
                                 ->unique(ignoreRecord: true)
+                                // Wajib: username akun siswa & wali digenerate dari NISN
+                                ->required()
+                                ->helperText('Akun login siswa (username = NISN) dan wali (WALI_NISN) dibuat otomatis dari nomor ini.')
                                 ->maxLength(20),
 
                             Forms\Components\TextInput::make('nipd')

@@ -21,6 +21,13 @@ return new class extends Migration {
             // Override type dari subjects. NULL = ikuti type di subjects.
             $table->enum('subject_type', ['mandatory', 'kokurikuler', 'elective', 'extracurricular'])
                 ->nullable();
+
+            // Booster Nilai Formatif.
+            // Mode: none (nonaktif) | weight (nilai_formatif x %) | point (poin tetap per formatif terisi).
+            // booster_value: mode weight -> persen; mode point -> poin per formatif.
+            $table->enum('booster_mode', ['none', 'weight', 'point'])->default('none');
+            $table->decimal('booster_value', 5, 2)->nullable();
+
             $table->timestamps();
         });
 

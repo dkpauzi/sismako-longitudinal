@@ -57,7 +57,7 @@ class MyQuestionnaires extends Page implements HasForms
         }
 
         // Wali Siswa: harus punya minimal 1 anak yang terdaftar
-        if ($user->hasRole('wali_siswa') && $user->guardianStudents()->exists()) {
+        if ($user->hasRole('guardian') && $user->guardianStudents()->exists()) {
             return true;
         }
 
@@ -79,7 +79,7 @@ class MyQuestionnaires extends Page implements HasForms
             return new Collection([$user->student]);
         }
 
-        if ($user->hasRole('wali_siswa')) {
+        if ($user->hasRole('guardian')) {
             return $user->guardianStudents()->get();
         }
 
@@ -448,7 +448,7 @@ class MyQuestionnaires extends Page implements HasForms
      */
     public function isGuardianView(): bool
     {
-        return Auth::user()->hasRole('wali_siswa');
+        return Auth::user()->hasRole('guardian');
     }
 
     /**

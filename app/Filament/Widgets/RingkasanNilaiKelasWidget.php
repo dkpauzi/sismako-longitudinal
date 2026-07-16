@@ -5,6 +5,7 @@ namespace App\Filament\Widgets;
 
 use App\Models\AcademicPeriod;
 use App\Models\ClassHomeroom;
+use App\Models\Classroom;
 use App\Services\NilaiVisualisasiService;
 use Filament\Widgets\ChartWidget;
 use Illuminate\Support\Facades\Auth;
@@ -15,41 +16,100 @@ class RingkasanNilaiKelasWidget extends ChartWidget
     protected static ?int $sort = 3;
     protected int|string|array $columnSpan = 'full';
 
+    /** Memoization agar resolusi kelas tidak diulang antara heading & data. */
+    private ?Classroom $resolvedClassroom = null;
+    private bool $classroomResolved = false;
+
     public static function canView(): bool
     {
         return Auth::user()?->hasAnyRole(['teacher', 'headmaster', 'super_admin']) ?? false;
     }
 
-    protected function getData(): array
+    /**
+     * Heading dinamis: SELALU menampilkan nama kelas yang sedang ditampilkan
+     * agar kepsek/admin tidak mengira ini ringkasan seluruh sekolah.
+     */
+    public function getHeading(): ?string
     {
-        $user         = Auth::user();
-        $activePeriod = AcademicPeriod::where('is_active', true)->first();
-        $service      = app(NilaiVisualisasiService::class);
+        $name = $this->resolveClassroom()?->name;
 
-        if (!$activePeriod) {
-            return ['datasets' => [], 'labels' => []];
+        return $name
+            ? 'Rata-rata Nilai Kelas — ' . $name
+            : 'Rata-rata Nilai Kelas';
+    }
+
+    /**
+     * Kepsek/Super Admin memilih kelas via dropdown filter bawaan ChartWidget
+     * (menggantikan perilaku lama yang diam-diam mengambil kelas pertama).
+     */
+    protected function getFilters(): ?array
+    {
+        $user = Auth::user();
+
+        if (!$user?->hasAnyRole(['super_admin', 'headmaster'])) {
+            return null; // Wali kelas: otomatis kelasnya sendiri, tanpa dropdown
         }
 
-        // Tentukan classroom berdasarkan role
+        $activePeriod = AcademicPeriod::where('is_active', true)->first();
+        if (!$activePeriod) {
+            return null;
+        }
+
+        return ClassHomeroom::where('academic_period_id', $activePeriod->id)
+            ->with('classroom')
+            ->get()
+            ->filter(fn($h) => $h->classroom !== null)
+            ->sortBy('classroom.name')
+            ->mapWithKeys(fn($h) => [(string) $h->classroom_id => $h->classroom->name])
+            ->toArray();
+    }
+
+    /**
+     * Resolusi kelas yang ditampilkan (memoized):
+     * - super_admin/headmaster → kelas dari filter terpilih (default: kelas pertama)
+     * - wali kelas             → kelas yang dipegangnya pada periode aktif
+     */
+    private function resolveClassroom(): ?Classroom
+    {
+        if ($this->classroomResolved) {
+            return $this->resolvedClassroom;
+        }
+        $this->classroomResolved = true;
+
+        $user         = Auth::user();
+        $activePeriod = AcademicPeriod::where('is_active', true)->first();
+
+        if (!$user || !$activePeriod) {
+            return $this->resolvedClassroom = null;
+        }
+
         if ($user->hasAnyRole(['super_admin', 'headmaster'])) {
-            // Ambil semua kelas aktif — tampilkan dropdown pilih kelas
-            // Default: kelas pertama
             $homeroom = ClassHomeroom::where('academic_period_id', $activePeriod->id)
+                ->when($this->filter, fn($q) => $q->where('classroom_id', $this->filter))
                 ->with('classroom')
+                ->orderBy('classroom_id')
                 ->first();
         } else {
-            // Wali kelas → hanya kelasnya sendiri
+            // Wali kelas → hanya kelasnya sendiri (null-safe bila profil belum tertaut)
             $homeroom = ClassHomeroom::where('teacher_id', $user->teacher?->id)
                 ->where('academic_period_id', $activePeriod->id)
                 ->with('classroom')
                 ->first();
         }
 
-        if (!$homeroom) {
+        return $this->resolvedClassroom = $homeroom?->classroom;
+    }
+
+    protected function getData(): array
+    {
+        $service   = app(NilaiVisualisasiService::class);
+        $classroom = $this->resolveClassroom();
+
+        if (!$classroom) {
             return ['datasets' => [], 'labels' => []];
         }
 
-        $data = $service->getRingkasanNilaiKelas($homeroom->classroom_id);
+        $data = $service->getRingkasanNilaiKelas($classroom->id);
 
         if (empty($data)) {
             return ['datasets' => [], 'labels' => []];

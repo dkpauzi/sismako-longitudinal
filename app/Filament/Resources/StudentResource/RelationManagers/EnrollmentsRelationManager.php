@@ -21,7 +21,20 @@ class EnrollmentsRelationManager extends RelationManager
                 Forms\Components\Select::make('academic_period_id')
                     ->label('Tahun Ajaran')
                     ->options(\App\Models\AcademicPeriod::where('is_active', true)->get()->mapWithKeys(fn($p) => [$p->id => $p->name])) // Hanya tampilkan periode aktif
-                    ->required(),
+                    ->required()
+                    // Validasi aplikasi mengikuti constraint DB:
+                    // UNIQUE(student_id, academic_period_id) — 1 siswa hanya boleh
+                    // terdaftar di 1 kelas per periode. Siswa di sini adalah owner record.
+                    ->unique(
+                        table: 'enrollments',
+                        column: 'academic_period_id',
+                        modifyRuleUsing: fn($rule) => $rule
+                            ->where('student_id', $this->getOwnerRecord()->id),
+                        ignoreRecord: true
+                    )
+                    ->validationMessages([
+                        'unique' => 'Siswa ini sudah terdaftar di kelas lain pada periode tersebut.',
+                    ]),
 
                 Forms\Components\Select::make('classroom_id')
                     ->label('Kelas')
@@ -30,11 +43,14 @@ class EnrollmentsRelationManager extends RelationManager
                     ->required(),
 
                 Forms\Components\Select::make('status')
+                    // Opsi WAJIB sama dengan ENUM di migrasi enrollments:
+                    // active, promoted, retained, graduated, dropped.
                     ->options([
                         'active' => 'Aktif',
                         'promoted' => 'Naik Kelas',
                         'retained' => 'Tinggal Kelas',
-                        'transferred' => 'Pindah/Mutasi',
+                        'graduated' => 'Lulus',
+                        'dropped' => 'Keluar',
                     ])
                     ->default('active')
                     ->required(),
@@ -56,11 +72,23 @@ class EnrollmentsRelationManager extends RelationManager
 
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
+                    // Nilai mengikuti ENUM migrasi enrollments; default 'gray'
+                    // mencegah UnhandledMatchError untuk data lama yang tak dikenal.
                     ->color(fn(string $state): string => match ($state) {
                         'active' => 'success',
                         'promoted' => 'info',
-                        'retained' => 'danger',
-                        'transferred' => 'warning',
+                        'retained' => 'warning',
+                        'graduated' => 'primary',
+                        'dropped' => 'danger',
+                        default => 'gray',
+                    })
+                    ->formatStateUsing(fn(string $state): string => match ($state) {
+                        'active' => 'Aktif',
+                        'promoted' => 'Naik Kelas',
+                        'retained' => 'Tinggal Kelas',
+                        'graduated' => 'Lulus',
+                        'dropped' => 'Keluar',
+                        default => $state,
                     }),
             ])
             ->filters([

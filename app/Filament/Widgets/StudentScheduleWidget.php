@@ -22,7 +22,7 @@ class StudentScheduleWidget extends BaseWidget
 
     public static function canView(): bool
     {
-        return auth()->check() && auth()->user()?->hasAnyRole(['student', 'wali_siswa']);
+        return auth()->check() && auth()->user()?->hasAnyRole(['student', 'guardian']);
     }
 
     public function table(Table $table): Table
@@ -35,7 +35,7 @@ class StudentScheduleWidget extends BaseWidget
 
         if ($user?->hasRole('student')) {
             $student = $user->student;
-        } elseif ($user?->hasRole('wali_siswa')) {
+        } elseif ($user?->hasRole('guardian')) {
             $student = $user->guardianStudents()->first();
         }
 

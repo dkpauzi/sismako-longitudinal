@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Models\Classroom;
 use Filament\Widgets\ChartWidget;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -64,11 +65,25 @@ class TrendAkademikWidget extends ChartWidget
         $results = $query->get();
 
         $labels = [];
-        $datasetsMap = [
-            7 => ['label' => 'Kelas 7', 'data' => [], 'borderColor' => '#3b82f6', 'fill' => false, 'tension' => 0.4],
-            8 => ['label' => 'Kelas 8', 'data' => [], 'borderColor' => '#eab308', 'fill' => false, 'tension' => 0.4],
-            9 => ['label' => 'Kelas 9', 'data' => [], 'borderColor' => '#10b981', 'fill' => false, 'tension' => 0.4],
-        ];
+
+        // ✅ DINAMIS: level kelas diambil dari data nyata di DB, bukan hardcode
+        // [7, 8, 9]. Sekolah dengan penjenjangan berbeda tidak mematahkan chart.
+        $levels = Classroom::distinct()
+            ->orderBy('grade_level')
+            ->pluck('grade_level');
+
+        $palette = ['#3b82f6', '#eab308', '#10b981', '#8b5cf6', '#ec4899', '#f97316'];
+
+        $datasetsMap = [];
+        foreach ($levels as $i => $level) {
+            $datasetsMap[$level] = [
+                'label'       => 'Kelas ' . $level,
+                'data'        => [],
+                'borderColor' => $palette[$i % count($palette)],
+                'fill'        => false,
+                'tension'     => 0.4,
+            ];
+        }
 
         // Ensure we collect all unique periods chronologically to act as labels
         $periods = $results->map(function ($row) {
@@ -82,9 +97,9 @@ class TrendAkademikWidget extends ChartWidget
             $labels[] = $period['name'];
             
             // For each level, find the average_score in this period
-            foreach ([7, 8, 9] as $level) {
+            foreach ($levels as $level) {
                 $match = $results->first(function ($row) use ($period, $level) {
-                    return $row->period_id === $period['id'] && (int)$row->grade_level === $level;
+                    return $row->period_id === $period['id'] && (int)$row->grade_level === (int)$level;
                 });
                 
                 $datasetsMap[$level]['data'][] = $match ? (float) $match->average_score : null;

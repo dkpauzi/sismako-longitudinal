@@ -19,6 +19,11 @@
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
+        <!-- APP_URL di .env menunjuk subdirektori XAMPP (http://localhost/sismako-longitudinal/public).
+             Test HTTP mem-prefix URL relatif dengan APP_URL, sehingga $this->get('/') menjadi
+             path /sismako-longitudinal/public/ yang tidak cocok dengan route '/' -> 404.
+             Pin ke http://localhost agar test tidak tergantung konfigurasi hosting lokal. -->
+        <env name="APP_URL" value="http://localhost"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="CACHE_STORE" value="array"/>

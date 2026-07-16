@@ -21,8 +21,10 @@ class DataIntegrityPhaseTwoTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_school_setting_auto_links_to_school_profile_and_backfills_legacy_columns(): void
+    public function test_school_setting_auto_links_to_school_profile(): void
     {
+        // Pasca-konsolidasi: school_settings tidak lagi menyimpan kolom identitas
+        // (tidak ada backfill legacy). Identitas dibaca via relasi schoolProfile.
         $profile = SchoolProfile::create([
             'name' => 'SMPN Integritas',
             'npsn' => '12345678',
@@ -38,9 +40,8 @@ class DataIntegrityPhaseTwoTest extends TestCase
         ])->fresh();
 
         $this->assertSame($profile->id, $setting->school_profile_id);
-        $this->assertSame('SMPN Integritas', $setting->getRawOriginal('school_name'));
-        $this->assertSame('Drs. Integritas', $setting->getRawOriginal('principal_name'));
-        $this->assertSame('SMPN Integritas', $setting->school_name);
+        $this->assertSame('SMPN Integritas', $setting->schoolProfile->name);
+        $this->assertSame('Drs. Integritas', $setting->schoolProfile->principal_name);
     }
 
     public function test_grade_table_rejects_duplicate_assessment_student_pairs(): void
