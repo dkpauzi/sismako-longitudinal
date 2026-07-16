@@ -33,16 +33,18 @@ class NilaiVisualisasiService
         }
 
         // Wali Siswa → hanya anak yang terhubung via guardian_user_id
-        if ($user->hasRole('wali_siswa')) {
+        if ($user->hasRole('guardian')) {
             return $user->guardianStudents()->where('id', $studentId)->exists();
         }
 
-        // Guru → cek apakah mengajar siswa ini di periode aktif
+        // Guru → cek apakah mengajar siswa ini di periode aktif.
+        // Null-safe: akun ber-role teacher tanpa profil Teacher tidak boleh 500.
         if ($user->hasRole('teacher')) {
-            return $this->guruMengajarSiswa(
-                $user->teacher->id,
-                $studentId
-            );
+            $teacherId = $user->teacher?->id;
+
+            return $teacherId
+                ? $this->guruMengajarSiswa($teacherId, $studentId)
+                : false;
         }
 
         return false;
@@ -142,14 +144,25 @@ class NilaiVisualisasiService
         $assignments = TeachingAssignment::where('classroom_id', $classroomId)
             ->where('academic_period_id', $activePeriod->id)
             ->whereHas('subject', fn($q) => $q->whereIn('type', ['mandatory']))
-            ->with(['subject', 'finalGrades'])
+            ->with([
+                'subject',
+                // ✅ ANTI-KONTAMINASI LINTAS SEMESTER: rata-rata kelas hanya
+                // boleh dihitung dari nilai semester periode AKTIF. Tanpa scope
+                // ini, nilai semester lain (mis. hasil override manual) ikut
+                // terhitung dan mendistorsi metrik.
+                // ✅ HEMAT MEMORI: hanya kolom yang benar-benar dipakai.
+                'finalGrades' => fn($q) => $q
+                    ->select('id', 'teaching_assignment_id', 'student_id', 'final_score', 'semester')
+                    ->where('semester', $activePeriod->semester)
+                    ->whereNotNull('final_score'),
+            ])
             ->get();
 
         $result = [];
 
         foreach ($assignments as $assignment) {
-            $grades = $assignment->finalGrades
-                ->whereNotNull('final_score');
+            // Sudah difilter di eager load — tidak perlu filter ulang per iterasi
+            $grades = $assignment->finalGrades;
 
             if ($grades->isEmpty()) continue;
 
@@ -229,7 +242,9 @@ class NilaiVisualisasiService
 
             $result[] = [
                 'teacher_id'         => $teacherId,
-                'nama_guru'          => $teacher->user->name,
+                // Null-safe: guru tanpa akun login (mis. pembina eksternal)
+                // memakai nama profil; jangan 500 karena user_id null.
+                'nama_guru'          => $teacher->user?->name ?? $teacher->name ?? 'Data Belum Lengkap',
                 'jumlah_kelas'       => $teacherAssignments->count(),
                 'total_siswa'        => $totalStudents,
                 'nilai_terisi'       => $totalGraded,
@@ -259,15 +274,21 @@ class NilaiVisualisasiService
         }
 
         if ($user->hasRole('student')) {
-            return Student::where('id', $user->student->id)->get();
+            // Null-safe: akun student tanpa profil Student → daftar kosong, bukan 500
+            return $user->student
+                ? Student::where('id', $user->student->id)->get()
+                : collect();
         }
 
         // Wali Siswa → hanya anak-anak yang terhubung via guardian_user_id
-        if ($user->hasRole('wali_siswa')) {
+        if ($user->hasRole('guardian')) {
             return $user->guardianStudents()->orderBy('name')->get();
         }
 
         if ($user->hasRole('teacher')) {
+            // Null-safe: akun teacher tanpa profil Teacher → daftar kosong, bukan 500
+            if (!$user->teacher) return collect();
+
             $activePeriod = AcademicPeriod::where('is_active', true)->first();
             if (!$activePeriod) return collect();
 
