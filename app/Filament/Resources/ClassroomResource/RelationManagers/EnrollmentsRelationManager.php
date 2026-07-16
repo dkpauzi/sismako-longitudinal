@@ -13,6 +13,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Collection;
 use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule; // Tambahan Import agar aman
 
 class EnrollmentsRelationManager extends RelationManager
@@ -35,38 +36,60 @@ class EnrollmentsRelationManager extends RelationManager
     {
         return $form
             ->schema([
-                Forms\Components\Select::make('student_id')
-                    ->label('Siswa')
-                    ->options(Student::all()->pluck('name', 'id'))
-                    ->searchable()
-                    ->preload()
-                    ->required()
-                    // --- PERBAIKAN DI SINI ---
-                    ->unique(
-                        table: 'enrollments',
-                        column: 'student_id',
-                        modifyRuleUsing: fn($rule, $get) => $rule
-                            ->where('academic_period_id', $get('academic_period_id'))
-                            ->where('classroom_id', $this->getOwnerRecord()->id),
-                        ignoreRecord: true
-                    )
-                    ->validationMessages([
-                        'unique' => 'Siswa ini sudah terdaftar di kelas ini pada periode tersebut.',
-                    ]),
-                // --------------------------
-
+                // Periode dipilih lebih dulu agar daftar siswa bisa difilter reaktif.
                 Forms\Components\Select::make('academic_period_id')
                     ->label('Tahun Ajaran')
                     ->options(AcademicPeriod::where('is_active', true)->get()->mapWithKeys(fn($p) => [$p->id => $p->name]))
                     ->default(fn() => AcademicPeriod::where('is_active', true)->first()?->id)
+                    ->live()
                     ->required(),
+
+                Forms\Components\Select::make('student_id')
+                    ->label('Siswa')
+                    // Hanya siswa yang BELUM punya kelas pada periode terpilih.
+                    // Constraint DB: UNIQUE(student_id, academic_period_id) —
+                    // 1 siswa hanya boleh 1 kelas per periode, apa pun kelasnya.
+                    ->options(function (Forms\Get $get, ?Enrollment $record) {
+                        $periodId = $get('academic_period_id')
+                            ?? AcademicPeriod::where('is_active', true)->first()?->id;
+
+                        if (!$periodId) {
+                            return [];
+                        }
+
+                        return Student::query()
+                            ->whereDoesntHave('enrollments', fn($q) => $q
+                                ->where('academic_period_id', $periodId)
+                                ->when($record, fn($qq) => $qq->where('id', '!=', $record->id)))
+                            ->orderBy('name')
+                            ->pluck('name', 'id');
+                    })
+                    ->searchable()
+                    ->preload()
+                    ->required()
+                    // Validasi aplikasi HARUS sama dimensinya dengan constraint DB:
+                    // (student_id + academic_period_id), TANPA classroom_id.
+                    ->unique(
+                        table: 'enrollments',
+                        column: 'student_id',
+                        modifyRuleUsing: fn($rule, $get) => $rule
+                            ->where('academic_period_id', $get('academic_period_id')),
+                        ignoreRecord: true
+                    )
+                    ->validationMessages([
+                        'unique' => 'Siswa ini sudah terdaftar di kelas lain pada periode tersebut.',
+                    ]),
 
                 Forms\Components\Select::make('status')
                     ->label('Status')
+                    // Opsi WAJIB sama dengan ENUM di migrasi enrollments:
+                    // active, promoted, retained, graduated, dropped.
                     ->options([
                         'active' => 'Aktif',
-                        'moved' => 'Pindah',
-                        'dropped_out' => 'DO',
+                        'promoted' => 'Naik Kelas',
+                        'retained' => 'Tinggal Kelas',
+                        'graduated' => 'Lulus',
+                        'dropped' => 'Keluar',
                     ])
                     ->default('active')
                     ->required(),
@@ -97,16 +120,22 @@ class EnrollmentsRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('status')
                     ->label('Status')
                     ->badge()
+                    // Nilai mengikuti ENUM migrasi enrollments:
+                    // active, promoted, retained, graduated, dropped.
                     ->color(fn(string $state): string => match ($state) {
                         'active' => 'success',
-                        'moved' => 'warning',
-                        'dropped_out' => 'danger',
+                        'promoted' => 'info',
+                        'retained' => 'warning',
+                        'graduated' => 'primary',
+                        'dropped' => 'danger',
                         default => 'gray',
                     })
                     ->formatStateUsing(fn(string $state): string => match ($state) {
                         'active' => 'Aktif',
-                        'moved' => 'Pindah',
-                        'dropped_out' => 'DO',
+                        'promoted' => 'Naik Kelas',
+                        'retained' => 'Tinggal Kelas',
+                        'graduated' => 'Lulus',
+                        'dropped' => 'Keluar',
                         default => $state,
                     }),
             ])
@@ -114,8 +143,10 @@ class EnrollmentsRelationManager extends RelationManager
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
                         'active' => 'Aktif',
-                        'moved' => 'Pindah',
-                        'dropped_out' => 'DO',
+                        'promoted' => 'Naik Kelas',
+                        'retained' => 'Tinggal Kelas',
+                        'graduated' => 'Lulus',
+                        'dropped' => 'Keluar',
                     ]),
             ])
             ->headerActions([
@@ -158,15 +189,24 @@ class EnrollmentsRelationManager extends RelationManager
                         ])
                         ->action(function (Collection $records, array $data) {
                             $successCount = 0;
+                            $skipped = [];
 
-                            foreach ($records as $enrollment) {
-                                // Cek Duplikasi agar tidak error
-                                $exists = Enrollment::where('student_id', $enrollment->student_id)
-                                    ->where('classroom_id', $data['new_classroom_id'])
-                                    ->where('academic_period_id', $data['new_academic_period_id'])
-                                    ->exists();
+                            // Atomik: gagal di tengah -> seluruh batch di-rollback
+                            // (mencegah partial write pada operasi kenaikan kelas massal).
+                            DB::transaction(function () use ($records, $data, &$successCount, &$skipped) {
+                                foreach ($records as $enrollment) {
+                                    // Constraint DB: UNIQUE(student_id, academic_period_id).
+                                    // Cek HANYA (siswa + periode tujuan) — kelas TIDAK relevan;
+                                    // siswa yang sudah punya kelas apa pun di periode tujuan dilewati.
+                                    $exists = Enrollment::where('student_id', $enrollment->student_id)
+                                        ->where('academic_period_id', $data['new_academic_period_id'])
+                                        ->exists();
 
-                                if (!$exists) {
+                                    if ($exists) {
+                                        $skipped[] = $enrollment->student?->name ?? "ID {$enrollment->student_id}";
+                                        continue;
+                                    }
+
                                     Enrollment::create([
                                         'student_id' => $enrollment->student_id,
                                         'classroom_id' => $data['new_classroom_id'],
@@ -175,13 +215,21 @@ class EnrollmentsRelationManager extends RelationManager
                                     ]);
                                     $successCount++;
                                 }
+                            });
+
+                            $body = "{$successCount} siswa berhasil dipindahkan.";
+                            if ($skipped !== []) {
+                                $shown = implode(', ', array_slice($skipped, 0, 5));
+                                $more = count($skipped) > 5 ? ' +' . (count($skipped) - 5) . ' lainnya' : '';
+                                $body .= ' Dilewati karena sudah terdaftar di periode tujuan: ' . $shown . $more . '.';
                             }
 
-                            Notification::make()
-                                ->title('Berhasil')
-                                ->body("$successCount siswa berhasil dipindahkan.")
-                                ->success()
-                                ->send();
+                            $notification = Notification::make()
+                                ->title('Proses Kenaikan Kelas Selesai')
+                                ->body($body);
+
+                            $skipped === [] ? $notification->success() : $notification->warning();
+                            $notification->send();
                         })
                         ->deselectRecordsAfterCompletion(),
                 ]),
