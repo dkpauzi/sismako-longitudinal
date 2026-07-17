@@ -10,7 +10,6 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Support\Facades\Auth;
 
 class KokurikulerGradeResource extends Resource
 {
@@ -22,25 +21,11 @@ class KokurikulerGradeResource extends Resource
     protected static ?string $modelLabel = 'Nilai Kokurikuler';
     protected static ?string $pluralModelLabel = 'Nilai Kokurikuler';
 
-    public static function canViewAny(): bool
-    {
-        return Auth::user()->hasAnyRole(['guru', 'Guru', 'super_admin', 'Super Admin']);
-    }
-
-    public static function canCreate(): bool
-    {
-        return static::canViewAny();
-    }
-
-    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
-    {
-        return static::canViewAny();
-    }
-
-    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
-    {
-        return static::canViewAny();
-    }
+    // Hak akses resource ini sepenuhnya diatur oleh KokurikulerGradePolicy
+    // (permission: *_kokurikuler::grade) yang dipetakan di RolePermissionSeeder.
+    // Guard hardcoded hasAnyRole() sebelumnya dihapus karena mengecek slug role
+    // fiktif ('guru', 'Guru', 'Super Admin') yang tidak pernah dibuat seeder,
+    // sekaligus menindih Policy sehingga Admin ikut tertolak dari modul P5.
 
     public static function form(Form $form): Form
     {

@@ -63,9 +63,10 @@ class RaporExportService
         $totalIzin = $attendance->sum('permit');
         $totalAlpha = $attendance->sum('alpha');
 
-        // Determine Official Status based on roles
+        // Tentukan status resmi rapor berdasarkan role.
+        // Siswa & Wali Siswa hanya menerima "rapor bayangan" (tidak resmi).
         $isOfficial = true;
-        if (auth()->check() && auth()->user()->hasAnyRole(['student', 'guardian', 'Siswa', 'Wali Siswa'])) {
+        if (auth()->check() && auth()->user()->hasAnyRole(['student', 'guardian'])) {
             $isOfficial = false;
         }
 

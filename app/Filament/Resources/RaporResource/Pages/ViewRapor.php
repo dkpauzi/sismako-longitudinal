@@ -254,7 +254,7 @@ class ViewRapor extends ViewRecord
                 ->label('Cetak Rapor')
                 ->icon('heroicon-o-printer')
                 ->color('success')
-                ->visible(fn() => auth()->user()->hasAnyRole(['student', 'guardian', 'Siswa', 'Wali Siswa', 'guru', 'Guru', 'super_admin', 'Super Admin']))
+                ->visible(fn() => auth()->user()->hasAnyRole(['student', 'guardian', 'teacher', 'admin', 'super_admin']))
                 ->form([
                     \Filament\Forms\Components\Select::make('student_id')
                         ->label('Pilih Siswa')
@@ -264,7 +264,7 @@ class ViewRapor extends ViewRecord
                                 ->where('status', 'active')
                                 ->with('student');
                             
-                            if (auth()->user()->hasRole('Siswa') || auth()->user()->hasRole('student')) {
+                            if (auth()->user()->hasRole('student')) {
                                 $student = \App\Models\Student::where('nisn', auth()->user()->username)->first();
                                 if ($student) {
                                     $query->where('student_id', $student->id);
@@ -289,7 +289,7 @@ class ViewRapor extends ViewRecord
                 ->label('Download PDF')
                 ->icon('heroicon-o-document-arrow-down')
                 ->color('danger')
-                ->visible(fn() => auth()->user()->hasAnyRole(['student', 'guardian', 'Siswa', 'Wali Siswa', 'guru', 'Guru', 'super_admin', 'Super Admin']))
+                ->visible(fn() => auth()->user()->hasAnyRole(['student', 'guardian', 'teacher', 'admin', 'super_admin']))
                 ->form([
                     \Filament\Forms\Components\Select::make('student_id')
                         ->label('Pilih Siswa')
@@ -300,7 +300,7 @@ class ViewRapor extends ViewRecord
                                 ->with('student');
                             
                             // If user is a student, only show their own name
-                            if (auth()->user()->hasRole('Siswa') || auth()->user()->hasRole('student')) {
+                            if (auth()->user()->hasRole('student')) {
                                 $student = \App\Models\Student::where('nisn', auth()->user()->username)->first();
                                 if ($student) {
                                     $query->where('student_id', $student->id);
@@ -324,7 +324,7 @@ class ViewRapor extends ViewRecord
                 ->label('Download Word')
                 ->icon('heroicon-o-document-text')
                 ->color('info')
-                ->visible(fn() => auth()->user()->hasAnyRole(['guru', 'Guru', 'super_admin', 'Super Admin']))
+                ->visible(fn() => auth()->user()->hasAnyRole(['teacher', 'admin', 'super_admin']))
                 ->form([
                     \Filament\Forms\Components\Select::make('student_id')
                         ->label('Pilih Siswa')

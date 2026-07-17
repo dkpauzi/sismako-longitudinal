@@ -22,8 +22,8 @@ class NilaiVisualisasiService
     {
         $user = Auth::user();
 
-        // Kepala Sekolah & Super Admin → selalu bisa
-        if ($user->hasAnyRole(['super_admin', 'headmaster'])) {
+        // Super Admin, Admin & Kepala Sekolah → selalu bisa (staf sekolah)
+        if ($user->hasAnyRole(['super_admin', 'admin', 'headmaster'])) {
             return true;
         }
 
@@ -269,7 +269,7 @@ class NilaiVisualisasiService
     {
         $user = Auth::user();
 
-        if ($user->hasAnyRole(['super_admin', 'headmaster'])) {
+        if ($user->hasAnyRole(['super_admin', 'admin', 'headmaster'])) {
             return Student::with('user')->orderBy('name')->get();
         }
 

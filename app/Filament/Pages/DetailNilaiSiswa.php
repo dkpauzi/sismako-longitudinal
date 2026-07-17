@@ -32,7 +32,7 @@ class DetailNilaiSiswa extends Page implements HasForms
     public static function canAccess(): bool
     {
         return Auth::user()?->hasAnyRole([
-            'super_admin', 'headmaster', 'teacher', 'student', 'guardian'
+            'super_admin', 'admin', 'headmaster', 'teacher', 'student', 'guardian'
         ]) ?? false;
     }
 

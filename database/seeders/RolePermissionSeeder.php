@@ -5,13 +5,17 @@ namespace Database\Seeders;
 // ================================================================
 // database/seeders/RolePermissionSeeder.php
 //
-// Seeder ini mengatur REKOMENDASI HAK AKSES per Role.
+// Seeder ini adalah SUMBER KEBENARAN TUNGGAL untuk Role & Permission.
 // Jalankan dengan: php artisan db:seed --class=RolePermissionSeeder
 //
-// CATATAN:
-// - Pastikan php artisan shield:generate --all sudah dijalankan
-//   agar semua permission terdaftar di database.
-// - Seeder ini AKAN MENIMPA permission yang sudah ada.
+// CATATAN PENTING:
+// - Seeder ini TIDAK lagi bergantung pada `php artisan shield:generate --all`.
+//   Seluruh permission dibuat manual di sini agar `migrate:fresh --seed`
+//   langsung menghasilkan sistem yang siap pakai tanpa langkah CLI tambahan.
+// - Nama permission mengikuti konvensi Filament Shield: {affix}_{resource},
+//   contoh: view_any_rapor, update_kokurikuler::grade.
+// - Nama resource HARUS sama persis dengan string yang dicek di app/Policies.
+// - Seeder ini AKAN MENIMPA permission yang sudah melekat pada tiap role.
 // ================================================================
 
 use Illuminate\Database\Seeder;
@@ -21,12 +25,83 @@ use Spatie\Permission\PermissionRegistrar;
 
 class RolePermissionSeeder extends Seeder
 {
+    /**
+     * Awalan (affix) standar Filament Shield untuk setiap resource.
+     * Digabung menjadi: {affix}_{resource}.
+     */
+    private const AFFIXES = [
+        'view',
+        'view_any',
+        'create',
+        'update',
+        'restore',
+        'restore_any',
+        'replicate',
+        'reorder',
+        'delete',
+        'delete_any',
+        'force_delete',
+        'force_delete_any',
+    ];
+
+    /**
+     * Daftar resource yang memiliki Policy di app/Policies.
+     * String di sini WAJIB identik dengan argumen $user->can() di Policy terkait,
+     * jika tidak, permission tidak akan pernah cocok dan user tetap tertolak 403.
+     */
+    private const RESOURCES = [
+        'academic::period',                // AcademicPeriodPolicy
+        'bk::counseling::record',          // BkCounselingRecordPolicy
+        'bk::questionnaire',               // BkQuestionnairePolicy
+        'classroom',                       // ClassroomPolicy
+        'kokurikuler::grade',              // KokurikulerGradePolicy
+        'learning::objective',             // LearningObjectivePolicy
+        'lesson::journal',                 // LessonJournalPolicy
+        'narrative::template',             // NarrativeTemplatePolicy
+        'rapor',                           // ClassHomeroomPolicy (RaporResource memakai ClassHomeroom sebagai anchor)
+        'role',                            // RolePolicy
+        'school::activity',                // SchoolActivityPolicy
+        'school::organization::structure', // SchoolOrganizationStructurePolicy
+        'school::post',                    // SchoolPostPolicy
+        'school::profile',                 // SchoolProfilePolicy
+        'school::setting',                 // SchoolSettingPolicy
+        'student',                         // StudentPolicy
+        'student::subject::enrollment',    // StudentSubjectEnrollmentPolicy
+        'subject',                         // SubjectPolicy
+        'teacher',                         // TeacherPolicy
+        'teaching::assignment',            // TeachingAssignmentPolicy
+        'user',                            // UserPolicy
+    ];
+
+    /**
+     * Permission Halaman & Widget kustom.
+     *
+     * PERINGATAN: Saat ini permission ini BELUM ditegakkan oleh apa pun.
+     * Halaman/widget terkait masih memakai canAccess()/shouldRegisterNavigation()
+     * berbasis hasRole(). Permission ini dibuat agar peta hak akses lengkap dan
+     * siap dipakai ketika trait HasPageShield/HasWidgetShield diterapkan nanti.
+     */
+    private const PAGE_AND_WIDGET_PERMISSIONS = [
+        'page_StudentPromotionWizard',
+        'page_StudentBkResults',
+        'page_MyQuestionnaires',
+        'page_MyGrades',
+        'page_DetailNilaiSiswa',
+        'widget_StudentScheduleWidget',
+    ];
+
     public function run(): void
     {
         // Reset cache izin Spatie agar perubahan langsung berlaku
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
-        // ── BUAT ROLE JIKA BELUM ADA (Diseragamkan Menggunakan Slugs Standar) ──
+        // ── LANGKAH 1: BUAT SELURUH PERMISSION ──────────────────────────────
+        $created = $this->createPermissions();
+        $this->command->info("✅ Permission: {$created} izin tersedia di database.");
+
+        // ── LANGKAH 2: BUAT ROLE JIKA BELUM ADA ─────────────────────────────
+        // Slug di bawah ini adalah SATU-SATUNYA slug role yang sah di sistem.
+        // Kode aplikasi tidak boleh mengecek slug di luar daftar ini.
         $superAdmin = Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
         $admin      = Role::firstOrCreate(['name' => 'admin',       'guard_name' => 'web']);
         $teacher    = Role::firstOrCreate(['name' => 'teacher',     'guard_name' => 'web']);
@@ -35,8 +110,11 @@ class RolePermissionSeeder extends Seeder
         $guardian   = Role::firstOrCreate(['name' => 'guardian',    'guard_name' => 'web']);
         $guruBk     = Role::firstOrCreate(['name' => 'guru_bk',     'guard_name' => 'web']);
 
-        // ── SUPER ADMIN: Dapat semua izin secara otomatis via Gate Intercept ──
-        $this->command->info('✅ Super Admin: Mendapat semua izin secara otomatis.');
+        // ── SUPER ADMIN ─────────────────────────────────────────────────────
+        // Config filament-shield mengaktifkan Gate intercept untuk super_admin,
+        // namun izin tetap disematkan eksplisit agar tidak bergantung pada config.
+        $superAdmin->syncPermissions(Permission::all());
+        $this->command->info('✅ Super Admin: ' . Permission::count() . ' izin diberikan (seluruhnya).');
 
         // ── KEPALA SEKOLAH (HEADMASTER) ────────────────────────────────────────
         $headmasterPermissions = $this->resolvePermissions([
@@ -49,7 +127,7 @@ class RolePermissionSeeder extends Seeder
 
             // SK Mengajar & Manajemen Ekstrakurikuler (Read-only)
             'view_any_teaching::assignment', 'view_teaching::assignment',
-            'view_any_student::subject::enrollment',
+            'view_any_student::subject::enrollment', 'view_student::subject::enrollment',
 
             // Jurnal, TP, & Penilaian Kokurikuler (P5)
             'view_any_lesson::journal', 'view_lesson::journal',
@@ -67,6 +145,9 @@ class RolePermissionSeeder extends Seeder
 
             // Hasil Evaluasi Psikologis / Asesmen VAK Guru BK
             'page_StudentBkResults',
+
+            // Grafik Longitudinal Siswa
+            'page_DetailNilaiSiswa',
         ]);
         $headmaster->syncPermissions($headmasterPermissions);
         $this->command->info('✅ Kepala Sekolah: ' . count($headmasterPermissions) . ' izin diberikan.');
@@ -88,8 +169,10 @@ class RolePermissionSeeder extends Seeder
             // SK Mengajar / Pembina Ekskul - Full CRUD
             'view_any_teaching::assignment', 'view_teaching::assignment', 'create_teaching::assignment', 'update_teaching::assignment', 'delete_teaching::assignment', 'delete_any_teaching::assignment',
 
-            // Manajemen Pendaftaran Anggota Ekstrakurikuler Siswa
-            'view_any_student::subject::enrollment', 'create_student::subject::enrollment', 'update_student::subject::enrollment', 'delete_student::subject::enrollment',
+            // Penilaian Ekstrakurikuler — Full CRUD.
+            // Pembina ekskul umumnya pihak eksternal tanpa akun sistem, sehingga
+            // input predikat & narasi ekskul didelegasikan ke Admin (lihat Audit 3.5).
+            'view_any_student::subject::enrollment', 'view_student::subject::enrollment', 'create_student::subject::enrollment', 'update_student::subject::enrollment', 'delete_student::subject::enrollment',
 
             // Penilaian Nilai Akhir Modul Kokurikuler (P5) - Full CRUD
             'view_any_kokurikuler::grade', 'view_kokurikuler::grade', 'create_kokurikuler::grade', 'update_kokurikuler::grade', 'delete_kokurikuler::grade',
@@ -111,6 +194,9 @@ class RolePermissionSeeder extends Seeder
 
             // Izin Halaman Kenaikan Kelas Kritis (Promotion Wizard Page)
             'page_StudentPromotionWizard',
+
+            // Grafik Longitudinal Siswa
+            'page_DetailNilaiSiswa',
         ]);
         $admin->syncPermissions($adminPermissions);
         $this->command->info('✅ Admin: ' . count($adminPermissions) . ' izin diberikan.');
@@ -120,8 +206,10 @@ class RolePermissionSeeder extends Seeder
             // SK Mengajar - Lihat Tugas & Update Beban Kelas
             'view_any_teaching::assignment', 'view_teaching::assignment', 'update_teaching::assignment',
 
-            // Akses Mengisi Predikat & Deskripsi Narasi Evaluasi Ekstrakurikuler Siswa
-            'view_any_student::subject::enrollment', 'update_student::subject::enrollment',
+            // Ekstrakurikuler — READ ONLY.
+            // update_student::subject::enrollment SENGAJA TIDAK diberikan (Audit 3.5):
+            // penilaian ekskul adalah kewenangan Admin & Wali Kelas, bukan seluruh guru.
+            'view_any_student::subject::enrollment', 'view_student::subject::enrollment',
 
             // Akses Mengisi Nilai Akhir Narasi Projek Kokurikuler (P5)
             'view_any_kokurikuler::grade', 'view_kokurikuler::grade', 'create_kokurikuler::grade', 'update_kokurikuler::grade', 'delete_kokurikuler::grade',
@@ -148,6 +236,9 @@ class RolePermissionSeeder extends Seeder
 
             // Pemantauan Gaya Belajar Siswa dari Hasil BK
             'page_StudentBkResults',
+
+            // Grafik Longitudinal Siswa yang Diajar
+            'page_DetailNilaiSiswa',
         ]);
         $teacher->syncPermissions($teacherPermissions);
         $this->command->info('✅ Guru: ' . count($teacherPermissions) . ' izin diberikan.');
@@ -181,6 +272,8 @@ class RolePermissionSeeder extends Seeder
             'view_any_rapor', 'view_rapor',            // Akses Transkrip Pemantauan Nilai Mandiri
             'widget_StudentScheduleWidget',           // Peninjauan Jadwal Pelajaran Aktif
             'page_MyQuestionnaires',                  // Mengisi Angket VAK Saat Tiket Dibuka Guru BK
+            'page_MyGrades',                          // Rekap Nilai & Kehadiran Pribadi
+            'page_DetailNilaiSiswa',                  // Grafik Longitudinal Nilai Sendiri
         ]);
         $student->syncPermissions($studentPermissions);
         $this->command->info('✅ Siswa: ' . count($studentPermissions) . ' izin diberikan.');
@@ -190,26 +283,67 @@ class RolePermissionSeeder extends Seeder
             'view_any_rapor', 'view_rapor',            // Memantau Grafik Perkembangan & Rapor Bayangan Anak
             'widget_StudentScheduleWidget',           // Meninjau Kehadiran & Jadwal Belajar Anak
             'page_MyQuestionnaires',                  // Meninjau Profil Gaya Belajar Hasil Angket Anak
+            'page_DetailNilaiSiswa',                  // Grafik Longitudinal Nilai Anak
         ]);
         $guardian->syncPermissions($guardianPermissions);
         $this->command->info('✅ Wali Siswa: ' . count($guardianPermissions) . ' izin diberikan.');
 
+        // Bersihkan cache sekali lagi agar izin baru langsung terbaca aplikasi
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
+
         $this->command->newLine();
-        $this->command->info('🎉 Selesai! Semua role telah dikonfigurasi secara sinkron.');
-        $this->command->info('   Jalankan: php artisan permission:cache-reset untuk membersihkan cache.');
+        $this->command->info('🎉 Selesai! Semua role & permission telah dikonfigurasi secara sinkron.');
     }
 
+    /**
+     * Membuat seluruh permission yang dikenal sistem.
+     *
+     * Menggantikan `php artisan shield:generate --all` agar proses
+     * `migrate:fresh --seed` berdiri sendiri tanpa langkah CLI manual.
+     *
+     * @return int Jumlah total permission yang tersedia setelah proses ini.
+     */
+    private function createPermissions(): int
+    {
+        // Permission per Resource: kombinasi {affix}_{resource}
+        foreach (self::RESOURCES as $resource) {
+            foreach (self::AFFIXES as $affix) {
+                Permission::firstOrCreate([
+                    'name' => "{$affix}_{$resource}",
+                    'guard_name' => 'web',
+                ]);
+            }
+        }
+
+        // Permission Halaman & Widget kustom
+        foreach (self::PAGE_AND_WIDGET_PERMISSIONS as $name) {
+            Permission::firstOrCreate([
+                'name' => $name,
+                'guard_name' => 'web',
+            ]);
+        }
+
+        return Permission::count();
+    }
+
+    /**
+     * Mengambil objek Permission berdasarkan nama.
+     *
+     * Berfungsi ganda sebagai pemeriksa integritas: jika ada nama yang salah ketik
+     * atau resource baru yang belum didaftarkan di konstanta RESOURCES,
+     * seeder akan memperingatkan alih-alih diam-diam memberi izin kosong.
+     */
     private function resolvePermissions(array $names): \Illuminate\Support\Collection
     {
         $found  = Permission::whereIn('name', $names)->get();
         $missing = array_diff($names, $found->pluck('name')->toArray());
 
         if (!empty($missing)) {
-            $this->command->warn('⚠️  Permission berikut belum ada di database (skip):');
+            $this->command->warn('⚠️  Permission berikut TIDAK DIKENAL (kemungkinan salah ketik):');
             foreach ($missing as $name) {
                 $this->command->warn("   - {$name}");
             }
-            $this->command->warn('   → Pastikan sudah menjalankan: php artisan shield:generate --all');
+            $this->command->warn('   → Periksa konstanta RESOURCES / PAGE_AND_WIDGET_PERMISSIONS di seeder ini.');
         }
 
         return $found;

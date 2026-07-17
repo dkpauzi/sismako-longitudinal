@@ -48,14 +48,14 @@ class BkEvaluationTest extends TestCase
         $studentRole    = Role::create(['name' => 'student',    'guard_name' => 'web']);
         $teacherRole    = Role::create(['name' => 'teacher',    'guard_name' => 'web']);
         $guruBkRole     = Role::create(['name' => 'guru_bk',    'guard_name' => 'web']);
-        $waliSiswaRole  = Role::create(['name' => 'wali_siswa', 'guard_name' => 'web']);
+        $guardianRole   = Role::create(['name' => 'guardian',   'guard_name' => 'web']);
         $headmasterRole = Role::create(['name' => 'headmaster', 'guard_name' => 'web']);
 
         $pagePerm = Permission::create(['name' => 'page_MyQuestionnaires',  'guard_name' => 'web']);
         $resultsPerm = Permission::create(['name' => 'page_StudentBkResults', 'guard_name' => 'web']);
 
         $studentRole->givePermissionTo($pagePerm);
-        $waliSiswaRole->givePermissionTo($pagePerm);
+        $guardianRole->givePermissionTo($pagePerm);
         $teacherRole->givePermissionTo($resultsPerm);
         $guruBkRole->givePermissionTo($resultsPerm);
         $headmasterRole->givePermissionTo($resultsPerm);
