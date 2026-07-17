@@ -131,22 +131,6 @@ class Student extends Model
     }
 
     /**
-     * Relasi ke Ekstrakurikuler yang diikuti siswa.
-     * Many-to-Many melalui tabel pivot student_extracurriculars.
-     * Dibutuhkan oleh RaporExportService::addExtracurricularSection().
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
-     */
-    public function extracurriculars(): BelongsToMany
-    {
-        return $this->belongsToMany(
-            \App\Models\Extracurricular::class,
-            'student_extracurriculars'
-        )->withPivot(['academic_period_id', 'score_grade', 'description'])
-         ->withTimestamps();
-    }
-
-    /**
      * Relasi ke respons kuesioner BK siswa.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany

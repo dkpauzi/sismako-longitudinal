@@ -3,18 +3,12 @@
 namespace App\Filament\Resources\ClassroomResource\RelationManagers;
 
 use App\Models\AcademicPeriod;
-use App\Models\Classroom;
-use App\Models\Enrollment;
 use App\Models\Student;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Collection;
-use Filament\Notifications\Notification;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule; // Tambahan Import agar aman
 
 class EnrollmentsRelationManager extends RelationManager
 {
@@ -157,81 +151,14 @@ class EnrollmentsRelationManager extends RelationManager
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ])
-            // --- FITUR BULK ACTION (NAIK KELAS) ---
+            // Kenaikan kelas TIDAK dilakukan dari sini. Satu-satunya jalur mutasi
+            // enrollment adalah PromotionService (halaman Proses Kenaikan Kelas),
+            // yang berjalan dalam DB::transaction, menutup enrollment lama, dan
+            // mengisi promoted_from_enrollment_id sebagai rantai riwayat
+            // untuk grafik longitudinal.
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
-
-                    Tables\Actions\BulkAction::make('move_class')
-                        ->label('Proses Kenaikan / Tinggal Kelas')
-                        ->icon('heroicon-o-arrow-right-end-on-rectangle')
-                        ->color('success')
-                        ->requiresConfirmation()
-                        ->modalIcon('heroicon-o-academic-cap')
-                        ->modalHeading('Pindahkan Siswa')
-                        ->modalDescription('Pilih Kelas Tujuan dan Tahun Ajaran Baru.')
-                        ->form([
-                            // Pilih Tahun Baru
-                            Forms\Components\Select::make('new_academic_period_id')
-                                ->label('Tahun Ajaran Baru')
-                                ->options(AcademicPeriod::getSelectOptions())
-                                ->default(fn() => AcademicPeriod::where('is_active', true)->first()?->id)
-                                ->required(),
-
-                            // Pilih Kelas Tujuan
-                            Forms\Components\Select::make('new_classroom_id')
-                                ->label('Kelas Tujuan')
-                                ->options(Classroom::all()->pluck('name', 'id'))
-                                ->searchable()
-                                ->preload()
-                                ->required()
-                                ->helperText('Pilih kelas tujuan (bisa naik kelas atau tinggal kelas).'),
-                        ])
-                        ->action(function (Collection $records, array $data) {
-                            $successCount = 0;
-                            $skipped = [];
-
-                            // Atomik: gagal di tengah -> seluruh batch di-rollback
-                            // (mencegah partial write pada operasi kenaikan kelas massal).
-                            DB::transaction(function () use ($records, $data, &$successCount, &$skipped) {
-                                foreach ($records as $enrollment) {
-                                    // Constraint DB: UNIQUE(student_id, academic_period_id).
-                                    // Cek HANYA (siswa + periode tujuan) — kelas TIDAK relevan;
-                                    // siswa yang sudah punya kelas apa pun di periode tujuan dilewati.
-                                    $exists = Enrollment::where('student_id', $enrollment->student_id)
-                                        ->where('academic_period_id', $data['new_academic_period_id'])
-                                        ->exists();
-
-                                    if ($exists) {
-                                        $skipped[] = $enrollment->student?->name ?? "ID {$enrollment->student_id}";
-                                        continue;
-                                    }
-
-                                    Enrollment::create([
-                                        'student_id' => $enrollment->student_id,
-                                        'classroom_id' => $data['new_classroom_id'],
-                                        'academic_period_id' => $data['new_academic_period_id'],
-                                        'status' => 'active',
-                                    ]);
-                                    $successCount++;
-                                }
-                            });
-
-                            $body = "{$successCount} siswa berhasil dipindahkan.";
-                            if ($skipped !== []) {
-                                $shown = implode(', ', array_slice($skipped, 0, 5));
-                                $more = count($skipped) > 5 ? ' +' . (count($skipped) - 5) . ' lainnya' : '';
-                                $body .= ' Dilewati karena sudah terdaftar di periode tujuan: ' . $shown . $more . '.';
-                            }
-
-                            $notification = Notification::make()
-                                ->title('Proses Kenaikan Kelas Selesai')
-                                ->body($body);
-
-                            $skipped === [] ? $notification->success() : $notification->warning();
-                            $notification->send();
-                        })
-                        ->deselectRecordsAfterCompletion(),
                 ]),
             ]);
     }
