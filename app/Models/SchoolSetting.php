@@ -12,7 +12,6 @@ class SchoolSetting extends Model
 
     protected $casts = [
         'default_kkm' => 'integer',
-        'show_score_sd' => 'boolean',
     ];
 
     protected static function booted(): void

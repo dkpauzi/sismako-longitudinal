@@ -36,7 +36,6 @@ class DataIntegrityPhaseTwoTest extends TestCase
 
         $setting = SchoolSetting::create([
             'default_kkm' => 78,
-            'show_score_sd' => true,
         ])->fresh();
 
         $this->assertSame($profile->id, $setting->school_profile_id);

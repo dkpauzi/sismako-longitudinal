@@ -28,7 +28,6 @@ class SchoolIdentityAuditCommandTest extends TestCase
     {
         $setting = SchoolSetting::create([
             'default_kkm' => 75,
-            'show_score_sd' => true,
         ]);
 
         DB::table('school_settings')
@@ -85,7 +84,6 @@ class SchoolIdentityAuditCommandTest extends TestCase
         // Model event auto-link saat saving
         SchoolSetting::create([
             'default_kkm' => 75,
-            'show_score_sd' => true,
         ]);
 
         $this->artisan('siakad:audit-school-identity')

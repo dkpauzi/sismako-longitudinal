@@ -157,7 +157,6 @@ class SchoolSeeder extends Seeder
                 [
                     'school_profile_id' => $profile->id,
                     'default_kkm' => 75,
-                    'show_score_sd' => true,
                 ]
             );
 

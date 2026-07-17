@@ -62,8 +62,6 @@ return new class extends Migration {
 
             // Default Akademik
             $table->integer('default_kkm')->default(75);
-            // Pengaturan tampilan rapor SD
-            $table->boolean('show_score_sd')->default(true);
             $table->timestamps();
         });
 

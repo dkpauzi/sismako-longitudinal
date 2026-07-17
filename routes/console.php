@@ -46,7 +46,6 @@ Artisan::command('siakad:audit-school-identity {--fix : Tautkan ulang school_set
         SchoolSetting::query()->create([
             'school_profile_id' => $profile->id,
             'default_kkm' => 75,
-            'show_score_sd' => true,
         ]);
 
         $this->info('SchoolSetting berhasil dibuat dan ditautkan ke SchoolProfile.');

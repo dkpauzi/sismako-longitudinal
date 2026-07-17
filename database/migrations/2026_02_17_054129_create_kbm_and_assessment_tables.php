@@ -231,7 +231,7 @@ return new class extends Migration {
                 ->constrained('teaching_assignments')
                 ->cascadeOnDelete();
 
-            $table->string('note')->nullable(); // Cth: "Peminatan IPA", "Lintas Minat"
+            $table->string('note')->nullable(); // Cth: "Muatan Lokal", "Ekskul Pramuka"
             
             // [DIREVISI] Penilaian Narasi Ekstrakurikuler
             $table->string('predicate')->nullable(); 

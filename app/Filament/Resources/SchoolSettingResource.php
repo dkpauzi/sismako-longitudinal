@@ -66,14 +66,6 @@ class SchoolSettingResource extends Resource
                             ->maxValue(100)
                             ->suffix('/ 100')
                             ->required(),
-                        Forms\Components\Toggle::make('show_score_sd')
-                            ->label('Tampilkan Nilai Angka di Rapor SD?')
-                            ->helperText(
-                            'Aktifkan untuk menampilkan kolom Nilai Akhir di rapor SD (Fase A Opsi 2, Fase B-C). ' .
-                                'Nonaktifkan untuk format naratif murni (Fase A Opsi 1).'
-                            )
-                            ->default(true)
-                            ->onColor('success'),
                     ]),
                     
                     

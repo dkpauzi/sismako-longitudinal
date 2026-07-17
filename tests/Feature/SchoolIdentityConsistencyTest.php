@@ -29,7 +29,6 @@ class SchoolIdentityConsistencyTest extends TestCase
         // Tanpa mengisi school_profile_id — model event harus menautkan otomatis
         $setting = SchoolSetting::create([
             'default_kkm' => 80,
-            'show_score_sd' => true,
         ])->fresh();
 
         $this->assertSame($profile->id, $setting->school_profile_id);
