@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Models\ClassHomeroom;
 use App\Models\User;
 use App\Models\StudentSubjectEnrollment;
 use Illuminate\Auth\Access\HandlesAuthorization;
@@ -9,6 +10,39 @@ use Illuminate\Auth\Access\HandlesAuthorization;
 class StudentSubjectEnrollmentPolicy
 {
     use HandlesAuthorization;
+
+    /**
+     * Apakah user adalah Wali Kelas AKTIF untuk kelas tempat
+     * teaching assignment (ekskul) ini berjalan?
+     *
+     * Konteks bisnis (Audit 3.5): pembina ekstrakurikuler umumnya pihak
+     * eksternal tanpa akun sistem, sehingga input predikat & narasi ekskul
+     * didelegasikan ke Admin dan Wali Kelas. Status "Wali Kelas" bukan role
+     * Spatie, melainkan relasi ClassHomeroom — karena itu tidak bisa
+     * diperiksa lewat permission dan harus dicek eksplisit di sini.
+     */
+    private function isHomeroomTeacherFor(User $user, StudentSubjectEnrollment $enrollment): bool
+    {
+        $teacherId = $user->teacher?->id;
+        if ($teacherId === null) {
+            return false;
+        }
+
+        $assignment = $enrollment->teachingAssignment;
+        if ($assignment === null) {
+            return false;
+        }
+
+        // Wali Kelas yang menjabat SAAT INI (is_current) pada kelas ybs,
+        // dan pada tahun ajaran yang sama dengan SK ekskul tersebut —
+        // wali kelas baru tidak boleh mengubah nilai ekskul periode lampau
+        // (menjaga integritas data longitudinal).
+        return ClassHomeroom::where('teacher_id', $teacherId)
+            ->where('classroom_id', $assignment->classroom_id)
+            ->where('academic_period_id', $assignment->academic_period_id)
+            ->where('is_current', true)
+            ->exists();
+    }
 
     /**
      * Determine whether the user can view any models.
@@ -36,10 +70,24 @@ class StudentSubjectEnrollmentPolicy
 
     /**
      * Determine whether the user can update the model.
+     *
+     * Penilaian ekstrakurikuler (predicate & description) HANYA untuk:
+     *   1. super_admin / admin — pemegang permission update (dipetakan seeder), atau
+     *   2. Wali Kelas aktif dari kelas ybs pada periode SK tersebut.
+     * Role teacher biasa sengaja TIDAK memiliki permission ini sejak Step 2
+     * (Audit 3.5), sehingga guru non-wali otomatis tertolak di cabang pertama.
      */
     public function update(User $user, StudentSubjectEnrollment $studentSubjectEnrollment): bool
     {
-        return $user->can('update_student::subject::enrollment');
+        if ($user->hasAnyRole(['super_admin', 'admin'])) {
+            return true;
+        }
+
+        if ($user->hasRole('teacher')) {
+            return $this->isHomeroomTeacherFor($user, $studentSubjectEnrollment);
+        }
+
+        return false;
     }
 
     /**

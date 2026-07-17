@@ -435,12 +435,16 @@ class ViewRapor extends ViewRecord
                         ->where('status', 'active')
                         ->pluck('student_id');
 
-                    // Ambil semua SK Mengajar akademik (bukan P5) di kelas ini
+                    // Ambil semua SK Mengajar AKADEMIK di kelas ini.
+                    // PENTING: filter pakai kolom DB asli `type` — `is_kokurikuler`
+                    // hanyalah accessor PHP, memakainya di whereHas memicu SQL error
+                    // "Unknown column". P5 dan ekskul dikecualikan karena narasi
+                    // otomatis (dan FinalGrade) hanya berlaku untuk mapel akademik.
                     // ✅ PERBAIKAN N+1: Pre-load assessments + grades + learningObjectives
                     // agar DescriptionGeneratorService tidak perlu query ulang per siswa.
                     $assignments = TeachingAssignment::where('classroom_id', $homeroom->classroom_id)
                         ->where('academic_period_id', $homeroom->academic_period_id)
-                        ->whereHas('subject', fn($q) => $q->where('is_kokurikuler', false))
+                        ->whereHas('subject', fn($q) => $q->whereNotIn('type', ['kokurikuler', 'extracurricular']))
                         ->with([
                             'subject',
                             'academicPeriod',

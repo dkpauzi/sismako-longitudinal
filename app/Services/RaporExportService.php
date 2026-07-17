@@ -43,20 +43,31 @@ class RaporExportService
             ->get()
             ->keyBy('teaching_assignment_id');
 
-        // Kokurikuler Grades (for the P5 narrative)
-        $kokurikulerGrade = KokurikulerGrade::where('student_id', $studentId)
+        // Nilai Kokurikuler (P5) — SELURUH projek pada periode ini.
+        // Skema kokurikuler_grades sengaja tanpa unique constraint karena satu
+        // siswa bisa mengikuti banyak projek P5 per semester; ->first() lama
+        // membuang projek ke-2 dst. dari rapor (Audit 3.7).
+        $kokurikulerGrades = KokurikulerGrade::where('student_id', $studentId)
             ->where('academic_period_id', $period->id)
-            ->first();
+            ->orderBy('created_at')
+            ->get();
 
-        // Ekstrakurikuler
+        // Ekstrakurikuler — WAJIB dikunci ke periode rapor ini.
+        // Tanpa filter periode, ekskul tahun ajaran lampau ikut tercetak
+        // di rapor tahun berjalan setelah siswa naik kelas (Audit 3.7).
         $ekstrakurikuler = StudentSubjectEnrollment::where('student_id', $studentId)
+            ->whereHas('teachingAssignment', fn($q) => $q->where('academic_period_id', $period->id))
             ->whereHas('teachingAssignment.subject', fn($q) => $q->where('type', 'extracurricular'))
             ->with('teachingAssignment.subject')
             ->get();
-        
-        // Attendance Summary
+
+        // Rekap Absensi — dikunci ke periode rapor via teaching assignment.
+        // Kolom `semester` hanya menyimpan paritas ganjil/genap; tanpa kunci
+        // periode, rekap "Ganjil" 2024/2025 ikut terjumlah ke rapor Ganjil
+        // 2025/2026 dan menggelembungkan total sakit/izin/alpha (Audit 3.7).
         $attendance = AttendanceSummary::where('student_id', $studentId)
             ->where('semester', $semester)
+            ->whereHas('teachingAssignment', fn($q) => $q->where('academic_period_id', $period->id))
             ->get();
 
         $totalSakit = $attendance->sum('sick');
@@ -80,7 +91,7 @@ class RaporExportService
             'student' => $student,
             'akademikAssignments' => $akademikAssignments,
             'finalGrades' => $finalGrades,
-            'kokurikulerGrade' => $kokurikulerGrade,
+            'kokurikulerGrades' => $kokurikulerGrades,
             'ekstrakurikuler' => $ekstrakurikuler,
             'totalSakit' => $totalSakit,
             'totalIzin' => $totalIzin,

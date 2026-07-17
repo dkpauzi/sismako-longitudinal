@@ -219,12 +219,14 @@
         <tbody>
             <tr>
                 <td style="text-align: justify; padding: 10px;">
-                    @if($kokurikulerGrade)
+                    {{-- Satu siswa bisa mengikuti lebih dari satu projek P5 per semester --}}
+                    @forelse($kokurikulerGrades as $kokurikulerGrade)
                         <strong>Tema/Proyek: {{ $kokurikulerGrade->project_title }}</strong><br><br>
                         {{ $kokurikulerGrade->narrative_description }}
-                    @else
+                        @if(!$loop->last)<br><br><hr style="border: 0; border-top: 1px dashed #999;"><br>@endif
+                    @empty
                         Belum ada catatan kokurikuler untuk semester ini.
-                    @endif
+                    @endforelse
                 </td>
             </tr>
         </tbody>
