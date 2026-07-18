@@ -17,3 +17,7 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
+
+# Data dummy bersumber referensi asli SMPN 45 — TIDAK boleh ke GitHub
+/database/seeders/Dummy/
+/docs/data example/import-csv/
