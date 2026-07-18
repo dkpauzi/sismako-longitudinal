@@ -242,4 +242,70 @@ class LongitudinalIntegrityTest extends TestCase
         $this->assertFalse($policy->update($lainUser, $p5), 'Guru non-wali TIDAK boleh mengubah P5 lintas kelas.');
         $this->assertFalse($policy->delete($lainUser, $p5), 'Guru non-wali TIDAK boleh menghapus P5 lintas kelas.');
     }
+
+    // ── AUDIT 3.8: GERBANG JENJANG SERVER-SIDE (PromotionService) ──────
+
+    /** @test */
+    public function promotion_service_rejects_cross_grade_target(): void
+    {
+        $source = AcademicPeriod::create([
+            'start_year' => 2024, 'end_year' => 2025, 'semester' => 'odd',
+            'start_date' => '2024-07-15', 'end_date' => '2024-12-20', 'is_active' => false,
+        ]);
+        $target = AcademicPeriod::create([
+            'start_year' => 2025, 'end_year' => 2026, 'semester' => 'odd',
+            'start_date' => '2025-07-14', 'end_date' => '2025-12-19', 'is_active' => true,
+        ]);
+
+        $kelas7 = Classroom::create(['name' => '7A', 'grade_level' => 7]);
+        $kelas9 = Classroom::create(['name' => '9A', 'grade_level' => 9]); // lompat jenjang
+        $kelas8 = Classroom::create(['name' => '8A', 'grade_level' => 8]); // benar (7+1)
+
+        $student = Student::create(['name' => 'Lompat', 'nisn' => '6161', 'gender' => 'L', 'status' => 'active']);
+        $enrollment = Enrollment::create([
+            'student_id' => $student->id, 'classroom_id' => $kelas7->id,
+            'academic_period_id' => $source->id, 'status' => 'active',
+        ]);
+
+        $service = app(PromotionService::class);
+
+        // Kelas 7 "Naik" ke kelas 9 → HARUS ditolak (payload lintas jenjang).
+        $result = $service->processBatchPromotions(
+            [['enrollment_id' => $enrollment->id, 'action' => 'promoted', 'target_classroom_id' => $kelas9->id]],
+            $target->id
+        );
+        $this->assertFalse($result['success'], 'Naik kelas lintas jenjang (7→9) harus gagal di server.');
+        $this->assertDatabaseMissing('enrollments', [
+            'student_id' => $student->id, 'academic_period_id' => $target->id,
+        ]);
+
+        // Kelas 7 "Naik" ke kelas 8 → sah (transaksi rollback tadi, coba lagi).
+        $enrollment->update(['status' => 'active']);
+        $ok = $service->processBatchPromotions(
+            [['enrollment_id' => $enrollment->id, 'action' => 'promoted', 'target_classroom_id' => $kelas8->id]],
+            $target->id
+        );
+        $this->assertTrue($ok['success'], 'Naik ke jenjang tepat (7→8) harus berhasil.');
+        $this->assertDatabaseHas('enrollments', [
+            'student_id' => $student->id, 'classroom_id' => $kelas8->id, 'academic_period_id' => $target->id,
+        ]);
+    }
+
+    // ── AUDIT 1.2: SINKRONISASI KOLOM LEGACY users.role ───────────────
+
+    /** @test */
+    public function sync_legacy_role_column_uses_highest_priority_spatie_role(): void
+    {
+        foreach (['admin', 'teacher', 'student'] as $r) {
+            Role::firstOrCreate(['name' => $r, 'guard_name' => 'web']);
+        }
+
+        // Akun manual default kolom 'student', tapi diberi role Spatie admin+teacher.
+        $user = User::factory()->create(['role' => 'student']);
+        $user->assignRole(['teacher', 'admin']);
+
+        $user->syncLegacyRoleColumn();
+
+        $this->assertEquals('admin', $user->fresh()->role, 'Kolom role harus mengikuti role Spatie tertinggi (admin > teacher).');
+    }
 }

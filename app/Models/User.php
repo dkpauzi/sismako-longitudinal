@@ -141,4 +141,35 @@ class User extends Authenticatable implements FilamentUser
     {
         return $this->hasMany(BkCounselingRecord::class, 'counselor_id');
     }
+
+    /**
+     * Prioritas role dari yang tertinggi. Dipakai untuk menurunkan nilai kolom
+     * legacy `users.role` dari role Spatie (sumber kebenaran).
+     */
+    private const ROLE_PRIORITY = [
+        'super_admin', 'admin', 'headmaster', 'guru_bk', 'teacher', 'guardian', 'student',
+    ];
+
+    /**
+     * Selaraskan kolom legacy `users.role` dengan role Spatie yang melekat
+     * (Audit 1.2). Mengambil role berprioritas tertinggi; default 'student'
+     * bila belum ada role. Dipanggil setelah akun disimpan lewat UserResource.
+     */
+    public function syncLegacyRoleColumn(): void
+    {
+        $names = $this->getRoleNames()->all();
+
+        $resolved = 'student';
+        foreach (self::ROLE_PRIORITY as $candidate) {
+            if (in_array($candidate, $names, true)) {
+                $resolved = $candidate;
+                break;
+            }
+        }
+
+        if ($this->role !== $resolved) {
+            $this->role = $resolved;
+            $this->saveQuietly();
+        }
+    }
 }

@@ -50,7 +50,9 @@ class StudentResource extends Resource
                                 name: 'user',
                                 titleAttribute: 'name',
                                 modifyQueryUsing: fn(Builder $query, $record) => $query
-                                    ->where('role', 'student')
+                                    // Spatie sebagai sumber kebenaran role (bukan kolom
+                                    // legacy users.role yang bisa keliru pada akun manual).
+                                    ->whereHas('roles', fn($q) => $q->where('name', 'student'))
                                     ->where(
                                         fn($q) =>
                                         $q->whereDoesntHave('student')

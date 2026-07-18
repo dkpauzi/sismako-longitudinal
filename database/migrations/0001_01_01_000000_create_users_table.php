@@ -18,8 +18,12 @@ return new class extends Migration {
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
 
-            // Role: admin, headmaster (kepsek), teacher, student, guardian (wali siswa)
-            $table->enum('role', ['admin', 'headmaster', 'teacher', 'student', 'guardian'])->default('student');
+            // Kolom role legacy — sinkron dengan slug Spatie (sumber kebenaran).
+            // Diselaraskan dengan seluruh role sistem agar akun buatan manual
+            // (UserResource) tidak jatuh ke default 'student' (Audit 1.2).
+            $table->enum('role', [
+                'super_admin', 'admin', 'headmaster', 'teacher', 'guru_bk', 'student', 'guardian',
+            ])->default('student');
 
             // Status Aktif (Biar bisa blokir siswa lulus tanpa hapus data)
             $table->boolean('is_active')->default(true);

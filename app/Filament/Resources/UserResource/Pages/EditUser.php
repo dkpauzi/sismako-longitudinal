@@ -16,4 +16,12 @@ class EditUser extends EditRecord
             Actions\DeleteAction::make(),
         ];
     }
+
+    /**
+     * Selaraskan kolom legacy `users.role` bila role Spatie diubah (Audit 1.2).
+     */
+    protected function afterSave(): void
+    {
+        $this->record->syncLegacyRoleColumn();
+    }
 }

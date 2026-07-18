@@ -34,7 +34,8 @@ class TeacherResource extends Resource
             ->schema([
                 // KELOMPOK 1: KONEKSI AKUN (USER)
                 Forms\Components\Section::make('Akun & Login')
-                    ->description('Hubungkan profil guru ini dengan akun login pengguna.')
+                    ->description('Akun login digenerate otomatis saat guru dibuat. Gunakan bagian ini hanya untuk penautan ulang manual.')
+                    ->hiddenOn('create')
                     ->schema([
                         Forms\Components\Select::make('user_id')
                             ->label('Pilih Akun User')
@@ -42,7 +43,8 @@ class TeacherResource extends Resource
                                 name: 'user',
                                 titleAttribute: 'name',
                                 modifyQueryUsing: fn(Builder $query, $record) => $query
-                                    ->where('role', 'teacher')
+                                    // Spatie sebagai sumber kebenaran role.
+                                    ->whereHas('roles', fn($q) => $q->where('name', 'teacher'))
                                     ->where(
                                         fn($q) =>
                                         $q->whereDoesntHave('teacher')

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Classroom;
 use App\Models\Enrollment;
 use App\Models\Student;
 use App\Models\User;
@@ -123,6 +124,26 @@ class PromotionService
                 throw new Exception(
                     "Tahun Ajaran Tujuan dan Kelas Tujuan wajib diisi untuk siswa yang Naik/Tinggal Kelas."
                 );
+            }
+
+            // ── GERBANG JENJANG SERVER-SIDE (Audit 3.8) ───────────────────
+            // Batasan UI wizard tidak cukup; payload Livewire yang dimodifikasi
+            // bisa mengirim kelas lintas jenjang. Tegakkan aturan di service:
+            //   promoted → kelas tujuan HARUS satu tingkat di atas kelas asal
+            //   retained → kelas tujuan HARUS tingkat yang sama dengan asal
+            $sourceGrade = $oldEnrollment->classroom?->grade_level
+                ?? Classroom::whereKey($oldEnrollment->classroom_id)->value('grade_level');
+            $targetGrade = Classroom::whereKey($targetClassroomId)->value('grade_level');
+
+            if ($sourceGrade !== null && $targetGrade !== null) {
+                $expected = $action === 'promoted' ? $sourceGrade + 1 : $sourceGrade;
+                if ((int) $targetGrade !== (int) $expected) {
+                    $labelAksi = $action === 'promoted' ? 'Naik Kelas' : 'Tinggal Kelas';
+                    throw new Exception(
+                        "Kelas tujuan tidak valid untuk {$labelAksi}: tingkat {$targetGrade} " .
+                        "tidak sesuai (seharusnya tingkat {$expected})."
+                    );
+                }
             }
 
             // Buat enrollment baru di periode dan kelas tujuan

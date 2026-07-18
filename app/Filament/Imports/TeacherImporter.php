@@ -194,7 +194,10 @@ class TeacherImporter extends Importer
         $teacher = DB::transaction(function () use ($data, $nip, $email, $nama, $username, $password, $gender, $tglLahirFix, $mulaiDinasFix) {
 
             // STEP A: BUAT ATAU UPDATE AKUN USER (LOGIN)
-            $user = User::firstOrCreate(
+            // Konsisten dengan StudentImporter (Audit 2.3): pakai updateOrCreate agar
+            // re-impor menyegarkan data profil (nama/email). Konvensi re-impor:
+            // password diselaraskan ulang ke NIP/'guru123' — sama seperti importer siswa.
+            $user = User::updateOrCreate(
                 ['username' => $username],
                 [
                     'name' => $nama,
