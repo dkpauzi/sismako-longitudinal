@@ -25,18 +25,20 @@ class LearningObjectiveImporter extends Importer
 
             ImportColumn::make('teacher')
                 ->relationship(resolveUsing: 'name')
-                // Strictly optional. Teachers don't need to fill this in.
+                // Opsional. Guru tidak wajib mengisi kolom ini.
                 ->rules(['nullable'])
                 ->example('Budi Santoso, S.Pd (Opsional, Gunakan Nama Guru)'),
 
             ImportColumn::make('grade_level')
                 ->numeric()
-                ->rules(['nullable', 'integer'])
-                ->example('7'),
+                // Batasan SMP: hanya kelas 7, 8, 9.
+                ->rules(['nullable', 'integer', 'in:7,8,9'])
+                ->example('7 (Pilihan: 7, 8, 9)'),
 
             ImportColumn::make('phase')
-                ->rules(['nullable', 'string'])
-                ->example('D (Pilihan: A, B, C, D, E, F)'),
+                // Batasan SMP: hanya Fase D.
+                ->rules(['nullable', 'in:D'])
+                ->example('D (SMP hanya Fase D)'),
 
             ImportColumn::make('code')
                 ->rules(['nullable', 'string'])

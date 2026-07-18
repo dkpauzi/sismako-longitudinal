@@ -296,6 +296,7 @@ class TeachingAssignmentResource extends Resource
                 Tables\Actions\ImportAction::make()
                     ->label('Import SK Mengajar')
                     ->importer(\App\Filament\Imports\TeachingAssignmentImporter::class)
+                    ->chunkSize(50)
                     ->color('primary')
                     // --- MEMBUATNYA TERPISAH DI EXCEL ---
                     ->csvDelimiter(';')
@@ -308,6 +309,7 @@ class TeachingAssignmentResource extends Resource
                     ->label('Import Jadwal')
                     ->icon('heroicon-o-calendar-days')
                     ->importer(\App\Filament\Imports\SubjectScheduleImporter::class)
+                    ->chunkSize(50)
                     ->color('warning') // Menggunakan warna oranye/kuning agar mudah dibedakan
                     ->csvDelimiter(';')
                     ->modalHeading('Import Data Jadwal Pelajaran')

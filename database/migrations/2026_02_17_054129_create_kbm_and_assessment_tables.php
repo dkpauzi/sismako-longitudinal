@@ -99,7 +99,9 @@ return new class extends Migration {
             $table->foreignId('subject_id')->constrained()->cascadeOnDelete();
             $table->foreignId('academic_period_id')->constrained()->cascadeOnDelete();
             $table->integer('grade_level')->nullable();
-            $table->enum('phase', ['A', 'B', 'C', 'D', 'E', 'F'])->default('D');
+            // Batasan skripsi: hanya Fase D (SMP kelas 7-9). Fase A-C (SD) dan
+            // E-F (SMA) sengaja dihapus dari ENUM agar tidak ada data luar SMP.
+            $table->enum('phase', ['D'])->default('D');
             $table->text('content');
             $table->string('code')->nullable();
             $table->string('attribute');

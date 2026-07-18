@@ -79,7 +79,8 @@ class TeacherResource extends Resource
                                 ->label('NIP')
                                 ->placeholder('Nomor Induk Pegawai')
                                 ->unique(ignoreRecord: true)
-                                ->maxLength(50),
+                                // Samakan dengan batas importer (max:25).
+                                ->maxLength(25),
 
                             Forms\Components\TextInput::make('name')
                                 ->label('Nama Lengkap (dengan Gelar)')
@@ -109,6 +110,9 @@ class TeacherResource extends Resource
                             Forms\Components\TextInput::make('email')
                                 ->label('Email Pribadi')
                                 ->email()
+                                // teachers.email unik di DB — validasi di form agar
+                                // duplikat ditolak dengan pesan ramah, bukan SQL 500.
+                                ->unique(ignoreRecord: true)
                                 ->maxLength(255),
 
                             Forms\Components\Textarea::make('address')
@@ -307,6 +311,8 @@ class TeacherResource extends Resource
                     ->label('Import Data Guru')
                     ->icon('heroicon-o-users')
                     ->importer(\App\Filament\Imports\TeacherImporter::class)
+                    // Shared hosting: 50 baris/batch agar tidak timeout/kehabisan RAM.
+                    ->chunkSize(50)
                     ->color('primary')
                     ->csvDelimiter(';')
                     ->modalHeading('Import Data & Akun Guru Baru')

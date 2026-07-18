@@ -271,6 +271,8 @@ class StudentResource extends Resource
                     ->label('Impor Data Siswa')
                     ->icon('heroicon-o-users')
                     ->importer(\App\Filament\Imports\StudentImporter::class)
+                    // Shared hosting: 50 baris/batch agar tidak timeout/kehabisan RAM.
+                    ->chunkSize(50)
                     ->color('primary')
                     ->csvDelimiter(';')
                     ->modalHeading('Impor Data & Akun Siswa Baru')

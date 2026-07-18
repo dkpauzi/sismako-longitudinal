@@ -23,12 +23,15 @@ class SchoolSeeder extends Seeder
             $roleGuru = Role::firstOrCreate(['name' => 'teacher', 'guard_name' => 'web']);
             $roleSiswa = Role::firstOrCreate(['name' => 'student', 'guard_name' => 'web']);
 
-            // 1. Buat User Super Admin
+            // 1. Buat User Super Admin.
+            // Kredensial diambil dari .env agar tidak ada default tertebak di
+            // production (Audit 4.6). Fallback lokal tetap admin@sekolah.com/password.
+            $adminEmail = env('ADMIN_EMAIL', 'admin@sekolah.com');
             $admin = User::firstOrCreate(
-                ['email' => 'admin@sekolah.com'],
+                ['email' => $adminEmail],
                 [
                     'name' => 'Super Admin',
-                    'password' => Hash::make('password'),
+                    'password' => Hash::make(env('ADMIN_PASSWORD', 'password')),
                     'is_active' => true,
                 ]
             );

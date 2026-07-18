@@ -113,16 +113,17 @@ class LearningObjectiveResource extends Resource
                             ->preload()
                             ->required(),
 
-                        // 4. Fase
+                        // 4. Fase — SMP hanya Fase D.
                         Forms\Components\Select::make('phase')
                             ->label('Fase Kurikulum')
                             ->options([
                                 'D' => 'Fase D (SMP Kelas 7-9)',
                             ])
                             ->default('D')
+                            ->rules(['in:D'])
                             ->required(),
 
-                        // 5. Tingkat Kelas
+                        // 5. Tingkat Kelas — SMP hanya 7, 8, 9.
                         Forms\Components\Select::make('grade_level')
                             ->label('Untuk Tingkat Kelas')
                             ->options([
@@ -130,6 +131,7 @@ class LearningObjectiveResource extends Resource
                                 8 => 'Kelas 8',
                                 9 => 'Kelas 9',
                             ])
+                            ->rules(['in:7,8,9'])
                             ->required(),
 
                         // 6. Kode TP
@@ -226,6 +228,7 @@ class LearningObjectiveResource extends Resource
                     ->label('Import Data TP')
                     ->icon('heroicon-o-arrow-up-tray')
                     ->importer(\App\Filament\Imports\LearningObjectiveImporter::class)
+                    ->chunkSize(50)
                     ->color('primary')
                     ->csvDelimiter(';')
                     ->modalHeading('Import Tujuan Pembelajaran')

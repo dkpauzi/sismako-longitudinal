@@ -311,10 +311,19 @@ class StudentImporterTest extends TestCase
     }
 
     /**
-     * Test: Chunk size constant terekspos dengan benar.
+     * Test: Chunk size dikonfigurasi pada ImportAction (bukan lagi properti importer).
+     *
+     * Properti statis $chunkSize di importer adalah dead code — Filament tidak
+     * membacanya. Ukuran chunk yang efektif diatur via ImportAction->chunkSize(50)
+     * di halaman Data Siswa. Test ini memverifikasi konfigurasi yang benar itu.
      */
-    public function test_chunk_size_is_configured(): void
+    public function test_chunk_size_is_configured_on_import_action(): void
     {
-        $this->assertEquals(50, StudentImporter::$chunkSize);
+        $action = \App\Filament\Resources\StudentResource::table(
+            app(\Filament\Tables\Table::class, ['livewire' => new \App\Filament\Resources\StudentResource\Pages\ListStudents()])
+        )->getAction('import_siswa');
+
+        $this->assertNotNull($action, 'Aksi import_siswa harus ada di tabel Data Siswa.');
+        $this->assertEquals(50, $action->getChunkSize());
     }
 }

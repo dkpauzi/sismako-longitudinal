@@ -19,7 +19,8 @@ use Filament\Actions\Imports\Exceptions\RowImportFailedException;
  * SMART IMPORTER: Auto-Account Generation untuk Siswa & Wali.
  *
  * ARSITEKTUR SHARED HOSTING (QUEUE_CONNECTION=sync):
- * - $chunkSize = 50 → Filament memproses 50 baris per batch, bukan seluruh CSV.
+ * - Ukuran chunk diset di ImportAction::make()->chunkSize(50) pada halaman
+ *   Data Siswa (bukan properti importer — Filament tidak membacanya di sini).
  * - Setiap baris dibungkus dalam DB::transaction() tersendiri.
  * - Kegagalan baris N TIDAK mempengaruhi baris N-1 atau N+1.
  * - gc_collect_cycles() dipanggil setiap 25 baris untuk mencegah memory leak.
@@ -33,13 +34,6 @@ use Filament\Actions\Imports\Exceptions\RowImportFailedException;
 class StudentImporter extends Importer
 {
     protected static ?string $model = Student::class;
-
-    /**
-     * OPTIMASI SHARED HOSTING: Ukuran chunk kecil.
-     * Filament akan memproses 50 baris per batch synchronous,
-     * bukan seluruh file sekaligus.
-     */
-    public static int $chunkSize = 50;
 
     // Cache role di level instance agar tidak query DB per baris Excel.
     private ?Role $studentRole = null;
