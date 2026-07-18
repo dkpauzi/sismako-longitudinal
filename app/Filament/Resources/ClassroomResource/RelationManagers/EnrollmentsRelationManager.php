@@ -43,7 +43,12 @@ class EnrollmentsRelationManager extends RelationManager
                     // Hanya siswa yang BELUM punya kelas pada periode terpilih.
                     // Constraint DB: UNIQUE(student_id, academic_period_id) —
                     // 1 siswa hanya boleh 1 kelas per periode, apa pun kelasnya.
-                    ->options(function (Forms\Get $get, ?Enrollment $record) {
+                    //
+                    // ✅ SHARED HOSTING: pencarian LAZY (server-side, dibatasi 50 baris).
+                    // Mengganti ->options()+->preload() yang menghidrasi SELURUH tabel
+                    // siswa (termasuk alumni) ke memori setiap form dibuka.
+                    ->searchable()
+                    ->getSearchResultsUsing(function (string $search, Forms\Get $get, ?Enrollment $record) {
                         $periodId = $get('academic_period_id')
                             ?? AcademicPeriod::where('is_active', true)->first()?->id;
 
@@ -52,14 +57,17 @@ class EnrollmentsRelationManager extends RelationManager
                         }
 
                         return Student::query()
+                            ->where('name', 'like', "%{$search}%")
                             ->whereDoesntHave('enrollments', fn($q) => $q
                                 ->where('academic_period_id', $periodId)
                                 ->when($record, fn($qq) => $qq->where('id', '!=', $record->id)))
                             ->orderBy('name')
+                            ->limit(50)
                             ->pluck('name', 'id');
                     })
-                    ->searchable()
-                    ->preload()
+                    // Menampilkan label siswa yang sudah terpilih (mode edit) tanpa
+                    // perlu memuat ulang seluruh daftar.
+                    ->getOptionLabelUsing(fn ($value) => Student::find($value)?->name)
                     ->required()
                     // Validasi aplikasi HARUS sama dimensinya dengan constraint DB:
                     // (student_id + academic_period_id), TANPA classroom_id.

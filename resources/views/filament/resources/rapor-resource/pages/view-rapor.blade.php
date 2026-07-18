@@ -2,6 +2,35 @@
 
 <x-filament-panels::page>
 
+    {{-- ══════════════════════════════════════════════════════════════
+        PROGRESS GENERATE NARASI: tampil saat proses chunking berjalan.
+        Tiap batch memicu round-trip Livewire (timer PHP fresh) sampai selesai.
+    ══════════════════════════════════════════════════════════════ --}}
+    @if ($isGeneratingNarasi)
+        <div class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800 mb-6">
+            <div class="mb-3 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <x-filament::loading-indicator class="h-5 w-5 text-primary-500" />
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Membuat deskripsi rapor...
+                    </span>
+                </div>
+                <span class="text-sm font-semibold text-primary-600 dark:text-primary-400">
+                    {{ $narasiProcessed }} / {{ $narasiTotal }} siswa
+                </span>
+            </div>
+            <div class="h-4 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                <div
+                    class="h-4 rounded-full bg-gradient-to-r from-primary-500 to-primary-400 transition-all duration-500 ease-out"
+                    style="width: {{ $this->narasiProgressPercentage }}%"
+                ></div>
+            </div>
+            <p class="mt-2 text-center text-xs text-gray-500 dark:text-gray-400">
+                {{ $this->narasiProgressPercentage }}% — Jangan tutup halaman ini.
+            </p>
+        </div>
+    @endif
+
     {{-- Header Info Kelas --}}
     <div class="bg-white dark:bg-gray-900 rounded-xl shadow-sm ring-1 ring-gray-950/5 dark:ring-white/10 p-6 mb-6">
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">

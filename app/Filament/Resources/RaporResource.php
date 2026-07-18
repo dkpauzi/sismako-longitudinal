@@ -5,7 +5,6 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\RaporResource\Pages;
 use App\Models\ClassHomeroom;
-use App\Models\Enrollment;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -57,6 +56,13 @@ class RaporResource extends Resource
     {
         $query = parent::getEloquentQuery()
             ->with(['classroom', 'academicPeriod', 'teacher'])
+            // ✅ PERBAIKAN N+1: hitung "siswa aktif" via subquery berkorelasi di
+            // level SQL, bukan Enrollment::count() per baris (getStateUsing).
+            // Korelasi ke academic_period_id baris ClassHomeroom memastikan
+            // hanya siswa pada TAHUN AJARAN kelas tersebut yang dihitung.
+            ->withCount(['enrollments as active_students_count' => fn($q) => $q
+                ->where('enrollments.status', 'active')
+                ->whereColumn('enrollments.academic_period_id', 'class_homerooms.academic_period_id')])
             ->whereHas('academicPeriod', fn($q) => $q->where('is_active', true));
 
         // Guru hanya melihat kelas yang dia pegang sebagai Wali Kelas
@@ -93,18 +99,13 @@ class RaporResource extends Resource
                     // Sembunyikan kolom ini jika yang login adalah Wali Kelas itu sendiri
                     ->visible(fn() => !auth()->user()->hasRole('teacher')),
 
-                // Jumlah siswa aktif di kelas ini
-                Tables\Columns\TextColumn::make('classroom.active_students_count')
+                // Jumlah siswa aktif di kelas ini.
+                // Membaca atribut hasil withCount berkorelasi (0 query tambahan per baris).
+                Tables\Columns\TextColumn::make('active_students_count')
                     ->label('Jumlah Siswa')
                     ->badge()
                     ->color('success')
-                    ->getStateUsing(
-                        fn($record) =>
-                        Enrollment::where('classroom_id', $record->classroom_id)
-                            ->where('academic_period_id', $record->academic_period_id)
-                            ->where('status', 'active')
-                            ->count() . ' siswa'
-                    ),
+                    ->formatStateUsing(fn ($state): string => (int) ($state ?? 0) . ' siswa'),
             ])
             ->actions([
                 Tables\Actions\Action::make('lihat_rapor')

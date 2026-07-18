@@ -11,8 +11,10 @@ use App\Models\FinalGrade;
 use App\Models\StudentReport;
 use App\Models\TeachingAssignment;
 use Filament\Actions\Action;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Illuminate\Support\Collection;
+use Livewire\Attributes\On;
 use App\Services\DescriptionGeneratorService;
 use App\Services\RaporExportService;
 
@@ -22,6 +24,29 @@ class ViewRapor extends ViewRecord
 
     protected static string $view = 'filament.resources.rapor-resource.pages.view-rapor';
     //protected static string $view = 'filament.pages.view-rapor';
+
+    /**
+     * ══════════════════════════════════════════════════════════════
+     * STATE CHUNKING GENERATE NARASI (Shared Hosting Safe)
+     * ══════════════════════════════════════════════════════════════
+     * Generate narasi seluruh kelas bisa berupa (jumlah siswa × jumlah
+     * mapel) iterasi yang berat. Diproses per-chunk kecil lewat Livewire
+     * event recursion: tiap batch = 1 round-trip browser = timer PHP fresh,
+     * sehingga tidak menabrak max_execution_time (30-60 dtk) shared hosting.
+     */
+    private const NARASI_CHUNK_SIZE = 5; // siswa per batch
+
+    /** Antrian student_id yang belum digenerate narasinya. */
+    public array $narasiQueue = [];
+
+    /** Flag apakah proses generate sedang berjalan. */
+    public bool $isGeneratingNarasi = false;
+
+    /** Jumlah siswa yang sudah selesai diproses. */
+    public int $narasiProcessed = 0;
+
+    /** Total siswa yang harus diproses. */
+    public int $narasiTotal = 0;
 
     /**
      * Siapkan semua data yang dibutuhkan view Blade.
@@ -425,61 +450,123 @@ class ViewRapor extends ViewRecord
                     'Deskripsi yang sudah ditulis manual AKAN DITIMPA. Lanjutkan?'
                 )
                 ->action(function () {
-                    $homeroom = $this->record;
-                    $semester = $homeroom->academicPeriod->semester;
-                    $service = new DescriptionGeneratorService();
+                    // Cegah start ganda saat proses masih berjalan.
+                    if ($this->isGeneratingNarasi) {
+                        return;
+                    }
 
-                    // Ambil semua siswa aktif di kelas ini
+                    $homeroom = $this->record;
+
+                    // Kumpulkan siswa aktif; proses per-chunk via event recursion.
                     $studentIds = Enrollment::where('classroom_id', $homeroom->classroom_id)
                         ->where('academic_period_id', $homeroom->academic_period_id)
                         ->where('status', 'active')
-                        ->pluck('student_id');
+                        ->pluck('student_id')
+                        ->all();
 
-                    // Ambil semua SK Mengajar AKADEMIK di kelas ini.
-                    // PENTING: filter pakai kolom DB asli `type` — `is_kokurikuler`
-                    // hanyalah accessor PHP, memakainya di whereHas memicu SQL error
-                    // "Unknown column". P5 dan ekskul dikecualikan karena narasi
-                    // otomatis (dan FinalGrade) hanya berlaku untuk mapel akademik.
-                    // ✅ PERBAIKAN N+1: Pre-load assessments + grades + learningObjectives
-                    // agar DescriptionGeneratorService tidak perlu query ulang per siswa.
-                    $assignments = TeachingAssignment::where('classroom_id', $homeroom->classroom_id)
-                        ->where('academic_period_id', $homeroom->academic_period_id)
-                        ->whereHas('subject', fn($q) => $q->whereNotIn('type', ['kokurikuler', 'extracurricular']))
-                        ->with([
-                            'subject',
-                            'academicPeriod',
-                            'assessments.learningObjectives',
-                            'assessments.grades' => fn($q) => $q->whereIn('student_id', $studentIds)->whereNotNull('score'),
-                        ])
-                        ->get();
-
-                    $count = 0;
-
-                    foreach ($assignments as $assignment) {
-                        foreach ($studentIds as $studentId) {
-                            $narrative = $service->generate($assignment, $studentId);
-
-                            FinalGrade::updateOrCreate(
-                                [
-                                    'student_id' => $studentId,
-                                    'teaching_assignment_id' => $assignment->id,
-                                    'semester' => $semester,
-                                ],
-                                [
-                                    'narrative_description' => $narrative,
-                                ]
-                            );
-
-                            $count++;
-                        }
+                    if (empty($studentIds)) {
+                        Notification::make()
+                            ->title('Tidak ada siswa aktif untuk diproses.')
+                            ->warning()
+                            ->send();
+                        return;
                     }
 
-                    \Filament\Notifications\Notification::make()
-                        ->title("Berhasil generate {$count} deskripsi")
-                        ->body('Semua narasi rapor sudah dibuat. Silakan review sebelum dikunci.')
-                        ->success()
-                        ->send();
+                    $this->narasiQueue = $studentIds;
+                    $this->narasiTotal = count($studentIds);
+                    $this->narasiProcessed = 0;
+                    $this->isGeneratingNarasi = true;
+
+                    // Mulai batch pertama. Browser round-trip memberi timer PHP fresh.
+                    $this->dispatch('generate-next-narasi-batch');
                 }),
         ];
+    }
+
+    /**
+     * Proses satu batch generate narasi (NARASI_CHUNK_SIZE siswa).
+     *
+     * Dipicu berulang oleh dispatch('generate-next-narasi-batch'):
+     * setiap batch dijalankan pada request HTTP baru sehingga
+     * max_execution_time di-reset — aman untuk shared hosting.
+     */
+    #[On('generate-next-narasi-batch')]
+    public function generateNextNarasiBatch(): void
+    {
+        if (empty($this->narasiQueue)) {
+            $this->finishNarasiGeneration();
+            return;
+        }
+
+        $chunk = array_splice($this->narasiQueue, 0, self::NARASI_CHUNK_SIZE);
+
+        $homeroom = $this->record;
+        $semester = $homeroom->academicPeriod->semester;
+        $service = new DescriptionGeneratorService();
+
+        // SK Mengajar AKADEMIK di kelas ini (P5 & ekskul dikecualikan).
+        // Filter kolom DB asli `type` — `is_kokurikuler` hanya accessor PHP.
+        // ✅ HEMAT RAM: grades di-scope HANYA ke siswa dalam chunk ini,
+        // bukan seluruh kelas, sehingga payload hydration tetap kecil.
+        $assignments = TeachingAssignment::where('classroom_id', $homeroom->classroom_id)
+            ->where('academic_period_id', $homeroom->academic_period_id)
+            ->whereHas('subject', fn($q) => $q->whereNotIn('type', ['kokurikuler', 'extracurricular']))
+            ->with([
+                'subject',
+                'academicPeriod',
+                'assessments.learningObjectives',
+                'assessments.grades' => fn($q) => $q->whereIn('student_id', $chunk)->whereNotNull('score'),
+            ])
+            ->get();
+
+        foreach ($chunk as $studentId) {
+            foreach ($assignments as $assignment) {
+                $narrative = $service->generate($assignment, $studentId);
+
+                FinalGrade::updateOrCreate(
+                    [
+                        'student_id' => $studentId,
+                        'teaching_assignment_id' => $assignment->id,
+                        'semester' => $semester,
+                    ],
+                    [
+                        'narrative_description' => $narrative,
+                    ]
+                );
+            }
+            $this->narasiProcessed++;
+        }
+
+        // Masih ada antrian → batch berikutnya (round-trip baru); jika habis → selesai.
+        if (!empty($this->narasiQueue)) {
+            $this->dispatch('generate-next-narasi-batch');
+        } else {
+            $this->finishNarasiGeneration();
+        }
+    }
+
+    /**
+     * Persentase progres generate narasi untuk progress bar blade.
+     */
+    public function getNarasiProgressPercentageProperty(): int
+    {
+        if ($this->narasiTotal === 0) {
+            return 0;
+        }
+
+        return (int) round(($this->narasiProcessed / $this->narasiTotal) * 100);
+    }
+
+    private function finishNarasiGeneration(): void
+    {
+        $this->isGeneratingNarasi = false;
+
+        Notification::make()
+            ->title("Berhasil generate deskripsi untuk {$this->narasiProcessed} siswa")
+            ->body('Semua narasi rapor sudah dibuat. Silakan review sebelum dikunci.')
+            ->success()
+            ->send();
+
+        $this->narasiQueue = [];
     }
 }

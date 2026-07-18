@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -102,6 +103,20 @@ class ClassHomeroom extends Model
     public function teacher(): BelongsTo
     {
         return $this->belongsTo(Teacher::class);
+    }
+
+    /**
+     * Relasi ke seluruh pendaftaran siswa DI KELAS YANG SAMA.
+     * Dikaitkan lewat classroom_id (bukan id) karena ClassHomeroom pada
+     * dasarnya adalah pivot kelas↔guru↔periode.
+     *
+     * CATATAN: relasi ini BELUM difilter periode/status — penghitungan
+     * "siswa aktif per periode" dilakukan via withCount berkorelasi di
+     * RaporResource (menghindari N+1 count per baris tabel).
+     */
+    public function enrollments(): HasMany
+    {
+        return $this->hasMany(Enrollment::class, 'classroom_id', 'classroom_id');
     }
 
     /*
