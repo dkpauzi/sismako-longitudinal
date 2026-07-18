@@ -446,6 +446,10 @@ class ViewRapor extends ViewRecord
                 ->label('Generate Semua Deskripsi')
                 ->icon('heroicon-o-sparkles')
                 ->color('info')
+                // Hanya Admin & Wali Kelas yang boleh memicu generasi massal.
+                // Peran pemantau (headmaster/guru_bk) yang kini bisa membuka halaman
+                // ini tetap read-only (Audit MED).
+                ->visible(fn() => auth()->user()->hasAnyRole(['super_admin', 'admin', 'teacher']))
                 // Periode non-aktif = read-only: jangan timpa narasi rapor lampau (Audit MED-1).
                 ->hidden(fn() => ! ($this->record->academicPeriod?->is_active ?? false))
                 ->requiresConfirmation()

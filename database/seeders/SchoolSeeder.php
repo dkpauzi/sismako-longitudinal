@@ -26,7 +26,7 @@ class SchoolSeeder extends Seeder
             // 1. Buat User Super Admin.
             // Kredensial diambil dari .env agar tidak ada default tertebak di
             // production (Audit 4.6). Fallback lokal tetap admin@sekolah.com/password.
-            $adminEmail = env('ADMIN_EMAIL', 'admin@sekolah.com');
+            $adminEmail = env('ADMIN_EMAIL', 'admin.smpn45sijunjung@gmail.com');
             $admin = User::firstOrCreate(
                 ['email' => $adminEmail],
                 [

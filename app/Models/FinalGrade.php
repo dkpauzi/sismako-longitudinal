@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class FinalGrade extends Model
 {
@@ -58,13 +59,19 @@ class FinalGrade extends Model
             'semester' => $semester,
         ];
 
-        $existing = static::query()->where($keys)->first();
+        // ATOMIK (Audit RENDAH): read-then-write dibungkus transaksi + lockForUpdate
+        // agar dua request beririsan (mis. "kunci" vs "rekalkulasi") tidak saling
+        // menyalip dan menimpa nilai yang baru saja dikunci. lockForUpdate menjadi
+        // no-op yang aman di SQLite (test) dan mengunci baris di MySQL (produksi).
+        return DB::transaction(function () use ($keys, $attributes) {
+            $existing = static::query()->where($keys)->lockForUpdate()->first();
 
-        // GUARD PENGUNCIAN: nilai terkunci / override manual tidak boleh ditimpa.
-        if ($existing && ($existing->is_locked || $existing->is_manual_override)) {
-            return $existing;
-        }
+            // GUARD PENGUNCIAN: nilai terkunci / override manual tidak boleh ditimpa.
+            if ($existing && ($existing->is_locked || $existing->is_manual_override)) {
+                return $existing;
+            }
 
-        return static::updateOrCreate($keys, $attributes);
+            return static::updateOrCreate($keys, $attributes);
+        });
     }
 }

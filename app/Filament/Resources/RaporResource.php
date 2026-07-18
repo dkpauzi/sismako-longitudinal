@@ -38,14 +38,16 @@ class RaporResource extends Resource
 
         $user = auth()->user();
 
-        if ($user->hasRole('super_admin') || $user->hasRole('admin')) {
+        // Staf pemantau (punya permission view_rapor di seeder): Admin, Kepala
+        // Sekolah, dan Guru BK. Sebelumnya nav disembunyikan meski permission ada
+        // (permission shadowing, Audit MED). Kini nav selaras dengan hak akses.
+        if ($user->hasAnyRole(['super_admin', 'admin', 'headmaster', 'guru_bk'])) {
             return true;
         }
 
-        // Guru hanya melihat menu ini jika dia adalah Wali Kelas
+        // Guru hanya melihat menu ini jika ia (pernah) menjadi Wali Kelas.
         if ($user->hasRole('teacher')) {
             return ClassHomeroom::where('teacher_id', $user->teacher?->id)
-                ->where('is_current', true)
                 ->exists();
         }
 
