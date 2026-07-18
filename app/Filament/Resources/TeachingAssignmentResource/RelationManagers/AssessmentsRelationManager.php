@@ -334,12 +334,13 @@ class AssessmentsRelationManager extends RelationManager
                                 ? GradeRangeResolver::resolve($assignment, $finalScore)
                                 : null;
 
-                            \App\Models\FinalGrade::updateOrCreate(
-                                [
-                                    'student_id' => $item['student_id'],
-                                    'teaching_assignment_id' => $assignment->id,
-                                    'semester' => $semester,
-                                ],
+                            // Lewat snapshot(): bulk save ini sebelumnya mem-bypass
+                            // GradeObserver via withoutEvents(), sehingga nilai terkunci
+                            // bisa tertimpa. snapshot() menutup celah itu (Audit 3.6).
+                            \App\Models\FinalGrade::snapshot(
+                                $item['student_id'],
+                                $assignment->id,
+                                $semester,
                                 [
                                     'final_score' => $finalScore > 0 ? $finalScore : null,
                                     'grade_label' => $gradeLabel,
@@ -458,12 +459,10 @@ class AssessmentsRelationManager extends RelationManager
                             $gradeLabel = $finalScore > 0
                                 ? GradeRangeResolver::resolve($assignment, $finalScore) : null;
 
-                            \App\Models\FinalGrade::updateOrCreate(
-                                [
-                                    'student_id' => $studentId,
-                                    'teaching_assignment_id' => $assignment->id,
-                                    'semester' => $semester,
-                                ],
+                            \App\Models\FinalGrade::snapshot(
+                                $studentId,
+                                $assignment->id,
+                                $semester,
                                 [
                                     'final_score' => $finalScore > 0 ? $finalScore : null,
                                     'grade_label' => $gradeLabel,
@@ -567,12 +566,10 @@ class AssessmentsRelationManager extends RelationManager
                                     ? GradeRangeResolver::resolve($assignment, $finalScore)
                                     : null;
 
-                                \App\Models\FinalGrade::updateOrCreate(
-                                    [
-                                        'student_id' => $grade->student_id,
-                                        'teaching_assignment_id' => $assignment->id,
-                                        'semester' => $semester,
-                                    ],
+                                \App\Models\FinalGrade::snapshot(
+                                    $grade->student_id,
+                                    $assignment->id,
+                                    $semester,
                                     [
                                         'final_score' => $finalScore > 0 ? $finalScore : null,
                                         'grade_label' => $gradeLabel,

@@ -6,9 +6,11 @@ use App\Filament\Resources\SubjectResource\Pages;
 use App\Models\Subject;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Collection;
 
 class SubjectResource extends Resource
 {
@@ -115,13 +117,37 @@ class SubjectResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                // PROTEKSI LONGITUDINAL (Audit 3.3): sembunyikan Hapus jika mapel ini
+                // sudah dipakai di SK Mengajar (menyimpan nilai/rapor).
+                Tables\Actions\DeleteAction::make()
+                    ->hidden(fn (Subject $record): bool => self::hasHistory($record)),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->before(function (Collection $records, Tables\Actions\DeleteBulkAction $action) {
+                            $blocked = $records->filter(fn (Subject $r) => self::hasHistory($r));
+
+                            if ($blocked->isNotEmpty()) {
+                                Notification::make()
+                                    ->title('Penghapusan dibatalkan')
+                                    ->body($blocked->count() . ' mata pelajaran sudah dipakai di SK Mengajar dan tidak dapat dihapus untuk menjaga data longitudinal.')
+                                    ->danger()
+                                    ->send();
+
+                                $action->halt();
+                            }
+                        }),
                 ]),
             ]);
+    }
+
+    /**
+     * Apakah mapel ini sudah dipakai di SK Mengajar (punya nilai/rapor turunan)?
+     */
+    protected static function hasHistory(Subject $record): bool
+    {
+        return $record->teachingAssignments()->exists();
     }
 
     public static function getPages(): array

@@ -7,10 +7,12 @@ use App\Filament\Resources\ClassroomResource\RelationManagers;
 use App\Models\Classroom;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 
 class ClassroomResource extends Resource
 {
@@ -85,13 +87,39 @@ class ClassroomResource extends Resource
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                // PROTEKSI LONGITUDINAL (Audit 3.3): sembunyikan Hapus jika kelas ini
+                // sudah punya riwayat pendaftaran siswa / penetapan wali kelas.
+                Tables\Actions\DeleteAction::make()
+                    ->hidden(fn (Classroom $record): bool => self::hasHistory($record)),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->before(function (Collection $records, Tables\Actions\DeleteBulkAction $action) {
+                            $blocked = $records->filter(fn (Classroom $r) => self::hasHistory($r));
+
+                            if ($blocked->isNotEmpty()) {
+                                Notification::make()
+                                    ->title('Penghapusan dibatalkan')
+                                    ->body($blocked->count() . ' kelas memiliki riwayat siswa/wali kelas dan tidak dapat dihapus untuk menjaga data longitudinal.')
+                                    ->danger()
+                                    ->send();
+
+                                $action->halt();
+                            }
+                        }),
                 ]),
             ]);
+    }
+
+    /**
+     * Apakah kelas ini sudah memiliki riwayat (pendaftaran siswa atau penetapan
+     * wali kelas) yang akan ikut terhapus via FK cascade?
+     */
+    protected static function hasHistory(Classroom $record): bool
+    {
+        return $record->enrollments()->exists()
+            || $record->classHomerooms()->exists();
     }
 
     /**

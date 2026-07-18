@@ -138,16 +138,28 @@ class PromotionService
                 ]
             );
         } elseif ($action === 'graduated') {
-            // Jika lulus, ubah status student dan nonaktifkan user
+            // Jika lulus, ubah status student dan nonaktifkan akun siswa.
             $student->update(['status' => 'graduated']);
 
             if ($student->user) {
                 $student->user->update(['is_active' => false]);
             }
 
+            // Nonaktifkan akun WALI hanya jika ia tidak lagi menaungi siswa aktif
+            // lain (Audit 3.2). Satu wali bisa memantau beberapa anak/saudara;
+            // menonaktifkannya saat satu anak lulus akan memutus akses ke adik
+            // yang masih bersekolah.
             if ($student->guardian_user_id) {
                 $guardian = User::find($student->guardian_user_id);
-                if ($guardian) {
+
+                $stillHasActiveChild = $guardian
+                    ? $guardian->guardianStudents()
+                        ->where('status', 'active')
+                        ->where('id', '!=', $student->id)
+                        ->exists()
+                    : false;
+
+                if ($guardian && ! $stillHasActiveChild) {
                     $guardian->update(['is_active' => false]);
                 }
             }

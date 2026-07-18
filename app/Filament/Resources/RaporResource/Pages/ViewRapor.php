@@ -523,15 +523,13 @@ class ViewRapor extends ViewRecord
             foreach ($assignments as $assignment) {
                 $narrative = $service->generate($assignment, $studentId);
 
-                FinalGrade::updateOrCreate(
-                    [
-                        'student_id' => $studentId,
-                        'teaching_assignment_id' => $assignment->id,
-                        'semester' => $semester,
-                    ],
-                    [
-                        'narrative_description' => $narrative,
-                    ]
+                // Lewat snapshot(): narasi pada nilai yang sudah dikunci/override
+                // manual TIDAK ditimpa (Audit 3.6).
+                FinalGrade::snapshot(
+                    $studentId,
+                    $assignment->id,
+                    $semester,
+                    ['narrative_description' => $narrative]
                 );
             }
             $this->narasiProcessed++;

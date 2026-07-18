@@ -44,21 +44,6 @@ class GradeObserver
         $semester = $assignment->academicPeriod->semester;
         $studentId = $grade->student_id;
 
-        // Cek apakah nilai akhir siswa ini sudah dikunci oleh Wali Kelas.
-        // Jika sudah dikunci, hentikan proses — jangan timpa nilai rapor.
-        $existing = FinalGrade::where('student_id', $studentId)
-            ->where('teaching_assignment_id', $assignment->id)
-            ->where('semester', $semester)
-            ->first();
-
-        if ($existing?->is_locked) {
-            return; // Nilai sudah dikunci, skip update
-        }
-
-        if ($existing?->is_manual_override) {
-            return; // Nilai manual admin, jangan ditimpa oleh kalkulasi otomatis
-        }
-
         // Panggil method calculateFinalGrade() yang sudah ada di TeachingAssignment.
         // Method ini sudah menangani semua formula (average, weighting, percentage)
         // dan formative boost — kita tidak perlu duplikasi logikanya.
@@ -71,12 +56,12 @@ class GradeObserver
             ? GradeRangeResolver::resolve($assignment, $finalScore)
             : null;
 
-        FinalGrade::updateOrCreate(
-            [
-                'student_id' => $studentId,
-                'teaching_assignment_id' => $assignment->id,
-                'semester' => $semester,
-            ],
+        // Penguncian nilai (is_locked / is_manual_override) ditegakkan di dalam
+        // FinalGrade::snapshot() — pintu tulis tunggal untuk final_grades (Audit 3.6).
+        FinalGrade::snapshot(
+            $studentId,
+            $assignment->id,
+            $semester,
             [
                 'final_score' => $finalScore > 0 ? $finalScore : null,
                 'grade_label' => $gradeLabel,

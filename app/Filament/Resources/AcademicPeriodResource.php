@@ -6,9 +6,11 @@ use App\Filament\Resources\AcademicPeriodResource\Pages;
 use App\Models\AcademicPeriod;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Collection;
 
 /**
  * Helper untuk Editor agar mengenali tipe data Carbon
@@ -138,13 +140,40 @@ class AcademicPeriodResource extends Resource
             ->defaultSort('start_year', 'desc') // Urutkan dari tahun terbaru
             ->actions([
                 Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                // PROTEKSI LONGITUDINAL (Audit 3.3): sembunyikan Hapus jika periode
+                // ini sudah memiliki riwayat (enrollment / SK Mengajar). FK cascade
+                // akan memusnahkan nilai, absensi, dan rapor periode tersebut.
+                Tables\Actions\DeleteAction::make()
+                    ->hidden(fn (AcademicPeriod $record): bool => self::hasHistory($record)),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->before(function (Collection $records, Tables\Actions\DeleteBulkAction $action) {
+                            $blocked = $records->filter(fn (AcademicPeriod $r) => self::hasHistory($r));
+
+                            if ($blocked->isNotEmpty()) {
+                                Notification::make()
+                                    ->title('Penghapusan dibatalkan')
+                                    ->body($blocked->count() . ' tahun ajaran memiliki riwayat data (nilai/absensi/rapor) dan tidak dapat dihapus untuk menjaga data longitudinal.')
+                                    ->danger()
+                                    ->send();
+
+                                $action->halt();
+                            }
+                        }),
                 ]),
             ]);
+    }
+
+    /**
+     * Apakah tahun ajaran ini sudah memiliki riwayat longitudinal yang,
+     * jika dihapus, akan ikut memusnahkan data turunannya via FK cascade?
+     */
+    protected static function hasHistory(AcademicPeriod $record): bool
+    {
+        return $record->enrollments()->exists()
+            || $record->teachingAssignments()->exists();
     }
 
     public static function getPages(): array

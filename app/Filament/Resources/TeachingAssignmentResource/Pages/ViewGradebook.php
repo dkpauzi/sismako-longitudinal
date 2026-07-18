@@ -57,22 +57,21 @@ class ViewGradebook extends Page
                     
                     $count = 0;
                     foreach ($studentIds as $studentId) {
-                        // Pastikan FinalGrade ada
-                        $finalGrade = FinalGrade::firstOrCreate([
-                            'student_id' => $studentId,
-                            'teaching_assignment_id' => $assignment->id,
-                            'semester' => $semester,
-                        ]);
-
-                        // Cek apakah nilai terkunci
-                        if ($finalGrade->is_locked) {
-                            continue;
-                        }
-
-                        // Generate narasi dan simpan ke FinalGrade
                         $narrative = $service->generate($assignment, $studentId);
-                        $finalGrade->update(['narrative_description' => $narrative]);
-                        $count++;
+
+                        // Lewat snapshot(): guard penguncian/override terpusat (Audit 3.6).
+                        $finalGrade = FinalGrade::snapshot(
+                            $studentId,
+                            $assignment->id,
+                            $semester,
+                            ['narrative_description' => $narrative]
+                        );
+
+                        // snapshot() mengembalikan record existing tanpa perubahan bila
+                        // terkunci/override — baris seperti itu tidak dihitung sebagai update.
+                        if ($finalGrade && !$finalGrade->is_locked && !$finalGrade->is_manual_override) {
+                            $count++;
+                        }
                     }
 
                     \Filament\Notifications\Notification::make()

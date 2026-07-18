@@ -111,6 +111,9 @@ class StudentPromotionWizard extends Page
                                 ->columns(4)
                                 ->schema([
                                     Hidden::make('enrollment_id'),
+                                    // Tingkat kelas asal (diisi populateStudents) — dasar
+                                    // gerbang validasi promosi agar tidak ada lompatan absurd.
+                                    Hidden::make('source_grade_level'),
 
                                     TextInput::make('student_name')
                                         ->label('Nama Siswa')
@@ -119,24 +122,25 @@ class StudentPromotionWizard extends Page
 
                                     Select::make('action')
                                         ->label('Status')
-                                        ->options([
-                                            'promoted' => 'Naik Kelas',
-                                            'retained' => 'Tinggal Kelas',
-                                            'graduated' => 'Lulus',
-                                        ])
-                                        ->default('promoted')
+                                        // GERBANG JENJANG (Audit 3.8): opsi status dibatasi
+                                        // tingkat kelas asal. Kelas < 9 tidak bisa "Lulus";
+                                        // kelas 9 (akhir SMP) tidak bisa "Naik Kelas".
+                                        ->options(fn (Get $get) => self::actionOptionsForGrade($get('source_grade_level')))
                                         ->required()
                                         ->live()
-                                        ->afterStateUpdated(function (Set $set, Get $get, $state) {
-                                            if ($state === 'retained' || $state === 'graduated') {
-                                                $set('target_classroom_id', null);
-                                            }
-                                        })
+                                        // Reset kelas tujuan setiap status berubah agar dropdown
+                                        // ter-repopulasi dengan jenjang yang benar.
+                                        ->afterStateUpdated(fn (Set $set) => $set('target_classroom_id', null))
                                         ->columnSpan(1),
 
                                     Select::make('target_classroom_id')
                                         ->label('Kelas Tujuan')
-                                        ->options(Classroom::pluck('name', 'id'))
+                                        // Hanya kelas berjenjang tepat: Naik → grade+1,
+                                        // Tinggal → grade sama. Mencegah 7 lompat ke 9.
+                                        ->options(fn (Get $get) => self::targetClassroomOptions(
+                                            $get('source_grade_level'),
+                                            $get('action')
+                                        ))
                                         ->required(fn (Get $get) => in_array($get('action'), ['promoted', 'retained']))
                                         ->disabled(fn (Get $get) => $get('action') === 'graduated')
                                         ->columnSpan(2),
@@ -158,6 +162,12 @@ class StudentPromotionWizard extends Page
             return;
         }
 
+        $sourceGrade = Classroom::find($classroomId)?->grade_level;
+
+        // Default status disesuaikan jenjang: kelas akhir (9) default "Lulus"
+        // karena "Naik Kelas" tidak tersedia; selain itu default "Naik Kelas".
+        $defaultAction = ($sourceGrade !== null && $sourceGrade >= 9) ? 'graduated' : 'promoted';
+
         $enrollments = Enrollment::where('academic_period_id', $periodId)
             ->where('classroom_id', $classroomId)
             ->where('status', 'active')
@@ -168,13 +178,70 @@ class StudentPromotionWizard extends Page
         foreach ($enrollments as $enrollment) {
             $students[] = [
                 'enrollment_id' => $enrollment->id,
+                'source_grade_level' => $sourceGrade,
                 'student_name' => $enrollment->student->name . ' (' . $enrollment->student->nisn . ')',
-                'action' => 'promoted',
+                'action' => $defaultAction,
                 'target_classroom_id' => null,
             ];
         }
 
         $set('students', $students);
+    }
+
+    /**
+     * Opsi status promosi yang sah untuk suatu tingkat kelas (Audit 3.8).
+     * - Kelas < 9 : Naik / Tinggal (tidak boleh Lulus).
+     * - Kelas 9   : Tinggal / Lulus (tidak boleh Naik — akhir jenjang SMP).
+     * - Tidak diketahui: fallback semua opsi (defensif).
+     *
+     * @return array<string,string>
+     */
+    public static function actionOptionsForGrade(mixed $gradeLevel): array
+    {
+        if ($gradeLevel === null || $gradeLevel === '') {
+            return ['promoted' => 'Naik Kelas', 'retained' => 'Tinggal Kelas', 'graduated' => 'Lulus'];
+        }
+
+        $grade = (int) $gradeLevel;
+
+        if ($grade >= 9) {
+            return ['retained' => 'Tinggal Kelas', 'graduated' => 'Lulus'];
+        }
+
+        return ['promoted' => 'Naik Kelas', 'retained' => 'Tinggal Kelas'];
+    }
+
+    /**
+     * Opsi Kelas Tujuan yang sah berdasarkan tingkat asal & status (Audit 3.8).
+     * - promoted → hanya kelas ber-grade (asal + 1).
+     * - retained → hanya kelas ber-grade sama.
+     * - graduated / lainnya → tidak ada (tanpa kelas tujuan).
+     *
+     * @return array<int,string>
+     */
+    public static function targetClassroomOptions(mixed $gradeLevel, ?string $action): array
+    {
+        if ($gradeLevel === null || $gradeLevel === '') {
+            // Jenjang tak diketahui: jangan batasi (defensif, submit tetap divalidasi).
+            return Classroom::orderBy('grade_level')->orderBy('name')->pluck('name', 'id')->toArray();
+        }
+
+        $grade = (int) $gradeLevel;
+
+        $targetGrade = match ($action) {
+            'promoted' => $grade + 1,
+            'retained' => $grade,
+            default => null,
+        };
+
+        if ($targetGrade === null) {
+            return [];
+        }
+
+        return Classroom::where('grade_level', $targetGrade)
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->toArray();
     }
 
     /**

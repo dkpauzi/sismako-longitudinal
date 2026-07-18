@@ -332,6 +332,8 @@ class TeachingAssignment extends Model
             ->pluck('student_id');
 
         foreach ($studentIds as $studentId) {
+            // Pre-check untuk menghemat calculateFinalGrade() pada nilai terkunci.
+            // Penegakan sesungguhnya tetap di FinalGrade::snapshot() (defense-in-depth).
             $existing = FinalGrade::where('student_id', $studentId)
                 ->where('teaching_assignment_id', $this->id)
                 ->where('semester', $semester)
@@ -343,12 +345,10 @@ class TeachingAssignment extends Model
 
             $score = $this->calculateFinalGrade($studentId);
 
-            FinalGrade::updateOrCreate(
-                [
-                    'student_id' => $studentId,
-                    'teaching_assignment_id' => $this->id,
-                    'semester' => $semester,
-                ],
+            FinalGrade::snapshot(
+                $studentId,
+                $this->id,
+                $semester,
                 [
                     'final_score' => $score > 0 ? $score : null,
                     'grade_label' => $score > 0 ? GradeRangeResolver::resolve($this, $score) : null,
