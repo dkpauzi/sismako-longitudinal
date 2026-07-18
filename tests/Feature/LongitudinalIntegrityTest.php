@@ -5,15 +5,19 @@ namespace Tests\Feature;
 use App\Filament\Pages\StudentPromotionWizard;
 use App\Models\AcademicPeriod;
 use App\Models\Classroom;
+use App\Models\ClassHomeroom;
 use App\Models\Enrollment;
 use App\Models\FinalGrade;
+use App\Models\KokurikulerGrade;
 use App\Models\Student;
 use App\Models\Subject;
 use App\Models\Teacher;
 use App\Models\TeachingAssignment;
 use App\Models\User;
+use App\Policies\KokurikulerGradePolicy;
 use App\Services\PromotionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
@@ -191,5 +195,51 @@ class LongitudinalIntegrityTest extends TestCase
         // Kelas 7 tinggal kelas → hanya grade 7.
         $retainOptions = StudentPromotionWizard::targetClassroomOptions(7, 'retained');
         $this->assertEquals(['7A'], array_values($retainOptions));
+    }
+
+    // ── AUDIT MED-3: KEPEMILIKAN NILAI P5 (KOKURIKULER) ───────────────
+
+    /** @test */
+    public function only_active_homeroom_teacher_may_modify_p5_grade(): void
+    {
+        foreach (['teacher'] as $r) {
+            Role::firstOrCreate(['name' => $r, 'guard_name' => 'web']);
+        }
+
+        $period = AcademicPeriod::create([
+            'start_year' => 2025, 'end_year' => 2026, 'semester' => 'odd',
+            'start_date' => '2025-07-14', 'end_date' => '2025-12-19', 'is_active' => true,
+        ]);
+        $classroom = Classroom::create(['name' => 'Kelas 8.1', 'grade_level' => 8]);
+        $student = Student::create(['name' => 'Murid P5', 'nisn' => '5050', 'gender' => 'L', 'status' => 'active']);
+        Enrollment::create([
+            'student_id' => $student->id, 'classroom_id' => $classroom->id,
+            'academic_period_id' => $period->id, 'status' => 'active',
+        ]);
+        $p5 = KokurikulerGrade::create([
+            'student_id' => $student->id, 'academic_period_id' => $period->id,
+            'project_title' => 'Gaya Hidup Berkelanjutan', 'narrative_description' => 'Baik.',
+        ]);
+
+        // Wali kelas AKTIF kelas 8.1
+        $waliUser = User::factory()->create(['role' => 'teacher']);
+        $waliUser->assignRole('teacher');
+        $wali = Teacher::create(['user_id' => $waliUser->id, 'name' => 'Wali 8.1', 'nip' => '111', 'is_active' => true]);
+        ClassHomeroom::create([
+            'classroom_id' => $classroom->id, 'teacher_id' => $wali->id,
+            'academic_period_id' => $period->id, 'is_current' => true,
+        ]);
+
+        // Guru lain (bukan wali kelas siswa ini)
+        $lainUser = User::factory()->create(['role' => 'teacher']);
+        $lainUser->assignRole('teacher');
+        Teacher::create(['user_id' => $lainUser->id, 'name' => 'Guru Lain', 'nip' => '222', 'is_active' => true]);
+
+        $policy = new KokurikulerGradePolicy();
+
+        $this->assertTrue($policy->update($waliUser, $p5), 'Wali kelas aktif boleh mengubah P5.');
+        $this->assertTrue($policy->delete($waliUser, $p5), 'Wali kelas aktif boleh menghapus P5.');
+        $this->assertFalse($policy->update($lainUser, $p5), 'Guru non-wali TIDAK boleh mengubah P5 lintas kelas.');
+        $this->assertFalse($policy->delete($lainUser, $p5), 'Guru non-wali TIDAK boleh menghapus P5 lintas kelas.');
     }
 }

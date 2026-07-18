@@ -62,13 +62,18 @@ class RaporResource extends Resource
             // hanya siswa pada TAHUN AJARAN kelas tersebut yang dihitung.
             ->withCount(['enrollments as active_students_count' => fn($q) => $q
                 ->where('enrollments.status', 'active')
-                ->whereColumn('enrollments.academic_period_id', 'class_homerooms.academic_period_id')])
-            ->whereHas('academicPeriod', fn($q) => $q->where('is_active', true));
+                ->whereColumn('enrollments.academic_period_id', 'class_homerooms.academic_period_id')]);
+        // CATATAN (Audit MED-1): filter is_active DIHAPUS agar rekap rapor tahun
+        // ajaran lampau tetap bisa dibuka & dicetak ulang (read-only). Proteksi
+        // penulisan pada periode non-aktif ditegakkan di ViewRapor (aksi mutasi
+        // disembunyikan), sehingga histori tak perlu diaktifkan ulang (yang akan
+        // mencairkan freeze) hanya untuk sekadar mencetak.
 
-        // Guru hanya melihat kelas yang dia pegang sebagai Wali Kelas
+        // Guru melihat kelas yang ia pegang/pernah pegang sebagai Wali Kelas
+        // di seluruh tahun ajaran (bukan hanya yang sedang menjabat), agar
+        // rapor historis kelas asuhannya tetap terjangkau.
         if (auth()->check() && auth()->user()->hasRole('teacher')) {
-            $query->where('teacher_id', auth()->user()->teacher?->id)
-                ->where('is_current', true);
+            $query->where('teacher_id', auth()->user()->teacher?->id);
         }
 
         return $query;

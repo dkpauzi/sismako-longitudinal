@@ -157,7 +157,10 @@ class EnrollmentsRelationManager extends RelationManager
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                // PROTEKSI LONGITUDINAL (Audit HIGH-1): sembunyikan Hapus jika
+                // enrollment ini adalah asal promosi atau sudah punya nilai.
+                Tables\Actions\DeleteAction::make()
+                    ->hidden(fn (\App\Models\Enrollment $record): bool => $record->hasLongitudinalHistory()),
             ])
             // Kenaikan kelas TIDAK dilakukan dari sini. Satu-satunya jalur mutasi
             // enrollment adalah PromotionService (halaman Proses Kenaikan Kelas),
@@ -166,7 +169,20 @@ class EnrollmentsRelationManager extends RelationManager
             // untuk grafik longitudinal.
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->before(function (\Illuminate\Database\Eloquent\Collection $records, Tables\Actions\DeleteBulkAction $action) {
+                            $blocked = $records->filter(fn (\App\Models\Enrollment $r) => $r->hasLongitudinalHistory());
+
+                            if ($blocked->isNotEmpty()) {
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Penghapusan dibatalkan')
+                                    ->body($blocked->count() . ' pendaftaran memiliki jejak longitudinal (nilai/rantai promosi) dan tidak dapat dihapus.')
+                                    ->danger()
+                                    ->send();
+
+                                $action->halt();
+                            }
+                        }),
                 ]),
             ]);
     }

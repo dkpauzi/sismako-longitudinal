@@ -12,7 +12,9 @@ use Filament\Forms\Set;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 
 class StudentResource extends Resource
 {
@@ -282,13 +284,38 @@ class StudentResource extends Resource
             // Tombol Baris (Muncul di setiap baris Siswa)
             ->actions([
                 Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                // PROTEKSI LONGITUDINAL (Audit HIGH-1): sembunyikan Hapus jika siswa
+                // sudah pernah terdaftar di kelas (punya jejak nilai/absensi/rapor).
+                Tables\Actions\DeleteAction::make()
+                    ->hidden(fn (Student $record): bool => self::hasHistory($record)),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->before(function (Collection $records, Tables\Actions\DeleteBulkAction $action) {
+                            $blocked = $records->filter(fn (Student $r) => self::hasHistory($r));
+
+                            if ($blocked->isNotEmpty()) {
+                                Notification::make()
+                                    ->title('Penghapusan dibatalkan')
+                                    ->body($blocked->count() . ' siswa memiliki riwayat pendaftaran kelas dan tidak dapat dihapus untuk menjaga data longitudinal.')
+                                    ->danger()
+                                    ->send();
+
+                                $action->halt();
+                            }
+                        }),
                 ]),
             ]);
+    }
+
+    /**
+     * Apakah siswa ini sudah punya riwayat pendaftaran kelas? Menghapusnya akan
+     * ikut memusnahkan enrollment, nilai, absensi, dan rapor via FK cascade.
+     */
+    protected static function hasHistory(Student $record): bool
+    {
+        return $record->enrollments()->exists();
     }
 
     public static function getRelations(): array

@@ -182,20 +182,12 @@ class ClassroomResource extends Resource
 
     public static function getGradeOptions(): array
     {
+        // Batasan skripsi: SMP-only. Opsi PAUD/SD (0-6) dan SMA/SMK (10-12)
+        // sengaja dihapus agar tidak ada kelas di luar jenjang SMP (Audit HIGH-2).
         return [
-            0 => 'PAUD / TK (Nol Besar)',
-            1 => 'Kelas 1 (SD)',
-            2 => 'Kelas 2 (SD)',
-            3 => 'Kelas 3 (SD)',
-            4 => 'Kelas 4 (SD)',
-            5 => 'Kelas 5 (SD)',
-            6 => 'Kelas 6 (SD)',
             7 => 'Kelas 7 (SMP)',
             8 => 'Kelas 8 (SMP)',
             9 => 'Kelas 9 (SMP)',
-            10 => 'Kelas 10 (SMA/SMK)',
-            11 => 'Kelas 11 (SMA/SMK)',
-            12 => 'Kelas 12 (SMA/SMK)',
         ];
     }
 }

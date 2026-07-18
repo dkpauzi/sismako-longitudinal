@@ -373,6 +373,8 @@ class ViewRapor extends ViewRecord
                 ->icon('heroicon-o-lock-closed')
                 ->color('danger')
                 ->visible(fn() => auth()->user()->hasAnyRole(['super_admin', 'admin', 'headmaster']))
+                // Periode non-aktif = read-only (Audit MED-1).
+                ->hidden(fn() => ! ($this->record->academicPeriod?->is_active ?? false))
                 ->requiresConfirmation()
                 ->modalHeading('Kunci Semua Nilai Rapor?')
                 ->modalDescription(
@@ -410,6 +412,8 @@ class ViewRapor extends ViewRecord
                 ->icon('heroicon-o-lock-open')
                 ->color('warning')
                 ->visible(fn() => auth()->user()->hasAnyRole(['super_admin', 'admin']))
+                // Periode non-aktif = read-only: cegah pencairan freeze rapor lampau (Audit MED-1).
+                ->hidden(fn() => ! ($this->record->academicPeriod?->is_active ?? false))
                 ->requiresConfirmation()
                 ->modalHeading('Buka Kunci Nilai Rapor?')
                 ->modalDescription('Nilai akan bisa diperbarui kembali oleh guru.')
@@ -442,6 +446,8 @@ class ViewRapor extends ViewRecord
                 ->label('Generate Semua Deskripsi')
                 ->icon('heroicon-o-sparkles')
                 ->color('info')
+                // Periode non-aktif = read-only: jangan timpa narasi rapor lampau (Audit MED-1).
+                ->hidden(fn() => ! ($this->record->academicPeriod?->is_active ?? false))
                 ->requiresConfirmation()
                 ->modalHeading('Generate Deskripsi Otomatis?')
                 ->modalDescription(

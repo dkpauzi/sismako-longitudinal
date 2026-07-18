@@ -50,4 +50,26 @@ class Enrollment extends Model
     {
         return $this->hasOne(Enrollment::class, 'promoted_from_enrollment_id');
     }
+
+    /**
+     * Apakah enrollment ini memiliki jejak longitudinal yang, jika dihapus,
+     * akan merusak rantai promosi atau menghilangkan konteks nilai historis?
+     * (Audit HIGH-1)
+     *
+     * TRUE jika:
+     *   1. Menjadi ASAL promosi (punya enrollment penerus di periode berikutnya), atau
+     *   2. Siswa punya nilai akhir pada mapel di kelas + periode enrollment ini.
+     */
+    public function hasLongitudinalHistory(): bool
+    {
+        if ($this->promotedTo()->exists()) {
+            return true;
+        }
+
+        return FinalGrade::where('student_id', $this->student_id)
+            ->whereHas('teachingAssignment', fn ($q) => $q
+                ->where('classroom_id', $this->classroom_id)
+                ->where('academic_period_id', $this->academic_period_id))
+            ->exists();
+    }
 }

@@ -7,10 +7,12 @@ use App\Filament\Resources\TeachingAssignmentResource\RelationManagers;
 use App\Models\TeachingAssignment;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\HtmlString;
 
 /**
@@ -330,9 +332,35 @@ class TeachingAssignmentResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    // PROTEKSI LONGITUDINAL (Audit HIGH-1): batalkan hapus jika SK
+                    // Mengajar sudah punya nilai akhir / asesmen. Cascade akan
+                    // memusnahkan final_grades, grades, absensi, dan jadwal mapel ini.
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->before(function (Collection $records, Tables\Actions\DeleteBulkAction $action) {
+                            $blocked = $records->filter(fn (TeachingAssignment $r) => self::hasHistory($r));
+
+                            if ($blocked->isNotEmpty()) {
+                                Notification::make()
+                                    ->title('Penghapusan dibatalkan')
+                                    ->body($blocked->count() . ' SK Mengajar sudah memiliki nilai/asesmen dan tidak dapat dihapus untuk menjaga data longitudinal.')
+                                    ->danger()
+                                    ->send();
+
+                                $action->halt();
+                            }
+                        }),
                 ])->visible(fn() => !auth()->user()->hasRole('teacher')),
             ]);
+    }
+
+    /**
+     * Apakah SK Mengajar ini sudah memiliki data turunan (nilai akhir/asesmen)
+     * yang akan ikut termusnahkan via FK cascade bila dihapus?
+     */
+    protected static function hasHistory(TeachingAssignment $record): bool
+    {
+        return $record->finalGrades()->exists()
+            || $record->assessments()->exists();
     }
 
     /**
