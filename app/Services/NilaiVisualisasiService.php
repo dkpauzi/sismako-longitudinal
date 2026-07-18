@@ -182,8 +182,36 @@ class NilaiVisualisasiService
     }
 
     /**
-     * Data kinerja guru untuk dashboard kepala sekolah.
-     * Metrik: kelengkapan nilai, kehadiran jurnal KBM.
+     * Data kinerja guru untuk dashboard kepala sekolah (garis besar).
+     *
+     * METRIK (OPSI A — BERBASIS SISWA):
+     * "Kelengkapan Nilai %" = Σ(siswa aktif yang sudah punya nilai akhir per mapel)
+     *                         ÷ Σ(siswa aktif × mapel yang diajar guru) × 100.
+     * Metrik ini TIDAK bergantung pada penautan TP↔asesmen, sehingga andal apa
+     * adanya (lihat catatan Opsi B di bawah).
+     *
+     * ──────────────────────────────────────────────────────────────────────
+     * CATATAN PENGEMBANGAN — MIGRASI KE OPSI B (BERBASIS TP):
+     * Bila kelak ingin mengukur progres dari sisi "tiap TP harus ada sumatif":
+     *   1) PRASYARAT DATA: jadikan penautan TP wajib pada asesmen kategori
+     *      sumatif. Di AssessmentsRelationManager, field CheckboxList
+     *      'learningObjectives' harus ->required() saat category diawali
+     *      'sumatif_' — tanpa ini metrik B under-report (asesmen sumatif yang
+     *      tak tertaut TP tidak terhitung).
+     *   2) RUMUS B: untuk tiap TA akademik, denominator = jumlah TP mapel itu
+     *      (LearningObjective: subject_id + academic_period_id + grade_level);
+     *      numerator = TP yang punya >=1 asesmen sumatif (category LIKE
+     *      'sumatif_%') yang SUDAH ada grade-nya (grades.score not null).
+     *      Relasi tersedia: LearningObjective::assessments() (pivot
+     *      assessment_learning_objective) dan Assessment::grades().
+     *   3) Ganti blok perhitungan $gradedCount/$totalStudents di bawah dengan
+     *      pasangan (tp_dinilai / total_tp), sisakan persen & status apa adanya.
+     *   4) Tambahkan test: TP tanpa sumatif => tidak terhitung; TP dgn sumatif
+     *      bernilai => terhitung; asesmen sumatif tanpa tautan TP => TIDAK
+     *      menaikkan angka (membuktikan prasyarat #1).
+     * ──────────────────────────────────────────────────────────────────────
+     *
+     * Metrik lengkap: kelengkapan nilai + jumlah jurnal KBM.
      */
     public function getKinerjaGuru(): array
     {
@@ -191,7 +219,9 @@ class NilaiVisualisasiService
         if (!$activePeriod) return [];
 
         $assignments = TeachingAssignment::where('academic_period_id', $activePeriod->id)
-            ->whereHas('subject', fn($q) => $q->where('type', 'mandatory'))
+            // Mapel BERNILAI ANGKA: wajib (mandatory) & muatan lokal/pilihan (elective).
+            // P5 (kokurikuler) & ekstrakurikuler dikecualikan karena naratif, bukan angka.
+            ->whereHas('subject', fn($q) => $q->whereIn('type', ['mandatory', 'elective']))
             ->with([
                 'teacher.user',
                 'subject',
@@ -227,9 +257,14 @@ class NilaiVisualisasiService
                 // ✅ Lookup dari collection (bukan query baru)
                 $enrolledCount = $enrollmentCounts[$ta->classroom_id] ?? 0;
 
-                $gradedCount = $ta->finalGrades
-                    ->whereNotNull('final_score')
-                    ->count();
+                // finalGrades sudah di-scope (semester aktif + final_score not null)
+                // di eager load, jadi tinggal dihitung.
+                $gradedCount = $ta->finalGrades->count();
+
+                // ✅ PERBAIKAN BUG: cap pada jumlah siswa AKTIF. Siswa yang sudah
+                // pindah/keluar (enrollment non-aktif) namun masih menyimpan nilai
+                // akhir tidak boleh membuat kelengkapan melebihi 100%.
+                $gradedCount = min($gradedCount, $enrolledCount);
 
                 $totalStudents += $enrolledCount;
                 $totalGraded   += $gradedCount;
