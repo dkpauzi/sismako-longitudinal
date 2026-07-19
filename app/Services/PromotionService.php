@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\AcademicPeriod;
 use App\Models\Classroom;
 use App\Models\Enrollment;
+use App\Models\FinalGrade;
 use App\Models\Student;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -114,10 +116,16 @@ class PromotionService
         $oldEnrollment = Enrollment::with('student.user')->find($enrollmentId);
         if (!$oldEnrollment) return;
 
-        // Update status enrollment lama
-        $oldEnrollment->update(['status' => $action]);
-
         $student = $oldEnrollment->student;
+
+        // ── GUARD KUNCI RAPOR (Item 3.1) — rapor periode asal wajib terkunci ──
+        $this->assertReportLocked($oldEnrollment, $student);
+
+        // ── GUARD TEMPORAL (Item 3.2) — transisi hanya di batas tahun (Genap) ──
+        $this->assertYearEndTransition($oldEnrollment, $targetAcademicPeriodId, $action);
+
+        // Update status enrollment lama (setelah lolos semua guard)
+        $oldEnrollment->update(['status' => $action]);
 
         if ($action === 'promoted' || $action === 'retained') {
             if (!$targetAcademicPeriodId || !$targetClassroomId) {
@@ -185,5 +193,150 @@ class PromotionService
                 }
             }
         }
+    }
+
+    /**
+     * GUARD: rapor periode ASAL wajib terkunci sebelum transisi (Item 3.1).
+     * Defensif — hanya final grade yang SUDAH ADA dan belum dikunci yang
+     * memblokir; mapel (mis. Muatan Lokal/elektif) tanpa baris nilai TIDAK
+     * menjebak siswa. Menjaga snapshot longitudinal ter-freeze (SRS §1/§4.8).
+     *
+     * @throws Exception bila ada final grade belum terkunci di periode asal.
+     */
+    private function assertReportLocked(Enrollment $oldEnrollment, ?Student $student): void
+    {
+        if (!$student) return;
+
+        $hasUnlocked = FinalGrade::where('student_id', $student->id)
+            ->whereHas('teachingAssignment', fn($q) => $q
+                ->where('academic_period_id', $oldEnrollment->academic_period_id))
+            ->where('is_locked', false)
+            ->exists();
+
+        if ($hasUnlocked) {
+            throw new Exception(
+                "Rapor '{$student->name}' pada periode asal belum dikunci. " .
+                "Kunci semua nilai rapor terlebih dahulu sebelum memproses kenaikan/kelulusan."
+            );
+        }
+    }
+
+    /**
+     * GUARD TEMPORAL: Naik/Tinggal/Lulus adalah keputusan AKHIR TAHUN (Item 3.2).
+     * - Periode asal WAJIB semester Genap ('even'). Transisi Ganjil→Genap adalah
+     *   "Lanjut Semester" (jalur terpisah), bukan kenaikan kelas.
+     * - Untuk promoted/retained, periode tujuan WAJIB semester Ganjil tahun
+     *   berikutnya (target.start_year == source.end_year).
+     *
+     * @throws Exception bila pasangan periode tidak sah.
+     */
+    private function assertYearEndTransition(Enrollment $oldEnrollment, ?int $targetAcademicPeriodId, string $action): void
+    {
+        $source = AcademicPeriod::find($oldEnrollment->academic_period_id);
+        if (!$source) return;
+
+        if ($source->semester !== 'even') {
+            throw new Exception(
+                "Kenaikan/Tinggal/Lulus hanya dapat diproses dari semester GENAP (akhir tahun ajaran). " .
+                "Untuk transisi Ganjil→Genap, gunakan menu 'Lanjut Semester'."
+            );
+        }
+
+        if (in_array($action, ['promoted', 'retained'], true)) {
+            $target = $targetAcademicPeriodId ? AcademicPeriod::find($targetAcademicPeriodId) : null;
+            if (!$target) return; // kelengkapan target divalidasi di cabang promoted/retained
+
+            $isNextOddYear = $target->semester === 'odd'
+                && (int) $target->start_year === (int) $source->end_year;
+
+            if (!$isNextOddYear) {
+                throw new Exception(
+                    "Tahun Ajaran Tujuan tidak valid untuk Naik/Tinggal Kelas: " .
+                    "harus semester GANJIL tahun ajaran berikutnya."
+                );
+            }
+        }
+    }
+
+    /**
+     * LANJUT SEMESTER (Ganjil→Genap tahun yang sama) — jalur mutasi enrollment
+     * TERPISAH dari kenaikan kelas. Siswa TETAP di kelas & tingkat yang sama;
+     * hanya enrollment periode Genap yang dibuat, menautkan rantai longitudinal.
+     * Diproses per-chunk (event recursion) seperti promosi.
+     *
+     * @return array{success:bool,message:string,processed:int}
+     */
+    public function processSemesterChunk(array $chunk, ?int $targetPeriodId): array
+    {
+        try {
+            return DB::transaction(function () use ($chunk, $targetPeriodId) {
+                $processed = 0;
+                foreach ($chunk as $item) {
+                    $this->processSingleContinuation($item, $targetPeriodId);
+                    $processed++;
+                }
+                return [
+                    'success' => true,
+                    'message' => "{$processed} siswa berhasil dilanjutkan ke semester Genap.",
+                    'processed' => $processed,
+                ];
+            });
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => "Terjadi kesalahan: " . $e->getMessage(),
+                'processed' => 0,
+            ];
+        }
+    }
+
+    /**
+     * Proses satu siswa untuk Lanjut Semester. Tidak membungkus transaction
+     * sendiri (pemanggil mengatur boundary), konsisten dg processSinglePromotion.
+     *
+     * @throws Exception bila pasangan periode bukan Ganjil→Genap tahun yang sama.
+     */
+    private function processSingleContinuation(array $item, ?int $targetPeriodId): void
+    {
+        $old = Enrollment::with('student')->find($item['enrollment_id']);
+        if (!$old) return;
+
+        $student = $old->student;
+
+        // Rapor Ganjil wajib terkunci sebelum lanjut ke Genap (konsisten Item 3.1).
+        $this->assertReportLocked($old, $student);
+
+        $source = AcademicPeriod::find($old->academic_period_id);
+        $target = $targetPeriodId ? AcademicPeriod::find($targetPeriodId) : null;
+
+        if (!$source || !$target) {
+            throw new Exception("Periode asal/tujuan tidak valid untuk Lanjut Semester.");
+        }
+
+        $valid = $source->semester === 'odd'
+            && $target->semester === 'even'
+            && (int) $source->start_year === (int) $target->start_year
+            && (int) $source->end_year === (int) $target->end_year;
+
+        if (!$valid) {
+            throw new Exception(
+                "Lanjut Semester hanya dari GANJIL ke GENAP pada tahun ajaran yang sama."
+            );
+        }
+
+        // Kelas & tingkat TETAP; buat enrollment Genap, tautkan rantai longitudinal.
+        // Enrollment Ganjil dibiarkan 'active' sebagai catatan semester tersebut
+        // (query rapor/roster sudah di-scope per academic_period_id).
+        Enrollment::updateOrCreate(
+            [
+                'student_id' => $student->id,
+                'academic_period_id' => $target->id,
+            ],
+            [
+                'classroom_id' => $old->classroom_id,
+                'status' => 'active',
+                'promoted_from_enrollment_id' => $old->id,
+            ]
+        );
     }
 }

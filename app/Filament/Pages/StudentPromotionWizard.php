@@ -91,10 +91,33 @@ class StudentPromotionWizard extends Page
                         ->schema([
                             Select::make('target_academic_period_id')
                                 ->label('Tahun Ajaran Tujuan')
+                                // GUARD TEMPORAL (Item 3.2): kenaikan kelas hanya dari
+                                // semester GENAP ke GANJIL tahun berikutnya. Dropdown
+                                // dibatasi agar selaras dengan guard server-side di
+                                // PromotionService::assertYearEndTransition().
                                 ->options(function (Get $get) {
-                                    return AcademicPeriod::where('id', '!=', $get('source_academic_period_id'))
+                                    $source = AcademicPeriod::find($get('source_academic_period_id'));
+                                    if (! $source || $source->semester !== 'even') {
+                                        return [];
+                                    }
+
+                                    return AcademicPeriod::where('semester', 'odd')
+                                        ->where('start_year', $source->end_year)
                                         ->get()
-                                        ->mapWithKeys(fn($p) => [$p->id => $p->name]);
+                                        ->mapWithKeys(fn($p) => [$p->id => $p->name])
+                                        ->toArray();
+                                })
+                                ->helperText(function (Get $get) {
+                                    $source = AcademicPeriod::find($get('source_academic_period_id'));
+                                    if ($source && $source->semester === 'odd') {
+                                        return new HtmlString(
+                                            '<span class="text-warning-600">Kelas asal berada di semester Ganjil. '
+                                            . 'Kenaikan kelas hanya dari Genap. Untuk Ganjil→Genap gunakan menu '
+                                            . '<strong>“Lanjut Semester”</strong>.</span>'
+                                        );
+                                    }
+
+                                    return 'Hanya semester Ganjil tahun ajaran berikutnya yang tersedia.';
                                 })
                                 ->required()
                                 ->live(),

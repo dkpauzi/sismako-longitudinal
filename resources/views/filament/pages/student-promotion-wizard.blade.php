@@ -18,11 +18,16 @@
                 </span>
             </div>
 
-            {{-- Progress bar container --}}
-            <div class="h-4 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+            {{-- Progress bar container.
+                 Lebar bar di-BIND reaktif ke properti Livewire lewat Alpine (x-bind:style):
+                 tanpa ini, DOM-morph Livewire tidak selalu menulis ulang atribut `style`
+                 antar round-trip chunk, sehingga angka % berubah tapi bar diam (Issue #5).
+                 `style=""` server-render dipertahankan untuk paint awal sebelum Alpine aktif. --}}
+            <div class="h-4 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700" x-data>
                 <div
                     class="h-4 rounded-full bg-gradient-to-r from-primary-500 to-primary-400 transition-all duration-500 ease-out"
                     style="width: {{ $this->progressPercentage }}%"
+                    x-bind:style="`width: ${$wire.totalCount ? Math.round($wire.processedCount / $wire.totalCount * 100) : 0}%`"
                 ></div>
             </div>
 

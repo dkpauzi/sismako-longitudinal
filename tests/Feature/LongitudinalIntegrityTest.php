@@ -248,9 +248,12 @@ class LongitudinalIntegrityTest extends TestCase
     /** @test */
     public function promotion_service_rejects_cross_grade_target(): void
     {
+        // Sumber WAJIB Genap (guard temporal Item 3.2): kenaikan kelas hanya dari
+        // akhir tahun (Genap) ke Ganjil tahun berikutnya. Uji ini fokus pada gerbang
+        // JENJANG (7→9 tolak, 7→8 sah), jadi periode dibuat temporal-valid.
         $source = AcademicPeriod::create([
-            'start_year' => 2024, 'end_year' => 2025, 'semester' => 'odd',
-            'start_date' => '2024-07-15', 'end_date' => '2024-12-20', 'is_active' => false,
+            'start_year' => 2024, 'end_year' => 2025, 'semester' => 'even',
+            'start_date' => '2025-01-06', 'end_date' => '2025-06-20', 'is_active' => false,
         ]);
         $target = AcademicPeriod::create([
             'start_year' => 2025, 'end_year' => 2026, 'semester' => 'odd',

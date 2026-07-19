@@ -202,7 +202,10 @@ class TeacherImporter extends Importer
                 [
                     'name' => $nama,
                     'email' => !empty($email) ? $email : null,
-                    'password' => Hash::make($password),
+                    // Cost bcrypt diturunkan untuk jalur impor sinkron (lihat StudentImporter).
+                    // Di-cap ke config: cast `hashed` menolak cost > rounds terkonfigurasi
+                    // (testing BCRYPT_ROUNDS=4). min() aman di semua environment.
+                    'password' => Hash::make($password, ['rounds' => min(8, (int) config('hashing.bcrypt.rounds', 12))]),
                     // SECURITY HARDCODE: Role enum di tabel users SELALU 'teacher'.
                     // Jangan pernah membaca role dari Excel — mencegah privilege escalation.
                     'role' => 'teacher',

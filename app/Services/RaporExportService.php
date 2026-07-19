@@ -107,24 +107,47 @@ class RaporExportService
     public function exportPdf(ClassHomeroom $homeroom, int $studentId)
     {
         $data = $this->getRaporData($homeroom, $studentId);
-        
+
         $pdf = Pdf::loadView('exports.rapor-print', $data)
                   ->setPaper('a4', 'portrait');
 
-        $filename = 'Rapor_' . $data['student']->name . '.pdf';
+        $filename = $this->safeFilename($data['student']->name, 'pdf');
 
-        return $pdf->download($filename);
+        // WAJIB StreamedResponse — Livewire/Filament hanya mengenali unduhan dari
+        // StreamedResponse/BinaryFileResponse. Response biasa akan di-JSON-serialize
+        // oleh Livewire → "Malformed UTF-8" & unduhan gagal senyap (Issue #2/#3).
+        // Aman memori: output PDF di-echo streaming, bukan dirakit ganda.
+        return response()->streamDownload(
+            fn () => print($pdf->output()),
+            $filename,
+            ['Content-Type' => 'application/pdf'],
+        );
     }
 
     public function exportWord(ClassHomeroom $homeroom, int $studentId)
     {
         $data = $this->getRaporData($homeroom, $studentId);
-        
-        $view = View::make('exports.rapor-print', $data)->render();
-        $filename = 'Rapor_' . $data['student']->name . '.doc';
 
-        return response($view)
-            ->header('Content-Type', 'application/vnd.ms-word')
-            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+        $view = View::make('exports.rapor-print', $data)->render();
+        $filename = $this->safeFilename($data['student']->name, 'doc');
+
+        // Sama seperti PDF: harus StreamedResponse agar Livewire memicu unduhan.
+        return response()->streamDownload(
+            fn () => print($view),
+            $filename,
+            ['Content-Type' => 'application/vnd.ms-word'],
+        );
+    }
+
+    /**
+     * Rakit nama file unduhan yang aman lintas-OS (spasi/karakter khusus pada
+     * nama siswa bisa merusak header Content-Disposition di sebagian browser).
+     */
+    private function safeFilename(string $studentName, string $ext): string
+    {
+        $slug = preg_replace('/[^A-Za-z0-9]+/', '_', trim($studentName));
+        $slug = trim($slug, '_') ?: 'siswa';
+
+        return "Rapor_{$slug}.{$ext}";
     }
 }

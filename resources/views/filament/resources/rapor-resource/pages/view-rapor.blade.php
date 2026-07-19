@@ -19,10 +19,14 @@
                     {{ $narasiProcessed }} / {{ $narasiTotal }} siswa
                 </span>
             </div>
-            <div class="h-4 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+            {{-- Lebar bar di-BIND reaktif ke properti Livewire lewat Alpine (Issue #5):
+                 tanpa x-bind:style, DOM-morph tak selalu memperbarui atribut `style`
+                 antar batch sehingga bar membeku walau angka % berjalan. --}}
+            <div class="h-4 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700" x-data>
                 <div
                     class="h-4 rounded-full bg-gradient-to-r from-primary-500 to-primary-400 transition-all duration-500 ease-out"
                     style="width: {{ $this->narasiProgressPercentage }}%"
+                    x-bind:style="`width: ${$wire.narasiTotal ? Math.round($wire.narasiProcessed / $wire.narasiTotal * 100) : 0}%`"
                 ></div>
             </div>
             <p class="mt-2 text-center text-xs text-gray-500 dark:text-gray-400">

@@ -275,6 +275,10 @@ class ViewRapor extends ViewRecord
                         ->send();
                 }),
 
+            // Aksi cetak/unduh dikelompokkan ke dalam dropdown agar header rapor
+            // tidak penuh sesak (Issue #4 — 7 tombol sebaris → overflow).
+            \Filament\Actions\ActionGroup::make([
+
             Action::make('cetak_rapor')
                 ->label('Cetak Rapor')
                 ->icon('heroicon-o-printer')
@@ -368,6 +372,13 @@ class ViewRapor extends ViewRecord
                     $service = new RaporExportService();
                     return $service->exportWord($this->record, $data['student_id']);
                 }),
+
+            ])
+                ->label('Cetak & Unduh Rapor')
+                ->icon('heroicon-o-printer')
+                ->color('gray')
+                ->button(),
+
             Action::make('kunci_semua')
                 ->label('Kunci Semua Nilai')
                 ->icon('heroicon-o-lock-closed')

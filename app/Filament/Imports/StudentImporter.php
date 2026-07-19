@@ -42,6 +42,29 @@ class StudentImporter extends Importer
     // Counter internal untuk GC trigger
     private int $rowCounter = 0;
 
+    /**
+     * Cost bcrypt untuk akun hasil IMPOR (siswa + wali).
+     * Diturunkan dari default (10–12) karena impor sinkron (QUEUE=sync, SRS §2)
+     * memanggil Hash::make 2×/baris; pada ~100 baris, cost default menembus
+     * max_execution_time 60s (bug asli: FatalError di BcryptHasher). Password awal
+     * = NISN (nilai rendah, idealnya diganti user), sehingga cost 8 kompromi wajar.
+     * Hanya jalur impor; pembuatan manual (CreateStudent) tetap cost default.
+     */
+    private const IMPORT_HASH_ROUNDS = 8;
+
+    /**
+     * Cost efektif untuk impor. WAJIB di-cap ke config('hashing.bcrypt.rounds'):
+     * cast `hashed` pada User::password menolak hash yang cost-nya MELEBIHI rounds
+     * terkonfigurasi (RuntimeException "Could not verify the hashed value's
+     * configuration"). Di testing BCRYPT_ROUNDS=4, sehingga cost 8 hardcoded akan
+     * gagal. min() menjaga cost <= config di semua environment, sekaligus tetap di
+     * bawah default produksi (12) demi kecepatan impor sinkron.
+     */
+    private static function importHashRounds(): int
+    {
+        return min(self::IMPORT_HASH_ROUNDS, (int) config('hashing.bcrypt.rounds', 12));
+    }
+
     public static function getColumns(): array
     {
         return [
@@ -158,7 +181,7 @@ class StudentImporter extends Importer
                 [
                     'name' => $nama,
                     'email' => null,
-                    'password' => Hash::make($nisn),
+                    'password' => Hash::make($nisn, ['rounds' => self::importHashRounds()]),
                     'role' => 'student',
                     'is_active' => true,
                 ]
@@ -177,7 +200,7 @@ class StudentImporter extends Importer
                 [
                     'name' => $namaWali,
                     'email' => null,
-                    'password' => Hash::make($guardianUsername),
+                    'password' => Hash::make($guardianUsername, ['rounds' => self::importHashRounds()]),
                     'role' => 'guardian',
                     'is_active' => true,
                 ]
