@@ -20,6 +20,7 @@ class KokurikulerGradeResource extends Resource
     protected static ?string $navigationLabel = 'Nilai P5 (Kokurikuler)';
     protected static ?string $modelLabel = 'Nilai Kokurikuler';
     protected static ?string $pluralModelLabel = 'Nilai Kokurikuler';
+    protected static ?int $navigationSort = 8; // setelah Jurnal KBM, sebelum Rapor
 
     // Hak akses resource ini sepenuhnya diatur oleh KokurikulerGradePolicy
     // (permission: *_kokurikuler::grade) yang dipetakan di RolePermissionSeeder.

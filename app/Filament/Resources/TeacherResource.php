@@ -21,7 +21,7 @@ class TeacherResource extends Resource
     protected static ?string $navigationLabel = 'Data Guru';
     protected static ?string $modelLabel = 'Guru';
     protected static ?string $pluralModelLabel = 'Data Guru';
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 2;
     protected static ?string $navigationIcon = 'heroicon-o-briefcase'; // Icon Tas Kerja
     protected static ?string $recordTitleAttribute = 'name';
 

@@ -20,4 +20,5 @@ yarn-error.log
 
 # Data dummy bersumber referensi asli SMPN 45 — TIDAK boleh ke GitHub
 /database/seeders/Dummy/
-/docs/data example/import-csv/
+# Seluruh folder referensi data asli (privasi) — jangan ke GitHub
+/docs/data example/

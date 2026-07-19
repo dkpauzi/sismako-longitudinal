@@ -26,7 +26,7 @@ class TeachingAssignmentResource extends Resource
     protected static ?string $navigationLabel = 'Kelas Ajar Saya';
     protected static ?string $modelLabel = 'Kelas Ajar';
     protected static ?string $pluralModelLabel = 'Kelas Ajar';
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 5;
     protected static ?string $navigationIcon = 'heroicon-o-briefcase';
 
     public static function shouldRegisterNavigation(): bool

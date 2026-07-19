@@ -22,7 +22,7 @@ class RaporResource extends Resource
     protected static ?string $navigationLabel = 'Rekap Rapor';
     protected static ?string $modelLabel = 'Rapor';
     protected static ?string $pluralModelLabel = 'Rekap Rapor';
-    protected static ?int $navigationSort = 5;
+    protected static ?int $navigationSort = 9;
     protected static ?string $navigationIcon = 'heroicon-o-document-chart-bar';
 
     public static function getNavigationGroup(): ?string

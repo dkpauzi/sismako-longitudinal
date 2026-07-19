@@ -23,7 +23,7 @@ class LessonJournalResource extends Resource
     protected static ?string $navigationLabel = 'Jurnal KBM';
     protected static ?string $modelLabel = 'Jurnal KBM';
     protected static ?string $pluralModelLabel = 'Jurnal KBM';
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 7;
     protected static ?string $navigationIcon = 'heroicon-o-book-open';
 
     public static function shouldRegisterNavigation(): bool

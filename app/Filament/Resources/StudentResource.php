@@ -79,7 +79,7 @@ class StudentResource extends Resource
                             Forms\Components\TextInput::make('nisn')
                                 ->label('NISN')
                                 ->placeholder('Nomor Induk Siswa Nasional')
-                                ->rules(['numeric']) // Validasi hanya boleh angka, tapi inputnya tetap text
+                                //->rules(['numeric']) // Validasi hanya boleh angka, tapi inputnya tetap text
                                 ->unique(ignoreRecord: true)
                                 // Wajib: username akun siswa & wali digenerate dari NISN
                                 ->required()
@@ -89,13 +89,13 @@ class StudentResource extends Resource
                             Forms\Components\TextInput::make('nipd')
                                 ->label('NIPD')
                                 ->placeholder('Nomor Induk Peserta Didik')
-                                ->rules(['numeric'])
+                                //->rules(['numeric'])
                                 ->maxLength(20),
 
                             Forms\Components\TextInput::make('nik')
                                 ->label('NIK')
                                 ->placeholder('Nomor Induk Kependudukan')
-                                ->rules(['numeric'])
+                                //->rules(['numeric'])
                                 ->minLength(16)
                                 ->maxLength(16),
 

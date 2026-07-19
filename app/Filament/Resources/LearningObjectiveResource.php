@@ -19,7 +19,7 @@ class LearningObjectiveResource extends Resource
     protected static ?string $navigationLabel = 'Tujuan Pembelajaran (TP)';
     protected static ?string $modelLabel = 'Tujuan Pembelajaran';
     protected static ?string $pluralModelLabel = 'Tujuan Pembelajaran';
-    protected static ?int $navigationSort = 3; // Di bawah Kelas Ajar Saya
+    protected static ?int $navigationSort = 6; // Di bawah Kelas Ajar Saya
     protected static ?string $navigationIcon = 'heroicon-o-list-bullet';
 
     public static function shouldRegisterNavigation(): bool

@@ -62,6 +62,18 @@ class AdminPanelProvider extends PanelProvider
 
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
+            // Urutan grup menu mengikuti alur input admin: setup sistem → data
+            // akademik → laporan, lalu modul pendukung. Urutan item DALAM grup
+            // diatur via navigationSort tiap Resource/Page.
+            ->navigationGroups([
+                'Manajemen Sistem',
+                'Akademik',
+                'Saya sebagai Guru Mapel',
+                'Saya sebagai Wali Kelas',
+                'Bimbingan Konseling',
+                'Web Sekolah',
+                'Pengaturan',
+            ])
             ->pages([
                 Pages\Dashboard::class,
                 \App\Filament\Pages\DetailNilaiSiswa::class,

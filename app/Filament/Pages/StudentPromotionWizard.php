@@ -26,7 +26,7 @@ class StudentPromotionWizard extends Page
     protected static ?string $navigationLabel = 'Proses Kenaikan Kelas';
     protected static ?string $title = 'Proses Kenaikan Kelas & Kelulusan';
     protected static string $view = 'filament.pages.student-promotion-wizard';
-    protected static ?int $navigationSort = 10;
+    protected static ?int $navigationSort = 11;
 
     public static function shouldRegisterNavigation(): bool
     {
