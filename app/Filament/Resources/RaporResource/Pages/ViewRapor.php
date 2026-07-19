@@ -393,6 +393,37 @@ class ViewRapor extends ViewRecord
                         ->where('academic_period_id', $homeroom->academic_period_id)
                         ->pluck('id');
 
+                    // ── GUARD: jangan kunci jika deskripsi rapor masih kosong ──
+                    // snapshot() menolak menimpa record terkunci (FinalGrade::snapshot),
+                    // sehingga bila dikunci saat narasi kosong, "Generate Deskripsi"
+                    // sesudahnya menjadi no-op dan narasi tak pernah masuk rapor.
+                    // Wajibkan generate deskripsi LEBIH DULU (mapel akademik saja).
+                    $akademikAssignmentIds = TeachingAssignment::where('classroom_id', $homeroom->classroom_id)
+                        ->where('academic_period_id', $homeroom->academic_period_id)
+                        ->whereHas('subject', fn($q) => $q->whereNotIn('type', ['kokurikuler', 'extracurricular']))
+                        ->pluck('id');
+
+                    $expectedNarratives = $studentIds->count() * $akademikAssignmentIds->count();
+                    $filledNarratives = FinalGrade::whereIn('student_id', $studentIds)
+                        ->whereIn('teaching_assignment_id', $akademikAssignmentIds)
+                        ->where('semester', $semester)
+                        ->whereNotNull('narrative_description')
+                        ->where('narrative_description', '!=', '')
+                        ->count();
+
+                    if ($expectedNarratives > 0 && $filledNarratives < $expectedNarratives) {
+                        $kosong = $expectedNarratives - $filledNarratives;
+                        \Filament\Notifications\Notification::make()
+                            ->title('Deskripsi rapor belum lengkap')
+                            ->body("Masih ada {$kosong} deskripsi mapel yang kosong. " .
+                                'Klik "Generate Semua Deskripsi" dan pastikan terisi sebelum mengunci ' .
+                                '— nilai yang sudah dikunci tidak bisa lagi diisi deskripsinya.')
+                            ->warning()
+                            ->persistent()
+                            ->send();
+                        return;
+                    }
+
                     FinalGrade::whereIn('student_id', $studentIds)
                         ->whereIn('teaching_assignment_id', $assignmentIds)
                         ->where('semester', $semester)

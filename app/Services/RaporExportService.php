@@ -88,6 +88,9 @@ class RaporExportService
             'classroom' => $classroom,
             'period' => $period,
             'semester' => $semester,
+            // Label tampilan Indonesia untuk blade rapor. `$semester` mentah
+            // ('odd'/'even') tetap dipakai untuk query DB; jangan dilokalkan di sana.
+            'semesterLabel' => $semester === 'odd' ? 'Ganjil' : 'Genap',
             'student' => $student,
             'akademikAssignments' => $akademikAssignments,
             'finalGrades' => $finalGrades,

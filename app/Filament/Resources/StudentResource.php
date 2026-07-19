@@ -79,7 +79,12 @@ class StudentResource extends Resource
                             Forms\Components\TextInput::make('nisn')
                                 ->label('NISN')
                                 ->placeholder('Nomor Induk Siswa Nasional')
-                                //->rules(['numeric']) // Validasi hanya boleh angka, tapi inputnya tetap text
+                                // Angka-only via regex — JANGAN pakai rule `numeric`, karena
+                                // dengan `numeric` Laravel menafsirkan `maxLength(20)` sebagai
+                                // "nilai <= 20" (muncul "tidak boleh lebih besar dari 20").
+                                // regex menjaga digit-only sekaligus leading-zero tetap utuh.
+                                ->rule('regex:/^\d+$/')
+                                ->validationMessages(['regex' => 'NISN hanya boleh berisi angka.'])
                                 ->unique(ignoreRecord: true)
                                 // Wajib: username akun siswa & wali digenerate dari NISN
                                 ->required()
@@ -89,13 +94,15 @@ class StudentResource extends Resource
                             Forms\Components\TextInput::make('nipd')
                                 ->label('NIPD')
                                 ->placeholder('Nomor Induk Peserta Didik')
-                                //->rules(['numeric'])
+                                ->rule('regex:/^\d+$/')
+                                ->validationMessages(['regex' => 'NIPD hanya boleh berisi angka.'])
                                 ->maxLength(20),
 
                             Forms\Components\TextInput::make('nik')
                                 ->label('NIK')
                                 ->placeholder('Nomor Induk Kependudukan')
-                                //->rules(['numeric'])
+                                ->rule('regex:/^\d{16}$/')
+                                ->validationMessages(['regex' => 'NIK harus 16 digit angka.'])
                                 ->minLength(16)
                                 ->maxLength(16),
 

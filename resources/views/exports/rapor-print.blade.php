@@ -133,7 +133,7 @@
             <td>{{ strtoupper($schoolIdentity['name'] ?? 'SMP NEGERI 45 SIJUNJUNG') }}</td>
             <td>Semester</td>
             <td>:</td>
-            <td>{{ $semester }}</td>
+            <td>{{ $semesterLabel ?? ($semester === 'odd' ? 'Ganjil' : 'Genap') }}</td>
         </tr>
         <tr>
             <td>Alamat</td>
