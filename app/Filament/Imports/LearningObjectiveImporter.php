@@ -56,9 +56,32 @@ class LearningObjectiveImporter extends Importer
         ];
     }
 
+    /**
+     * Apakah baris CSV benar-benar kosong (ghost row dari Excel)?
+     * Semua kolom inti (subject/code/content/attribute) blank → baris hantu.
+     * Diekstrak sebagai static agar bisa diuji unit tanpa pipeline Filament.
+     */
+    public static function isEmptyRow(array $data): bool
+    {
+        return blank($data['subject'] ?? null)
+            && blank($data['code'] ?? null)
+            && blank($data['content'] ?? null)
+            && blank($data['attribute'] ?? null);
+    }
+
     public function resolveRecord(): ?LearningObjective
     {
         $data = $this->data;
+
+        // Lewati baris HANTU secara diam-diam. Filament v3 memanggil resolveRecord()
+        // SEBELUM validateData(); return null → baris di-skip (tidak dihitung gagal,
+        // tidak disimpan). Ini menghapus false-positive "Kolom subject wajib diisi"
+        // dari baris kosong Excel, sementara baris valid tetap diimpor & baris yang
+        // benar-benar cacat (sebagian terisi) tetap divalidasi seperti biasa.
+        if (static::isEmptyRow($data)) {
+            return null;
+        }
+
         $user = Auth::user();
         
         $teacherId = null;

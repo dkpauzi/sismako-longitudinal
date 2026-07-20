@@ -59,11 +59,23 @@ class ListLearningObjectives extends ListRecords
 
                 $allowed = $service->allowedSubjectIdsFor($user, (int) $data['target_academic_period_id']);
 
-                $result = $service->copy(
-                    (int) $data['source_academic_period_id'],
-                    (int) $data['target_academic_period_id'],
-                    $allowed,
-                );
+                // Backend catch: selain guard frontend ->different(), tangkap
+                // InvalidArgumentException (mis. periode sumber == tujuan) agar
+                // muncul notifikasi anggun, bukan halaman 500.
+                try {
+                    $result = $service->copy(
+                        (int) $data['source_academic_period_id'],
+                        (int) $data['target_academic_period_id'],
+                        $allowed,
+                    );
+                } catch (\InvalidArgumentException $e) {
+                    Notification::make()
+                        ->danger()
+                        ->title($e->getMessage())
+                        ->send();
+
+                    return;
+                }
 
                 if ($result['copied'] === 0 && $result['skipped'] === 0) {
                     Notification::make()
