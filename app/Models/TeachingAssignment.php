@@ -31,6 +31,7 @@ class TeachingAssignment extends Model
     protected $fillable = [
         'academic_period_id',
         'teacher_id',
+        'external_instructor_name',
         'subject_id',
         'classroom_id',
         'grading_formula',
@@ -150,6 +151,17 @@ class TeachingAssignment extends Model
     public function isExtracurricular(): bool
     {
         return $this->getEffectiveType() === 'extracurricular';
+    }
+
+    /**
+     * Nama pembina/guru untuk ditampilkan (rapor, dropdown, dsb).
+     * Guru internal diprioritaskan; jika kosong (pembina ekskul eksternal),
+     * pakai external_instructor_name; fallback tanda strip.
+     */
+    public function instructorDisplayName(): string
+    {
+        return $this->teacher?->name
+            ?? ($this->external_instructor_name ?: '—');
     }
 
 

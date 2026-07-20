@@ -61,6 +61,29 @@ class TeachingAssignmentResource extends Resource
         return $query;
     }
 
+    /**
+     * Apakah pilihan SK saat ini efektif berjenis ekstrakurikuler?
+     * Prioritas: override subject_type di form → tipe global mapel terpilih.
+     * Dipakai untuk menampilkan field pembina eksternal & melonggarkan
+     * kewajiban Guru internal.
+     */
+    protected static function isExtracurricularSelection(Forms\Get $get): bool
+    {
+        if ($get('subject_type') === 'extracurricular') {
+            return true;
+        }
+
+        if (filled($get('subject_type'))) {
+            return false; // override eksplisit ke tipe lain
+        }
+
+        $subjectId = $get('subject_id');
+
+        return $subjectId
+            ? \App\Models\Subject::find($subjectId)?->type === 'extracurricular'
+            : false;
+    }
+
     public static function form(Form $form): Form
     {
         return $form
@@ -91,7 +114,25 @@ class TeachingAssignmentResource extends Resource
                             ->dehydrated()
                             ->searchable()
                             ->preload()
-                            ->required(),
+                            ->live()
+                            // Guru internal WAJIB, KECUALI untuk ekskul yang diisi
+                            // pembina eksternal (tanpa akun) — lihat field di bawah.
+                            ->required(fn(Forms\Get $get) => ! (
+                                self::isExtracurricularSelection($get) && filled($get('external_instructor_name'))
+                            ))
+                            ->helperText(fn(Forms\Get $get) => self::isExtracurricularSelection($get)
+                                ? 'Untuk pembina eksternal (tanpa akun), kosongkan ini dan isi "Pembina Eksternal".'
+                                : null),
+
+                        // Pembina ekskul dari LUAR sekolah: tanpa akun, tanpa NIP.
+                        Forms\Components\TextInput::make('external_instructor_name')
+                            ->label('Pembina Eksternal (tanpa akun)')
+                            ->maxLength(255)
+                            ->live(onBlur: true)
+                            ->visible(fn(Forms\Get $get) => self::isExtracurricularSelection($get))
+                            ->disabled(fn() => !auth()->user()->hasRole('super_admin'))
+                            ->dehydrated()
+                            ->helperText('Isi jika pembina ekskul berasal dari luar sekolah. Kosongkan bila pembina adalah Guru internal.'),
 
                         Forms\Components\Select::make('subject_id')
                             ->label('Mata Pelajaran')
@@ -122,6 +163,7 @@ class TeachingAssignmentResource extends Resource
                             ])
                             ->nullable()
                             ->native(false)
+                            ->live()
                             ->placeholder('Ikuti tipe dari Mata Pelajaran (default)')
                             ->helperText(
                                 'Kosongkan untuk mengikuti tipe mapel yang sudah disetting. ' .

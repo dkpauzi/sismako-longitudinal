@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\AcademicPeriod;
 use App\Models\Classroom;
 use App\Models\ClassHomeroom;
+use App\Models\Enrollment;
 use App\Models\StudentSubjectEnrollment;
 use App\Models\Subject;
 use App\Models\Teacher;
@@ -58,6 +59,14 @@ class StudentSubjectEnrollmentPolicyTest extends TestCase
         $student = \App\Models\Student::create([
             'user_id' => $studentUser->id, 'name' => 'Siswa Uji',
             'nisn' => '9990001112', 'gender' => 'L', 'status' => 'active',
+        ]);
+
+        // Kelas AKTUAL siswa (policy meng-scope dari enrollment siswa, bukan classroom SK).
+        Enrollment::create([
+            'student_id' => $student->id,
+            'classroom_id' => $this->classroom->id,
+            'academic_period_id' => $this->currentPeriod->id,
+            'status' => 'active',
         ]);
 
         $pembina = $this->makeTeacher('Pembina Pramuka', '111');
@@ -161,5 +170,86 @@ class StudentSubjectEnrollmentPolicyTest extends TestCase
         ]);
 
         $this->assertFalse($this->policy->update($waliLain->user, $this->enrollment));
+    }
+
+    /**
+     * @test
+     * Ekskul LINTAS-KELAS: SK ekskul nominal di kelas lain, tapi siswa terdaftar
+     * di kelas X. Wali kelas X (kelas AKTUAL siswa) BOLEH; wali kelas SK TIDAK.
+     * Membuktikan scoping berbasis enrollment siswa, bukan classroom SK.
+     */
+    public function test_grade_scoped_to_student_actual_class_not_sk_classroom(): void
+    {
+        // Siswa terdaftar di 7.1; SK Pramuka nominal di kelas "7".
+        $kelasSiswa = Classroom::create(['name' => '7.1', 'grade_level' => 7]);
+        $kelasSk = Classroom::create(['name' => '7', 'grade_level' => 7]);
+
+        $u = User::factory()->create(['role' => 'student']);
+        $siswa = \App\Models\Student::create([
+            'user_id' => $u->id, 'name' => 'Siswa Lintas', 'nisn' => '7000000001',
+            'gender' => 'L', 'status' => 'active',
+        ]);
+        Enrollment::create([
+            'student_id' => $siswa->id, 'classroom_id' => $kelasSiswa->id,
+            'academic_period_id' => $this->currentPeriod->id, 'status' => 'active',
+        ]);
+
+        $pramuka = Subject::create(['name' => 'Pramuka Lintas', 'code' => 'PRM2', 'type' => 'extracurricular']);
+        $skPramuka = TeachingAssignment::create([
+            'academic_period_id' => $this->currentPeriod->id,
+            'teacher_id' => $this->makeTeacher('Pembina 2', '901')->id,
+            'subject_id' => $pramuka->id,
+            'classroom_id' => $kelasSk->id, // NOMINAL kelas "7", bukan kelas siswa 7.1
+        ]);
+        $enr = StudentSubjectEnrollment::create([
+            'student_id' => $siswa->id, 'teaching_assignment_id' => $skPramuka->id,
+        ]);
+
+        // Wali kelas 7.1 (kelas AKTUAL siswa) → BOLEH.
+        $wali71 = $this->makeTeacher('Wali 7.1', '902');
+        ClassHomeroom::create([
+            'classroom_id' => $kelasSiswa->id, 'teacher_id' => $wali71->id,
+            'academic_period_id' => $this->currentPeriod->id, 'is_current' => true,
+        ]);
+        $this->assertTrue($this->policy->update($wali71->user, $enr));
+
+        // Wali kelas "7" (kelas SK, bukan kelas siswa) → DITOLAK.
+        $wali7 = $this->makeTeacher('Wali 7', '903');
+        ClassHomeroom::create([
+            'classroom_id' => $kelasSk->id, 'teacher_id' => $wali7->id,
+            'academic_period_id' => $this->currentPeriod->id, 'is_current' => true,
+        ]);
+        $this->assertFalse($this->policy->update($wali7->user, $enr));
+    }
+
+    /**
+     * @test
+     * Pembina EKSTERNAL (tanpa akun/NIP): SK ekskul boleh teacher_id null +
+     * external_instructor_name. Admin tetap bisa menilai; nama pembina tampil.
+     */
+    public function test_external_coach_assignment_supports_grading(): void
+    {
+        $subject = Subject::create(['name' => 'Voli Eksternal', 'code' => 'VOL2', 'type' => 'extracurricular']);
+        $sk = TeachingAssignment::create([
+            'academic_period_id' => $this->currentPeriod->id,
+            'teacher_id' => null,
+            'external_instructor_name' => 'Coach Externo',
+            'subject_id' => $subject->id,
+            'classroom_id' => $this->classroom->id,
+        ]);
+
+        $this->assertNull($sk->teacher_id);
+        $this->assertSame('Coach Externo', $sk->instructorDisplayName());
+
+        $enr = StudentSubjectEnrollment::create([
+            'student_id' => $this->enrollment->student_id,
+            'teaching_assignment_id' => $sk->id,
+            'predicate' => 'Baik',
+            'description' => 'Konsisten berlatih.',
+        ]);
+
+        $admin = User::factory()->create(['role' => 'admin']);
+        $admin->assignRole('admin');
+        $this->assertTrue($this->policy->update($admin, $enr));
     }
 }
