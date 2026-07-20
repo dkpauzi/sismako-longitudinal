@@ -83,7 +83,12 @@ class ViewRapor extends ViewRecord
 
         // ✅ PERBAIKAN: Gunakan filter() karena is_kokurikuler adalah accessor (method),
         // bukan kolom database. Collection->where() tidak bisa resolve accessor.
-        $akademikAssignments = $teachingAssignments->filter(fn($ta) => !$ta->subject->is_kokurikuler);
+        // Kecualikan kokurikuler (P5) DAN ekstrakurikuler dari rekap progres AKADEMIK:
+        // keduanya tak memakai penilaian numerik/FinalGrade. Cermin persis pengecualian
+        // di RaporExportService (by subject->type) — Mandate 1 (semantic alignment).
+        $akademikAssignments = $teachingAssignments->filter(
+            fn($ta) => !in_array($ta->subject->type, ['kokurikuler', 'extracurricular'], true)
+        );
         $kokurikulerAssignments = $teachingAssignments->filter(fn($ta) => $ta->subject->is_kokurikuler);
 
         // 3. Ambil semua final_grades sekaligus (hindari N+1)

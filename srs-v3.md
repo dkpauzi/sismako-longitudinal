@@ -91,9 +91,16 @@ Two DISTINCT enrollment-mutation flows, split by the direction of the transition
 ### 4.8 Report Card (Rapor)
 - Recap anchored on `ClassHomeroom`; homeroom teachers see own classes, staff see all.
 - **Cross-period isolation:** attendance summary, extracurricular, and P5 are filtered by the specific report period (via `teaching_assignment.academic_period_id`), not merely semester parity. P5 renders ALL projects for the semester.
+- **Academic recap excludes non-numeric subjects:** `ViewRapor` compiles the academic progress/recap from `mandatory|elective` teaching assignments only — **both `kokurikuler` and `extracurricular` are excluded** (they have no numeric FinalGrade), mirroring `RaporExportService`. Ekskul/P5 appear via their own sections, not the academic table.
 - **Grade lock:** `is_locked` finalises grades; the observer/bulk paths will not overwrite locked or manually-overridden grades.
 - **Historical read-only:** report cards of inactive periods remain viewable/printable; mutation actions (lock/unlock, generate narrative) are hidden on inactive periods so history need not be re-activated (which would thaw the freeze).
 - Auto-narrative generation is chunked (5 students/batch) via Livewire event-recursion.
+
+### 4.9 Learning Objectives (TP) Cross-Period Copy — "Salin TP"
+- **Problem:** `learning_objectives` are bound to `academic_period_id`, so every new semester starts as a blank slate.
+- **Workflow:** a header action ("Salin TP Antar-Periode") on the Learning Objectives list page asks **Source Period** and **Target Period** (defaults to the active period). `LearningObjectiveCopyService::copy()` replicates each source TP (subject, grade_level, phase, code, content, attribute, teacher_id) into the target period inside a `DB::transaction()`.
+- **[MUST] Idempotency:** a target TP with the same `(subject_id, code)` is **skipped, never duplicated** (fallback key `(subject_id, content)` when `code` is null). Re-running the copy is safe; existing target TPs are not overwritten.
+- **[MUST] RBAC (scope guard):** `super_admin`/`admin` may copy **any** subject; a `teacher` may copy **only** subjects they are actively assigned to teach in the **target** period (`teaching_assignments`). Resolved by `allowedSubjectIdsFor()` (null = all; `[]` = none → no-op). This is a **bulk** operation gated by role — deliberately distinct from per-TP authoring, so `admin` can bulk-copy even though the per-record `create_learning::objective` permission remains teacher-only.
 
 ## 5. DATA INTEGRITY PROTECTIONS
 - **[MUST] Cascade-delete guards.** Delete / bulk-delete actions are hidden/halted when the record already holds longitudinal history: `AcademicPeriod` & `Classroom` (enrollments/homerooms), `Subject` (teaching assignments), `TeachingAssignment` (final grades/assessments), `Student` (enrollments), and both Enrollment relation managers (grades or promotion-chain source). This blocks FK-cascade wipes of research data.
@@ -128,3 +135,7 @@ Menus follow the admin INPUT dependency, top-to-bottom. Group order: **Manajemen
 - **External ekskul coaches (§4.5, §8):** `teaching_assignments.teacher_id` made nullable + `external_instructor_name` added (`nullOnDelete`). New **`ExtracurricularGradeResource`** ("Nilai Ekstrakurikuler") for P5-style register + grade. Ekskul grading policy re-scoped to the **student's own enrollment class** (correct for cross-class activities). Chose to EXTEND the existing `student_subject_enrollments` subsystem rather than resurrect the dedicated ekskul tables removed in v3.0.
 - **Governance:** living-document rule adopted (schema/workflow/RBAC changes ship with the SRS edit in the same commit).
 - **Rapor fixes:** PDF/Word exports via `streamDownload` (Livewire-safe); progress bars reactively bound via Alpine; NISN/NIPD/NIK numeric validation via regex; report lock blocked when narrative empty; semester label localized (Ganjil/Genap).
+- **Null `teacher_id` hardening:** all teaching-assignment teacher renders route through `TeachingAssignment::instructorDisplayName()` (ViewRapor, MyGrades, StudentScheduleWidget, TeachingAssignmentResource, SubjectsRelationManager) — external-coach ekskul no longer crashes/blanks; eager-loaded to avoid N+1; external names remain searchable.
+- **ViewRapor recap (§4.8):** academic recap now excludes `extracurricular` (previously only `kokurikuler`), mirroring `RaporExportService`.
+- **Assessment TP field (bug):** the TP `CheckboxList` filter was over-restrictive — imported TPs with `NULL` grade_level were dropped, leaving an empty (seemingly missing) required field. Filter is now grade_level-null-tolerant, extracted to a testable method, with an always-visible helper hint.
+- **Salin TP (§4.9):** new `LearningObjectiveCopyService` + list-page action; idempotent, role-scoped bulk copy of TP across periods.

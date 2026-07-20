@@ -132,14 +132,18 @@
                             <button
                                 type="button"
                                 wire:click="mountAction('viewResult', { questionnaire_id: {{ $q->id }} })"
-                                class="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-colors"
+                                style="background-color: #059669; color: #ffffff;"
+                                class="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg text-sm font-medium transition-colors hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2"
                             >
                                 <x-heroicon-m-chart-bar-square class="w-5 h-5" />
                                 Lihat Hasil
                             </button>
                         @elseif($hasResponded && !$hasEvaluated)
                             {{-- Sudah dikerjakan, menunggu evaluasi --}}
-                            <span class="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg text-sm font-medium cursor-not-allowed bg-sky-100 text-sky-700 dark:bg-sky-500/10 dark:text-sky-400">
+                            <span
+                                style="background-color: #e0f2fe; color: #0369a1;"
+                                class="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg text-sm font-medium cursor-not-allowed"
+                            >
                                 <x-heroicon-m-clock class="w-5 h-5" />
                                 Menunggu Evaluasi Guru BK
                             </span>
@@ -150,12 +154,18 @@
                                 Hanya Siswa yang Dapat Mengisi
                             </span>
                         @elseif($timeStatus === 'not_started')
-                            <span class="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg text-sm font-medium cursor-not-allowed bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+                            <span
+                                style="background-color: #fef3c7; color: #b45309;"
+                                class="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg text-sm font-medium cursor-not-allowed"
+                            >
                                 <x-heroicon-m-clock class="w-5 h-5" />
                                 Belum Dibuka
                             </span>
                         @elseif($timeStatus === 'closed')
-                            <span class="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg text-sm font-medium cursor-not-allowed bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400">
+                            <span
+                                style="background-color: #fee2e2; color: #b91c1c;"
+                                class="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg text-sm font-medium cursor-not-allowed"
+                            >
                                 <x-heroicon-m-x-circle class="w-5 h-5" />
                                 Sudah Ditutup
                             </span>
@@ -164,7 +174,8 @@
                             <button
                                 type="button"
                                 wire:click="mountAction('fillQuestionnaire', { questionnaire_id: {{ $q->id }} })"
-                                class="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-colors"
+                                style="background-color: #2563eb; color: #ffffff;"
+                                class="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg text-sm font-medium transition-colors hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2"
                             >
                                 <x-heroicon-m-pencil-square class="w-5 h-5" />
                                 Kerjakan

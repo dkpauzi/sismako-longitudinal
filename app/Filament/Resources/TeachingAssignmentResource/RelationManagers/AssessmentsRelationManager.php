@@ -140,21 +140,39 @@ class AssessmentsRelationManager extends RelationManager
                     ->relationship(
                         name: 'learningObjectives',
                         titleAttribute: 'code',
-                        modifyQueryUsing: function (Builder $query, RelationManager $livewire) {
-                            $assignment = $livewire->getOwnerRecord();
-                            $gradeLevel = $assignment->classroom->grade_level ?? null;
-
-                            return $query
-                                ->where('subject_id', $assignment->subject_id)
-                                ->where('academic_period_id', $assignment->academic_period_id)
-                                ->when($gradeLevel, fn($q) => $q->where('grade_level', $gradeLevel));
-                        }
+                        modifyQueryUsing: fn(Builder $query, RelationManager $livewire) =>
+                            static::filterLearningObjectiveOptions($query, $livewire->getOwnerRecord()),
                     )
-                    ->getOptionLabelFromRecordUsing(fn($record) => "{$record->code} - " . \Illuminate\Support\Str::limit($record->attribute, 60))
+                    ->getOptionLabelFromRecordUsing(fn($record) => "{$record->code} - " . \Illuminate\Support\Str::limit((string) $record->attribute, 60))
                     ->columns(1)
+                    // helperText selalu tampil sehingga field TIDAK pernah "hilang"
+                    // walau opsi kosong (dulu CheckboxList kosong terlihat seperti
+                    // field hilang, padahal required → "TP wajib diisi").
+                    ->helperText('Jika daftar TP kosong: buat/impor TP untuk mapel & periode ini terlebih dahulu, atau gunakan "Salin TP Antar-Periode" di menu Tujuan Pembelajaran.')
                     // TP bersifat opsional untuk Formatif, tetapi wajib untuk Sumatif
                     ->required(fn(Get $get) => !str_starts_with($get('category'), 'formatif')),
             ]);
+    }
+
+    /**
+     * Filter opsi TP untuk sebuah SK Mengajar: cocok subject_id + academic_period_id,
+     * dan grade_level cocok ATAU NULL.
+     *
+     * NULL-tolerant sengaja: importer TP mengizinkan grade_level kosong
+     * (LearningObjectiveImporter). Filter lama `where('grade_level', X)` membuang TP
+     * ber-grade_level NULL sehingga CheckboxList kosong & field terlihat "hilang"
+     * meski validasi tetap mewajibkan (bug UI blokade). Diekstrak agar bisa diuji.
+     */
+    public static function filterLearningObjectiveOptions(Builder $query, \App\Models\TeachingAssignment $assignment): Builder
+    {
+        $gradeLevel = $assignment->classroom->grade_level ?? null;
+
+        return $query
+            ->where('subject_id', $assignment->subject_id)
+            ->where('academic_period_id', $assignment->academic_period_id)
+            ->when($gradeLevel, fn($q) => $q->where(
+                fn($sub) => $sub->where('grade_level', $gradeLevel)->orWhereNull('grade_level')
+            ));
     }
 
     public function table(Table $table): Table

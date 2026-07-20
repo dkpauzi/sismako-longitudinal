@@ -80,9 +80,10 @@ class RaporExternalCoachTest extends TestCase
         $this->assertIsArray($data);
 
         $teachers = collect($data['progressGuruMapel'])->pluck('teacher');
-        // Pembina eksternal tampil dengan nama (bukan crash / bukan kosong).
-        $this->assertTrue($teachers->contains('Kak Pembina Eksternal'));
-        // Guru internal tetap tampil normal.
+        // Mandate 1: ekstrakurikuler DIKECUALIKAN dari rekap progres akademik
+        // (tak ada nilai numerik). Sekaligus membuktikan tak ada fatal null teacher.
+        $this->assertFalse($teachers->contains('Kak Pembina Eksternal'), 'Ekskul tidak boleh masuk rekap akademik.');
+        // Guru mapel akademik internal tetap tampil normal.
         $this->assertTrue($teachers->contains('Guru Matematika'));
     }
 }
