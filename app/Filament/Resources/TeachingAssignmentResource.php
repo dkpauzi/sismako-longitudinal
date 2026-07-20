@@ -290,11 +290,16 @@ class TeachingAssignmentResource extends Resource
                     ->separator(',')
                     ->limitList(2),
 
-                // Sembunyikan nama guru jika yang login adalah guru itu sendiri agar tampilan ringkas
-                Tables\Columns\TextColumn::make('teacher.name')
+                // Sembunyikan nama guru jika yang login adalah guru itu sendiri agar tampilan ringkas.
+                // instructorDisplayName(): SK ekskul pembina eksternal (teacher_id null)
+                // tampil dengan nama pembina, bukan kosong. teacher di-eager-load di getEloquentQuery.
+                Tables\Columns\TextColumn::make('instructor')
                     ->label('Guru')
+                    ->getStateUsing(fn($record) => $record->instructorDisplayName())
                     ->visible(fn() => !auth()->user()->hasRole('teacher'))
-                    ->searchable(),
+                    ->searchable(query: fn($query, string $search) => $query
+                        ->where('external_instructor_name', 'like', "%{$search}%")
+                        ->orWhereHas('teacher', fn($t) => $t->where('name', 'like', "%{$search}%"))),
             ])
             ->defaultSort('created_at', 'desc')
             ->headerActions([

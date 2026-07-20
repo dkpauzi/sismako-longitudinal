@@ -86,9 +86,16 @@ class StudentScheduleWidget extends BaseWidget
                     ->searchable()
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('teachingAssignment.teacher.name')
+                // getStateUsing + instructorDisplayName(): pembina ekskul eksternal
+                // (teacher_id null) tetap tampil (dulu kosong). teacher sudah di-eager-load.
+                Tables\Columns\TextColumn::make('instructor')
                     ->label('Guru')
-                    ->searchable(),
+                    ->getStateUsing(fn(SubjectSchedule $record) => $record->teachingAssignment?->instructorDisplayName() ?? '—')
+                    ->searchable(query: fn($query, string $search) => $query->whereHas(
+                        'teachingAssignment',
+                        fn($q) => $q->where('external_instructor_name', 'like', "%{$search}%")
+                            ->orWhereHas('teacher', fn($t) => $t->where('name', 'like', "%{$search}%"))
+                    )),
 
                 Tables\Columns\TextColumn::make('teachingAssignment.classroom.name')
                     ->label('Kelas')

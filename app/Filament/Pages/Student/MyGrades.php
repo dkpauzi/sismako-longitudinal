@@ -159,7 +159,10 @@ class MyGrades extends Page implements HasForms
             $studentData[] = [
                 'subject' => $ta->subject->name,
                 'is_kokurikuler' => $isKokurikuler,
-                'teacher' => $ta->teacher?->name ?? '-',
+                // Pembina ekskul eksternal (teacher_id null) → tampilkan namanya,
+                // bukan '-'. instructorDisplayName() = sumber tunggal (teacher sudah
+                // di-eager-load di query $teachingAssignments).
+                'teacher' => $ta->instructorDisplayName(),
                 'kktp' => $ta->kktp_or_default,
                 
                 'final_grade' => $finalGrades->get($ta->id),

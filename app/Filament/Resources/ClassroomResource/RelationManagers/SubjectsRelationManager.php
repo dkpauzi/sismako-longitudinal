@@ -62,15 +62,20 @@ class SubjectsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
-            ->recordTitleAttribute('subject.name')
+            ->recordTitleAttribute('id')
+            // Eager-load relasi bersarang: record = SubjectSchedule yang HANYA punya
+            // relasi teachingAssignment (tak ada relasi subject/teacher langsung),
+            // jadi kolom lama 'subject.name'/'teacher.name' selalu kosong. Lewati TA.
+            ->modifyQueryUsing(fn($query) => $query->with(['teachingAssignment.subject', 'teachingAssignment.teacher']))
             ->columns([
-                Tables\Columns\TextColumn::make('subject.name')
+                Tables\Columns\TextColumn::make('teachingAssignment.subject.name')
                     ->label('Mapel')
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('teacher.name')
+                // instructorDisplayName(): pembina ekskul eksternal (teacher_id null) tampil benar.
+                Tables\Columns\TextColumn::make('instructor')
                     ->label('Guru')
-                    ->sortable(),
+                    ->getStateUsing(fn($record) => $record->teachingAssignment?->instructorDisplayName() ?? '—'),
 
                 Tables\Columns\TextColumn::make('day')
                     ->label('Hari')

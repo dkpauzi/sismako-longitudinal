@@ -76,7 +76,9 @@ class ViewRapor extends ViewRecord
         //    Kecuali mapel Kokurikuler (P5) — ditampilkan terpisah
         $teachingAssignments = TeachingAssignment::where('classroom_id', $classroomId)
             ->where('academic_period_id', $academicPeriodId)
-            ->with(['subject'])
+            // teacher di-eager-load: dipakai instructorDisplayName() di bawah
+            // (hindari N+1 + null-safe untuk pembina ekskul eksternal).
+            ->with(['subject', 'teacher'])
             ->get();
 
         // ✅ PERBAIKAN: Gunakan filter() karena is_kokurikuler adalah accessor (method),
@@ -115,7 +117,10 @@ class ViewRapor extends ViewRecord
             }
             
             $progressGuruMapel[] = [
-                'teacher' => $ta->teacher->name,
+                // FIX null teacher_id: SK ekskul pembina eksternal masuk loop ini
+                // (filter di atas hanya kecualikan kokurikuler, bukan ekskul), maka
+                // $ta->teacher->name FATAL. instructorDisplayName() = sumber tunggal.
+                'teacher' => $ta->instructorDisplayName(),
                 'subject' => $ta->subject->name,
                 'graded_count' => $gradedCount,
                 'total_students' => $totalSiswaDiKelas,
