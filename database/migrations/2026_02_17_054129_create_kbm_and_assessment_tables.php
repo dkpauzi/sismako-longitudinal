@@ -29,6 +29,11 @@ return new class extends Migration {
             $table->decimal('booster_value', 5, 2)->nullable();
 
             $table->timestamps();
+
+            // Indeks komposit (konsolidasi): filter (kelas+periode) di rapor/asesmen
+            // dan (guru+periode) untuk daftar SK / Salin TP.
+            $table->index(['classroom_id', 'academic_period_id'], 'ta_classroom_period_idx');
+            $table->index(['teacher_id', 'academic_period_id'], 'ta_teacher_period_idx');
         });
 
         // 2. JADWAL PELAJARAN (Schedules)
@@ -198,6 +203,10 @@ return new class extends Migration {
                 ['student_id', 'teaching_assignment_id', 'semester'],
                 'unique_final_grade'
             );
+
+            // Indeks komposit (konsolidasi): rekap nilai per-SK (unique berawalan
+            // student_id tidak melayani filter (teaching_assignment_id, semester)).
+            $table->index(['teaching_assignment_id', 'semester'], 'fg_ta_semester_idx');
         });
 
         // 12. RENTANG GRADE INTERNAL (A-E) — Untuk Rule Engine deskripsi rapor

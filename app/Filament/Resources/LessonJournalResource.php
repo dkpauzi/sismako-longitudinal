@@ -257,7 +257,9 @@ class LessonJournalResource extends Resource
                     ->url(
                         fn(LessonJournal $record): string =>
                         TeachingAssignmentResource::getUrl('view', [
-                            'record' => $record->teaching_assignment_id,
+                            // TeachingAssignment memakai route key ter-obfuscate → kirim
+                            // MODEL, bukan id mentah (yang akan salah/gagal di-decode).
+                            'record' => \App\Models\TeachingAssignment::find($record->teaching_assignment_id),
                         ]) . '#attendances'
                     ),
 

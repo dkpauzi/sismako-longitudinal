@@ -15,6 +15,11 @@ return new class extends Migration {
             $table->foreignId('teacher_id')->constrained()->cascadeOnDelete();
             $table->boolean('is_current')->default(true);
             $table->timestamps();
+
+            // Indeks komposit (dikonsolidasikan dari migrasi terpisah — filosofi
+            // "minimal files"): policy wali kelas aktif & lookup guru-wali.
+            $table->index(['classroom_id', 'academic_period_id', 'is_current'], 'ch_class_period_current_idx');
+            $table->index(['teacher_id', 'is_current'], 'ch_teacher_current_idx');
         });
 
         // 2. ANGGOTA KELAS (Enrollments)
@@ -29,6 +34,11 @@ return new class extends Migration {
 
             // Aturan: 1 Siswa hanya boleh ada di 1 kelas pada tahun ajaran yang sama
             $table->unique(['student_id', 'academic_period_id']);
+
+            // Indeks komposit (konsolidasi): roster & withCount siswa aktif per
+            // kelas/periode. Left-most prefix juga melayani (classroom_id,
+            // academic_period_id) — jadi indeks 2-kolom terpisah TIDAK dibuat.
+            $table->index(['classroom_id', 'academic_period_id', 'status'], 'enr_class_period_status_idx');
         });
 
         // Catatan Arsitektur (Batasan Skripsi — SMP / Kurikulum Merdeka):

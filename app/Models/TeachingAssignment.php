@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasHashidsRouteKey;
 use App\Services\GradeRangeResolver;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -26,7 +27,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class TeachingAssignment extends Model
 {
-    use HasFactory;
+    use HasFactory, HasHashidsRouteKey;
 
     protected $fillable = [
         'academic_period_id',

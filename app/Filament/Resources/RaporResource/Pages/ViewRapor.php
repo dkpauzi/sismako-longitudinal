@@ -318,7 +318,9 @@ class ViewRapor extends ViewRecord
                 ->action(function (array $data) {
                     $url = route('rapor.print', [
                         'homeroom' => $this->record->id,
-                        'student' => $data['student_id'],
+                        // Student memakai route key ter-obfuscate → kirim MODEL agar
+                        // getRouteKey() menghasilkan token (id mentah akan gagal di-decode).
+                        'student' => \App\Models\Student::find($data['student_id']),
                     ]);
                     
                     $this->js("window.open('{$url}', '_blank')");
