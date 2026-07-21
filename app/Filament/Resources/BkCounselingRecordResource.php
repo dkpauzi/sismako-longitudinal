@@ -33,9 +33,13 @@ class BkCounselingRecordResource extends Resource
                         ->schema([
                             Forms\Components\Select::make('student_id')
                                 ->label('Siswa')
-                                ->relationship('student', 'nisn') // Placeholder, kita ubah getOptionLabel nanti
-                                ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->nisn} - {$record->user->name}")
-                                ->searchable(['nisn']) // user.name tidak didukung langsung oleh searchable jika relasi, kita buat kustom search atau biarkan.
+                                // titleAttribute = kolom 'name' MILIK Student sendiri (selalu terisi).
+                                ->relationship('student', 'name')
+                                // Nama diambil dari Student->name, BUKAN user->name — akun user
+                                // bisa null/belum tertaut sehingga nama tak muncul di dropdown (bug).
+                                ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->nisn} - {$record->name}")
+                                // Cari berdasarkan NISN MAUPUN NAMA (sebelumnya hanya NISN).
+                                ->searchable(['nisn', 'name'])
                                 ->required(),
                             Forms\Components\DatePicker::make('session_date')
                                 ->label('Tanggal Sesi')
