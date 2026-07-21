@@ -3,12 +3,17 @@
 
 namespace App\Filament\Pages;
 
+use App\Models\AcademicPeriod;
+use App\Models\Classroom;
+use App\Models\Enrollment;
 use App\Models\Student;
 use App\Services\NilaiVisualisasiService;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
+use Filament\Forms\Set;
 use Filament\Pages\Page;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Auth;
@@ -28,6 +33,10 @@ class DetailNilaiSiswa extends Page implements HasForms
     public array   $chartData     = [];
     public array   $subjectList   = [];
     public array   $selectedSubjects = [];
+
+    // State filter bertingkat (cascade): status → kelas → siswa.
+    public ?string $filter_status    = 'active';
+    public ?int    $filter_classroom = null;
 
     public static function canAccess(): bool
     {
@@ -54,20 +63,68 @@ class DetailNilaiSiswa extends Page implements HasForms
         }
     }
 
+    /** Field pemilih hanya untuk staf/guru — siswa & wali langsung ke datanya sendiri. */
+    protected function isPickerVisible(): bool
+    {
+        $user = Auth::user();
+
+        return $user && ! $user->hasRole('student') && ! $user->hasRole('guardian');
+    }
+
     public function form(Form $form): Form
     {
-        $service  = app(NilaiVisualisasiService::class);
-        $students = $service->getAccessibleStudents();
-
+        // CATATAN: getAccessibleStudents() TIDAK lagi dipanggil di sini. Dulu ia
+        // jalan pada SETIAP render (termasuk untuk siswa/wali yang fieldnya
+        // tersembunyi) dan memuat SELURUH siswa ke options. Kini hanya dievaluasi
+        // di dalam closure options siswa, setelah kelas dipilih.
         return $form
             ->schema([
-                Select::make('student_id')
-                    ->label('Pilih Siswa')
-                    ->options($students->pluck('name', 'id'))
+                // ── 1) STATUS ──────────────────────────────────────────────
+                Select::make('filter_status')
+                    ->label('Status Siswa')
+                    ->options(['active' => 'Aktif', 'graduated' => 'Lulus'])
+                    ->default('active')
+                    ->selectablePlaceholder(false)
+                    ->native(false)
+                    ->live()
+                    ->afterStateUpdated(function (Set $set) {
+                        // Reset turunannya agar tidak menyisakan pilihan basi.
+                        $set('filter_classroom', null);
+                        $set('student_id', null);
+                        $this->selectedSubjects = [];
+                        $this->loadChartData();
+                    })
+                    ->visible(fn() => $this->isPickerVisible()),
+
+                // ── 2) KELAS (tergantung status) ───────────────────────────
+                Select::make('filter_classroom')
+                    ->label('Kelas')
+                    ->placeholder('Pilih kelas')
+                    ->options(fn(Get $get) => $this->classroomOptions($get('filter_status')))
                     ->searchable()
                     ->live()
-                    ->afterStateUpdated(fn() => $this->loadChartData())
-                    ->visible(fn() => !Auth::user()->hasRole('student') && !Auth::user()->hasRole('guardian')),
+                    ->afterStateUpdated(function (Set $set) {
+                        $set('student_id', null);
+                        $this->selectedSubjects = [];
+                        $this->loadChartData();
+                    })
+                    ->helperText(fn(Get $get) => $get('filter_status') === 'graduated'
+                        ? 'Untuk alumni, kelas diambil dari rombel TERAKHIR mereka (bukan periode aktif).'
+                        : 'Kelas dengan siswa aktif pada tahun ajaran berjalan.')
+                    ->visible(fn() => $this->isPickerVisible()),
+
+                // ── 3) SISWA (tergantung status + kelas) ───────────────────
+                Select::make('student_id')
+                    ->label('Pilih Siswa')
+                    ->placeholder(fn(Get $get) => $get('filter_classroom') ? 'Pilih siswa' : 'Pilih kelas terlebih dahulu')
+                    ->options(fn(Get $get) => $this->studentOptions($get('filter_status'), $get('filter_classroom')))
+                    ->searchable()
+                    ->live()
+                    ->afterStateUpdated(function () {
+                        $this->selectedSubjects = [];
+                        $this->loadChartData();
+                    })
+                    ->visible(fn() => $this->isPickerVisible()),
 
                 Select::make('selectedSubjects')
                     ->label('Gabungkan Mata Pelajaran (Filter)')
@@ -78,6 +135,86 @@ class DetailNilaiSiswa extends Page implements HasForms
                     ->visible(fn() => $this->student_id !== null),
             ])
             ->columns(2);
+    }
+
+    /**
+     * Peta alumni: student_id => classroom_id dari enrollment TERAKHIR.
+     *
+     * Dibutuhkan karena alumni TIDAK punya enrollment di periode aktif —
+     * memfilter kelas "pada periode aktif" akan mengembalikan kosong untuk
+     * status 'Lulus'. Kelas mereka diambil dari rombel terakhir.
+     */
+    protected function graduatedLastClassroomMap(): \Illuminate\Support\Collection
+    {
+        $graduatedIds = Student::where('status', 'graduated')->pluck('id');
+
+        if ($graduatedIds->isEmpty()) {
+            return collect();
+        }
+
+        return Enrollment::query()
+            ->select('enrollments.student_id', 'enrollments.classroom_id', 'academic_periods.start_year', 'academic_periods.semester')
+            ->join('academic_periods', 'academic_periods.id', '=', 'enrollments.academic_period_id')
+            ->whereIn('enrollments.student_id', $graduatedIds)
+            ->get()
+            ->groupBy('student_id')
+            ->map(fn ($rows) => $rows
+                ->sortByDesc(fn ($r) => ((int) $r->start_year * 10) + ($r->semester === 'odd' ? 1 : 2))
+                ->first()
+                ->classroom_id);
+    }
+
+    /** Opsi kelas — bercabang sesuai status (aktif vs alumni). */
+    protected function classroomOptions(?string $status): array
+    {
+        if ($status === 'graduated') {
+            $ids = $this->graduatedLastClassroomMap()->values()->unique();
+        } else {
+            $activePeriodId = AcademicPeriod::where('is_active', true)->value('id');
+            $ids = Enrollment::where('academic_period_id', $activePeriodId)
+                ->where('status', 'active')
+                ->pluck('classroom_id')
+                ->unique();
+        }
+
+        return Classroom::whereIn('id', $ids)
+            ->orderBy('grade_level')
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->toArray();
+    }
+
+    /**
+     * Opsi siswa — hanya dihitung SETELAH kelas dipilih (inti perbaikan:
+     * tidak pernah lagi menumpahkan seluruh siswa ke dalam satu dropdown).
+     * Tetap dipotong dengan getAccessibleStudents() agar cakupan akses per-role
+     * (mis. guru hanya siswa asuhannya) tidak melonggar.
+     */
+    protected function studentOptions(?string $status, $classroomId): array
+    {
+        if (! $classroomId) {
+            return [];
+        }
+
+        $accessible = app(NilaiVisualisasiService::class)->getAccessibleStudents()->pluck('id');
+
+        if ($status === 'graduated') {
+            $ids = $this->graduatedLastClassroomMap()
+                ->filter(fn ($cid) => (int) $cid === (int) $classroomId)
+                ->keys();
+        } else {
+            $activePeriodId = AcademicPeriod::where('is_active', true)->value('id');
+            $ids = Enrollment::where('academic_period_id', $activePeriodId)
+                ->where('classroom_id', $classroomId)
+                ->where('status', 'active')
+                ->pluck('student_id');
+        }
+
+        return Student::whereIn('id', $ids->intersect($accessible))
+            ->when($status, fn ($q) => $q->where('status', $status))
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->toArray();
     }
 
     public function loadChartData(): void
