@@ -72,6 +72,45 @@ class RouteKeyObfuscationTest extends TestCase
         );
     }
 
+    /**
+     * Semua model yang ter-ekspos di URL Filament WAJIB memakai route key
+     * ter-obfuscate. Mencakup 5 route yang sebelumnya masih membocorkan id:
+     * learning-objectives, lesson-journals, extracurricular-grades
+     * (StudentSubjectEnrollment), kokurikuler-grades, rapors (ClassHomeroom).
+     */
+    public function test_all_exposed_models_use_obfuscated_route_keys(): void
+    {
+        $models = [
+            // Gelombang 1
+            \App\Models\User::class,
+            \App\Models\Student::class,
+            \App\Models\Teacher::class,
+            \App\Models\TeachingAssignment::class,
+            \App\Models\Classroom::class,
+            \App\Models\BkCounselingRecord::class,
+            // Gelombang 2 (Rec 1)
+            \App\Models\LearningObjective::class,
+            \App\Models\LessonJournal::class,
+            \App\Models\KokurikulerGrade::class,
+            \App\Models\StudentSubjectEnrollment::class,
+            \App\Models\ClassHomeroom::class,
+        ];
+
+        foreach ($models as $class) {
+            $m = new $class();
+            $m->id = 1; // id sekuensial paling "bocor"
+
+            $key = $m->getRouteKey();
+
+            $this->assertNotSame('1', $key, "{$class} masih membocorkan id mentah di URL.");
+            $this->assertSame(
+                1,
+                RouteKeyCodec::for($class)->decode($key),
+                "{$class} route key tidak dapat di-decode kembali."
+            );
+        }
+    }
+
     public function test_model_route_binding_round_trips(): void
     {
         $u = User::factory()->create();

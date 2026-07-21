@@ -3,12 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Models\Concerns\HasHashidsRouteKey;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class LearningObjective extends Model
 {
-    use HasFactory;
+    use HasFactory, HasHashidsRouteKey;
 
     protected $fillable = [
         'teacher_id',

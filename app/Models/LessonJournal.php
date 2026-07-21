@@ -3,11 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Models\Concerns\HasHashidsRouteKey;
 use Illuminate\Database\Eloquent\Model;
 
 class LessonJournal extends Model
 {
-    use HasFactory;
+    use HasFactory, HasHashidsRouteKey;
 
     protected $guarded = [];
 

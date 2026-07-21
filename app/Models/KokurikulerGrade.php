@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Models\Concerns\HasHashidsRouteKey;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -26,7 +27,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class KokurikulerGrade extends Model
 {
-    use HasFactory;
+    use HasFactory, HasHashidsRouteKey;
 
     /**
      * Nama tabel di database (opsional, tapi baik untuk penegasan)

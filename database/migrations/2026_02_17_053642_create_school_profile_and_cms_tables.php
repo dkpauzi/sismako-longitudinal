@@ -134,6 +134,14 @@ return new class extends Migration {
             $table->timestamp('published_at')->nullable();  // Bisa dijadwalkan
 
             $table->timestamps();
+
+            // Indeks landing page (/): scopePublished() memfilter
+            // is_published = 1 AND (published_at IS NULL OR published_at <= now()).
+            // Tanpa indeks ini query menjadi full table scan pada tiap kunjungan.
+            // Catatan: ORDER BY COALESCE(published_at, created_at) bersifat
+            // fungsional sehingga TIDAK bisa memakai indeks (filesort tetap
+            // terjadi) — indeks ini memangkas jumlah baris yang harus di-sort.
+            $table->index(['is_published', 'published_at'], 'posts_published_idx');
         });
     }
 

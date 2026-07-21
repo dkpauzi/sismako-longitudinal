@@ -3,11 +3,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasHashidsRouteKey;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class StudentSubjectEnrollment extends Model
 {
+    use HasHashidsRouteKey;
+
     protected $fillable = [
         'student_id',
         'teaching_assignment_id',
