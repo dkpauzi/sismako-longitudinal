@@ -124,6 +124,9 @@ class RaporResource extends Resource
                         static::getUrl('view', ['record' => $record])
                     ),
             ])
+            // Sort default pada kolom NYATA (class_homerooms.academic_period_id) —
+            // periode terbaru di atas. Menghindari andalan pada sort kolom relasi.
+            ->defaultSort('academic_period_id', 'desc')
             ->emptyStateHeading('Data Rekap Rapor Belum Siap')
             ->emptyStateDescription('Penetapan Wali Kelas aktif pada Tahun Ajaran aktif belum tersedia. Silakan lengkapi data akademik terlebih dahulu.')
             ->paginated(false);

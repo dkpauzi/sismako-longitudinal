@@ -9,6 +9,7 @@ use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class EnrollmentsRelationManager extends RelationManager
 {
@@ -102,6 +103,14 @@ class EnrollmentsRelationManager extends RelationManager
     {
         return $table
             ->recordTitleAttribute('id')
+            // Scope temporal: default hanya siswa pada TAHUN AJARAN AKTIF, agar
+            // roster kelas tidak mencampur kohort lintas-periode (physical class
+            // dipakai ulang tiap tahun). Riwayat periode lampau tetap terekam di
+            // DB & terlihat di grafik longitudinal / rapor historis.
+            ->modifyQueryUsing(fn (Builder $query) => $query->where(
+                'academic_period_id',
+                AcademicPeriod::where('is_active', true)->value('id')
+            ))
             ->columns([
                 Tables\Columns\TextColumn::make('student.nisn')
                     ->label('NISN')

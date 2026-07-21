@@ -157,7 +157,7 @@
         <tr>
             <td>NIS/NISN</td>
             <td>:</td>
-            <td>{{ $student->nis }} / {{ $student->nisn }}</td>
+            <td>{{ $student->nipd ?? '-' }} / {{ $student->nisn }}</td>
             <td>Fase</td>
             <td>:</td>
             <td>D</td> <!-- As per SMPN 45, D for SMP -->

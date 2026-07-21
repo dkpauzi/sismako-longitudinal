@@ -5,11 +5,15 @@
     <title>Rapor {{ $student->name }}</title>
     <style>
         @page {
-            margin: 110px 40px 60px 40px; /* Top, Right, Bottom, Left */
+            /* DomPDF ONLY — dipadatkan agar kembali ~2 halaman (bukan 4).
+               Tidak ada header fixed; footer digambar via <script> di margin bawah,
+               sehingga margin seragam 1cm aman. Web print (print.blade.php) TIDAK diubah. */
+            margin: 1cm;
         }
         body {
             font-family: sans-serif;
-            font-size: 11px;
+            /* Turun 11px → 10px untuk memadatkan tinggi baris tabel di PDF. */
+            font-size: 10px;
             color: #000;
             line-height: 1.3;
         }
@@ -122,7 +126,7 @@
         <tr>
             <td>NIS/NISN</td>
             <td>:</td>
-            <td>{{ $student->nis }} / {{ $student->nisn }}</td>
+            <td>{{ $student->nipd ?? '-' }} / {{ $student->nisn }}</td>
             <td>Fase</td>
             <td>:</td>
             <td>D</td> <!-- As per SMPN 45, D for SMP -->
@@ -308,7 +312,7 @@
 <script type="text/php">
     if (isset($pdf)) {
         $textRight = "Halaman : {PAGE_NUM}";
-        $textLeft = "{{ $student->classroom->name ?? '' }} {{ strtoupper($student->name) }} | {{ $student->nis }}";
+        $textLeft = "{{ $student->classroom->name ?? '' }} {{ strtoupper($student->name) }} | {{ $student->nipd ?? '-' }}";
         $size = 9;
         $font = $fontMetrics->getFont("sans-serif");
         $y = $pdf->get_height() - 30; // 30 units from the bottom
