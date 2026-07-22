@@ -36,7 +36,8 @@ class DetailNilaiSiswa extends Page implements HasForms
 
     // State filter bertingkat (cascade): status → kelas → siswa.
     public ?string $filter_status    = 'active';
-    public ?int    $filter_classroom = null;
+    /** Kunci gabungan "classroomId:periodId" — periode wajib ikut agar angkatan alumni tak ambigu. */
+    public ?string $filter_classroom = null;
 
     public static function canAccess(): bool
     {
@@ -109,7 +110,7 @@ class DetailNilaiSiswa extends Page implements HasForms
                         $this->loadChartData();
                     })
                     ->helperText(fn(Get $get) => $get('filter_status') === 'graduated'
-                        ? 'Untuk alumni, kelas diambil dari rombel TERAKHIR mereka (bukan periode aktif).'
+                        ? 'Alumni dikelompokkan per rombel TERAKHIR + TAHUN KELULUSAN — nama kelas dipakai ulang tiap angkatan, jadi tahun lulus wajib ditampilkan.'
                         : 'Kelas dengan siswa aktif pada tahun ajaran berjalan.')
                     ->visible(fn() => $this->isPickerVisible()),
 
@@ -138,13 +139,18 @@ class DetailNilaiSiswa extends Page implements HasForms
     }
 
     /**
-     * Peta alumni: student_id => classroom_id dari enrollment TERAKHIR.
+     * Peta alumni: student_id => [classroom_id, period_id, end_year] dari
+     * enrollment TERAKHIR.
      *
      * Dibutuhkan karena alumni TIDAK punya enrollment di periode aktif —
-     * memfilter kelas "pada periode aktif" akan mengembalikan kosong untuk
-     * status 'Lulus'. Kelas mereka diambil dari rombel terakhir.
+     * memfilter kelas "pada periode aktif" akan kosong untuk status 'Lulus'.
+     *
+     * PERIODE IKUT DIBAWA (bukan hanya classroom_id): nama kelas dipakai ulang
+     * tiap angkatan, sehingga seluruh alumni lintas tahun akan menumpuk jadi
+     * satu opsi "9" yang ambigu. Tahun kelulusan diturunkan dari tahun ajaran
+     * enrollment terakhir (TA 2025/2026 → "9 (Lulus 2026)") tanpa kolom baru.
      */
-    protected function graduatedLastClassroomMap(): \Illuminate\Support\Collection
+    protected function graduatedLastEnrollmentMap(): \Illuminate\Support\Collection
     {
         $graduatedIds = Student::where('status', 'graduated')->pluck('id');
 
@@ -153,34 +159,73 @@ class DetailNilaiSiswa extends Page implements HasForms
         }
 
         return Enrollment::query()
-            ->select('enrollments.student_id', 'enrollments.classroom_id', 'academic_periods.start_year', 'academic_periods.semester')
+            ->select(
+                'enrollments.student_id',
+                'enrollments.classroom_id',
+                'enrollments.academic_period_id',
+                'academic_periods.start_year',
+                'academic_periods.end_year',
+                'academic_periods.semester',
+            )
             ->join('academic_periods', 'academic_periods.id', '=', 'enrollments.academic_period_id')
             ->whereIn('enrollments.student_id', $graduatedIds)
             ->get()
             ->groupBy('student_id')
-            ->map(fn ($rows) => $rows
-                ->sortByDesc(fn ($r) => ((int) $r->start_year * 10) + ($r->semester === 'odd' ? 1 : 2))
-                ->first()
-                ->classroom_id);
+            ->map(function ($rows) {
+                $last = $rows
+                    ->sortByDesc(fn ($r) => ((int) $r->start_year * 10) + ($r->semester === 'odd' ? 1 : 2))
+                    ->first();
+
+                return [
+                    'classroom_id' => (int) $last->classroom_id,
+                    'period_id' => (int) $last->academic_period_id,
+                    'end_year' => (int) $last->end_year,
+                ];
+            });
     }
 
-    /** Opsi kelas — bercabang sesuai status (aktif vs alumni). */
+    /**
+     * Opsi kelas. Nilai option memakai kunci gabungan "classroomId:periodId"
+     * agar angkatan alumni yang berbeda tidak saling tertimpa meski nama kelas
+     * identik. Untuk siswa aktif periodenya selalu tahun ajaran berjalan.
+     */
     protected function classroomOptions(?string $status): array
     {
         if ($status === 'graduated') {
-            $ids = $this->graduatedLastClassroomMap()->values()->unique();
-        } else {
-            $activePeriodId = AcademicPeriod::where('is_active', true)->value('id');
-            $ids = Enrollment::where('academic_period_id', $activePeriodId)
-                ->where('status', 'active')
-                ->pluck('classroom_id')
-                ->unique();
+            $map = $this->graduatedLastEnrollmentMap();
+
+            if ($map->isEmpty()) {
+                return [];
+            }
+
+            $names = Classroom::whereIn('id', $map->pluck('classroom_id')->unique())->pluck('name', 'id');
+
+            return $map->values()
+                ->unique(fn (array $e) => $e['classroom_id'] . ':' . $e['period_id'])
+                // Angkatan terbaru di atas.
+                ->sortByDesc(fn (array $e) => $e['end_year'])
+                ->mapWithKeys(fn (array $e) => [
+                    $e['classroom_id'] . ':' . $e['period_id'] => sprintf(
+                        '%s (Lulus %d)',
+                        $names[$e['classroom_id']] ?? '?',
+                        $e['end_year'],
+                    ),
+                ])
+                ->toArray();
         }
+
+        $activePeriodId = AcademicPeriod::where('is_active', true)->value('id');
+
+        $ids = Enrollment::where('academic_period_id', $activePeriodId)
+            ->where('status', 'active')
+            ->pluck('classroom_id')
+            ->unique();
 
         return Classroom::whereIn('id', $ids)
             ->orderBy('grade_level')
             ->orderBy('name')
-            ->pluck('name', 'id')
+            ->get()
+            ->mapWithKeys(fn (Classroom $c) => [$c->id . ':' . $activePeriodId => $c->name])
             ->toArray();
     }
 
@@ -189,22 +234,31 @@ class DetailNilaiSiswa extends Page implements HasForms
      * tidak pernah lagi menumpahkan seluruh siswa ke dalam satu dropdown).
      * Tetap dipotong dengan getAccessibleStudents() agar cakupan akses per-role
      * (mis. guru hanya siswa asuhannya) tidak melonggar.
+     *
+     * @param string|null $slot kunci gabungan "classroomId:periodId".
      */
-    protected function studentOptions(?string $status, $classroomId): array
+    protected function studentOptions(?string $status, $slot): array
     {
-        if (! $classroomId) {
+        if (! $slot) {
+            return [];
+        }
+
+        [$classroomId, $periodId] = array_pad(explode(':', (string) $slot), 2, null);
+
+        if (! $classroomId || ! $periodId) {
             return [];
         }
 
         $accessible = app(NilaiVisualisasiService::class)->getAccessibleStudents()->pluck('id');
 
         if ($status === 'graduated') {
-            $ids = $this->graduatedLastClassroomMap()
-                ->filter(fn ($cid) => (int) $cid === (int) $classroomId)
+            // Cocokkan kelas DAN periode kelulusan, bukan kelas saja.
+            $ids = $this->graduatedLastEnrollmentMap()
+                ->filter(fn (array $e) => $e['classroom_id'] === (int) $classroomId
+                    && $e['period_id'] === (int) $periodId)
                 ->keys();
         } else {
-            $activePeriodId = AcademicPeriod::where('is_active', true)->value('id');
-            $ids = Enrollment::where('academic_period_id', $activePeriodId)
+            $ids = Enrollment::where('academic_period_id', $periodId)
                 ->where('classroom_id', $classroomId)
                 ->where('status', 'active')
                 ->pluck('student_id');
