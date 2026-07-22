@@ -15,7 +15,6 @@
         "saade/filament-fullcalendar": "^3.2"
     },
     "require-dev": {
-        "barryvdh/laravel-debugbar": "*",
         "fakerphp/faker": "^1.23",
         "laravel/pint": "^1.13",
         "laravel/sail": "^1.26",
