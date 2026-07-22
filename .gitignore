@@ -25,3 +25,14 @@ yarn-error.log
 /database/seeders/Dummy/
 # Seluruh folder referensi data asli (privasi) — jangan ke GitHub
 /docs/data example/
+
+# CSV di root project: hampir selalu draft impor berisi data asli
+# (NIK/NISN siswa, NIP & kontak guru). Jangan pernah ikut ter-commit.
+/*.csv
+
+# Dokumen kerja internal — sengaja disimpan LOKAL saja, tidak dipublikasikan.
+/docs/pembahasan-pengkodean.md
+/docs/potongan_code.md
+/docs/rancangan-booster-formatif.md
+/docs/rancangan-implementasi-booster.md
+/docs/uml.md
