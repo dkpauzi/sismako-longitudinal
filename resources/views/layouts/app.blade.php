@@ -7,10 +7,81 @@
     @php
         // $schoolProfile disediakan oleh View Composer di AppServiceProvider
         $primaryColor = $schoolProfile?->primary_color ?? '#1a56db';
-        $schoolName   = $schoolProfile?->name ?? 'Sistem Informasi Akademik';
+        $schoolName   = $schoolProfile?->name ?? 'SMP Negeri 45 Sijunjung';
+
+        // ── SEO ────────────────────────────────────────────────────────────
+        // Varian ejaan yang benar-benar diketik orang di Google. Dipakai pada
+        // alternateName (structured data) & keywords agar ketiganya cocok.
+        $seoAltNames = ['SMPN 45 Sijunjung', 'SMP 45 Sijunjung', 'SMP Negeri 45 Sijunjung'];
+
+        $seoAddress = $schoolProfile?->address ? trim(strip_tags($schoolProfile->address)) : null;
+
+        $seoDescription = trim($__env->yieldContent('meta_description')) ?: trim(
+            $schoolName . ' — website resmi. Profil sekolah, visi & misi, berita, pengumuman, '
+            . 'galeri kegiatan, serta sistem informasi akademik siswa.'
+            . ($seoAddress ? ' Alamat: ' . $seoAddress . '.' : '')
+        );
+
+        $seoImage = $schoolProfile?->banner_image_path
+            ? asset('storage/' . $schoolProfile->banner_image_path)
+            : ($schoolProfile?->logo_path ? asset('storage/' . $schoolProfile->logo_path) : asset('favicon.ico'));
+
+        $seoSameAs = array_values(array_filter([
+            $schoolProfile?->facebook_url,
+            $schoolProfile?->instagram_url,
+            $schoolProfile?->youtube_url,
+        ]));
+
+        $seoJsonLd = array_filter([
+            '@context'      => 'https://schema.org',
+            '@type'         => 'School',
+            'name'          => $schoolName,
+            'alternateName' => $seoAltNames,
+            'url'           => url('/'),
+            'image'         => $seoImage,
+            'logo'          => $schoolProfile?->logo_path ? asset('storage/' . $schoolProfile->logo_path) : null,
+            'description'   => $seoDescription,
+            'telephone'     => $schoolProfile?->phone,
+            'email'         => $schoolProfile?->email,
+            'address'       => array_filter([
+                '@type'           => 'PostalAddress',
+                'streetAddress'   => $seoAddress,
+                'postalCode'      => $schoolProfile?->postal_code,
+                'addressLocality' => 'Sijunjung',
+                'addressRegion'   => 'Sumatera Barat',
+                'addressCountry'  => 'ID',
+            ]),
+            'sameAs'        => $seoSameAs ?: null,
+        ]);
     @endphp
 
     <title>@yield('title', $schoolName)</title>
+
+    {{-- ── SEO dasar ──────────────────────────────────────────────────── --}}
+    <meta name="description" content="{{ $seoDescription }}">
+    <meta name="keywords" content="{{ implode(', ', $seoAltNames) }}, SMP Sijunjung, sekolah Sijunjung, Sumatera Barat">
+    <meta name="robots" content="index, follow, max-image-preview:large">
+    <meta name="author" content="{{ $schoolName }}">
+    <meta name="theme-color" content="{{ $primaryColor }}">
+    <link rel="canonical" href="{{ url()->current() }}">
+
+    {{-- ── Open Graph (WhatsApp / Facebook) ───────────────────────────── --}}
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="{{ $schoolName }}">
+    <meta property="og:locale" content="id_ID">
+    <meta property="og:title" content="@yield('title', $schoolName)">
+    <meta property="og:description" content="{{ $seoDescription }}">
+    <meta property="og:url" content="{{ url()->current() }}">
+    <meta property="og:image" content="{{ $seoImage }}">
+
+    {{-- ── Twitter / X ────────────────────────────────────────────────── --}}
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="@yield('title', $schoolName)">
+    <meta name="twitter:description" content="{{ $seoDescription }}">
+    <meta name="twitter:image" content="{{ $seoImage }}">
+
+    {{-- ── Structured data: Google mengenali entitas "Sekolah" ────────── --}}
+    <script type="application/ld+json">{!! json_encode($seoJsonLd, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

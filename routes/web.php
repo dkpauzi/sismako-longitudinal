@@ -10,6 +10,9 @@ use App\Http\Controllers\GalerikegiatanController;
 //});
 
 Route::get('/', [DashboardController::class, 'index'])->name('home');
+
+// SEO: sitemap dinamis (didaftarkan di robots.txt & Google Search Console).
+Route::get('/sitemap.xml', [\App\Http\Controllers\SitemapController::class, 'index'])->name('sitemap');
 Route::get('/struktur-organisasi', [StrukturorganisasiController::class, 'index']);
 Route::get('/galeri-kegiatan', [GalerikegiatanController::class, 'index']);
 

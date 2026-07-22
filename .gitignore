@@ -1,6 +1,9 @@
 /.phpunit.cache
 /node_modules
-/public/build
+# CATATAN DEPLOY: /public/build SENGAJA TIDAK di-ignore.
+# Shared hosting (Hostinger) tidak punya Node/npm, sehingga aset hasil
+# `npm run build` HARUS ikut terkirim ke server. Tanpa folder ini, @vite
+# akan fatal: "Vite manifest not found".
 /public/hot
 /public/storage
 /storage/*.key

@@ -1,2 +1,11 @@
 User-agent: *
-Disallow:
+Allow: /
+
+# Area privat / aplikasi — tidak perlu diindeks Google.
+Disallow: /admin
+Disallow: /login
+Disallow: /rapor/
+Disallow: /storage/bk_attachments/
+
+# PENTING: ganti domain di bawah dengan domain asli Anda setelah deploy.
+Sitemap: https://smpn45sijunjung.sch.id/sitemap.xml

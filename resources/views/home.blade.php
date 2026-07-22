@@ -22,7 +22,24 @@
 
 @extends('layouts.app')
 
-@section('title', ($profile?->name ?? 'SMPN 45 Sijunjung') . ' | Beranda')
+@php
+    // Judul WAJIB memuat DUA ejaan sekaligus agar cocok dengan variasi pencarian
+    // "SMP 45 Sijunjung" / "SMPN 45 Sijunjung" / "SMP Negeri 45 Sijunjung".
+    // Alias dipilih otomatis sebagai lawan dari ejaan yang sudah dipakai di
+    // profil sekolah, supaya tidak pernah tertulis ganda (mis. "SMPN … (SMPN …)").
+    $namaSekolah = $profile?->name ?? 'SMP Negeri 45 Sijunjung';
+    $aliasSekolah = str_contains(strtolower($namaSekolah), 'negeri')
+        ? 'SMPN 45 Sijunjung'
+        : 'SMP Negeri 45 Sijunjung';
+    $judulSeo = $namaSekolah . ' (' . $aliasSekolah . ')';
+@endphp
+
+@section('title', $judulSeo . ' — Website Resmi')
+
+@section('meta_description',
+    'Website resmi ' . $judulSeo . ', Kabupaten Sijunjung, Sumatera Barat. '
+    . 'Profil sekolah, visi & misi, berita, pengumuman, galeri kegiatan, dan sistem informasi akademik.'
+)
 
 @section('content')
 
