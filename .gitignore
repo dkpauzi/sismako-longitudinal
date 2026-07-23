@@ -30,6 +30,11 @@ yarn-error.log
 # (NIK/NISN siswa, NIP & kontak guru). Jangan pernah ikut ter-commit.
 /*.csv
 
+# Paket unggah hosting: berisi seluruh vendor/ (puluhan MB). Kalau ikut
+# ter-commit, repo membengkak drastis.
+/sismako-upload-*.zip
+/.paket-upload-tmp/
+
 # Dokumen kerja internal — sengaja disimpan LOKAL saja, tidak dipublikasikan.
 /docs/pembahasan-pengkodean.md
 /docs/potongan_code.md

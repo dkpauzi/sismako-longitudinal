@@ -43,15 +43,52 @@ Pastikan folder **`public/build/`** muncul (berisi `manifest.json` + `assets/`).
 **“Vite manifest not found”**. Di proyek ini `public/build` sudah sengaja
 **tidak** di-*gitignore* supaya ikut terkirim.
 
-### 1.2 Jangan upload folder ini
-- `node_modules/` (besar, tidak dipakai di server)
-- `.git/`
-- `.env` lokal Anda (akan dibuat ulang di server)
-- `database/seeders/Dummy/` dan `docs/data example/` (data asli siswa — privasi)
+### 1.2 Buat paket unggah otomatis (DISARANKAN)
 
-### 1.3 Wajib upload
-- `vendor/` ✅ — shared hosting sering tidak mengizinkan `composer install`.
-  Kalau punya akses SSH, boleh saja `composer install --no-dev` di server.
+Jangan memilih folder satu per satu — itu sumber kesalahan tersering, dan
+risikonya data asli siswa ikut terunggah. Pakai skrip yang sudah disediakan:
+
+```bash
+bash buat-paket-upload.sh
+```
+
+⚠️ **WAJIB dijalankan lewat Git Bash.** Klik kanan di dalam folder proyek →
+**“Open Git Bash here”** (Windows 11: klik *Show more options* dulu).
+Kalau Anda mengetik `bash` dari **PowerShell/CMD**, Windows akan memanggil
+**WSL** — bukan Git Bash — dan gagal dengan pesan *“WSL tidak terpasang”*.
+Anda **tidak perlu** memasang WSL.
+
+Cara memastikan sudah benar: ketik `pwd`.
+- `/c/xampp/htdocs/sismako-longitudinal` → ✅ Git Bash
+- `/mnt/c/...` → ❌ WSL
+- `C:\...` → ❌ PowerShell
+
+Hasilnya satu berkas `sismako-upload-<tanggal>.zip` (± 45 MB) yang
+**otomatis mengecualikan** berkas sensitif:
+
+| Dikecualikan | Alasan |
+|---|---|
+| `.env` | berisi password database |
+| `database/seeders/Dummy/` | data asli siswa (NISN, alamat, nama orang tua) |
+| `docs/` & `docs/data example/` | NISN & NIP asli |
+| `tests/`, `node_modules/`, `.git/` | tidak dipakai di server |
+| `test.php`, `test_zilian.php` | berkas coba-coba |
+| `public/storage` | symlink; dibuat ulang di server |
+| cache lokal | menyebabkan error kalau terbawa |
+
+Isi yang **ikut**: `vendor/` ✅ (shared hosting sering tidak mengizinkan
+`composer install`), `public/build/` ✅, dan `.env.production.example` yang
+dikirim sebagai `.env.example`.
+
+> Seeder yang ikut hanya versi produksi (`DatabaseSeeder`, `SchoolSeeder`,
+> `RolePermissionSeeder`). Seeder data sidang **tidak ikut**. Kalau nanti butuh
+> untuk demo di server, unggah folder `Dummy/` terpisah lalu **hapus setelah
+> selesai**.
+
+### 1.3 Kalau ingin menyalin manual (tanpa skrip)
+Wajib ikut: `vendor/`, `public/build/`.
+Jangan ikut: `node_modules/`, `.git/`, `.env`, `database/seeders/Dummy/`,
+`docs/data example/`.
 
 ---
 
@@ -71,27 +108,66 @@ Pastikan folder **`public/build/`** muncul (berisi `manifest.json` + `assets/`).
 ## 3. Upload file & mengatur “document root”
 
 Laravel aman hanya bila yang bisa diakses publik **cuma folder `public/`**.
-Kalau seluruh proyek ditaruh di `public_html`, maka `.env` Anda bisa diakses
-orang lain. Pilih salah satu:
+Kalau seluruh proyek ditaruh di `public_html`, `.env` Anda (berisi password
+database) bisa dibuka siapa saja lewat browser.
 
-### Opsi A — Ubah Document Root (paling rapi, kalau tersedia)
-1. Upload seluruh proyek ke `/home/uXXXXXX/sismako/`.
-2. hPanel → **Websites → Manage → Advanced → Change Document Root**.
-3. Arahkan ke `/home/uXXXXXX/sismako/public`.
-4. Selesai — tidak perlu mengubah file apa pun.
+### Struktur target
 
-### Opsi B — Cara klasik (selalu bisa)
-1. Upload seluruh proyek **kecuali isi `public/`** ke `/home/uXXXXXX/sismako/`.
-2. Upload **isi** folder `public/` (termasuk `build/`, `index.php`, `.htaccess`,
-   `robots.txt`, `favicon.ico`) ke `public_html/`.
-3. Edit `public_html/index.php`, ubah dua baris path-nya:
-
-```php
-require __DIR__.'/../sismako/vendor/autoload.php';
-$app = require_once __DIR__.'/../sismako/bootstrap/app.php';
+```
+/home/uXXXXXXXX/
+├── public_html/          ← isi folder public/ (boleh diakses browser)
+├── sismako/              ← seluruh aplikasi (TIDAK bisa diakses browser)
+└── DO_NOT_UPLOAD_HERE    ← penanda bawaan Hostinger
 ```
 
-⚠️ Pastikan `.env`, `storage/`, dan `vendor/` **berada di luar** `public_html`.
+Folder `sismako/` diletakkan **sejajar** dengan `public_html/` — persis di
+tempat berkas `DO_NOT_UPLOAD_HERE` berada. Penanda itu justru konfirmasi bahwa
+lokasi tersebut **aman dari akses publik**.
+
+### Langkah
+
+1. hPanel → **Files → File Manager**.
+2. Klik ikon **Upload** → pilih **“Files”**, **bukan “Folder”**.
+
+   ⚠️ Kalau judul jendelanya *“Select Folder to Upload”* dan `.zip` tidak
+   terlihat, itu pemilih **folder**. Tekan **Cancel**, klik Upload lagi, lalu
+   pilih **Files**. Judul yang benar: *“Open”* / *“Select File to Upload”*.
+
+3. Unggah `sismako-upload-*.zip` ke direktori **home** (sejajar `public_html`),
+   lalu klik kanan → **Extract**. Akan terbentuk folder `sismako/`.
+
+   > Kalau unggahan 45 MB lewat browser sering putus, pakai **SFTP/FileZilla**.
+   > Kredensial ada di hPanel → **Files → FTP Accounts**.
+
+4. Masuk ke `sismako/public/`, **pilih semua isinya**, lalu **Move** ke
+   `public_html/` (termasuk `build/`, `index.php`, `.htaccess`, `robots.txt`,
+   `favicon.ico`). Setelah kosong, folder `sismako/public/` boleh dibiarkan.
+
+5. Edit `public_html/index.php` — ubah **3 baris** yang menunjuk `__DIR__.'/../'`
+   menjadi `__DIR__.'/../sismako/'`. Hasil akhirnya utuh seperti ini:
+
+```php
+<?php
+
+use Illuminate\Http\Request;
+
+define('LARAVEL_START', microtime(true));
+
+// Determine if the application is in maintenance mode...
+if (file_exists($maintenance = __DIR__.'/../sismako/storage/framework/maintenance.php')) {
+    require $maintenance;
+}
+
+// Register the Composer autoloader...
+require __DIR__.'/../sismako/vendor/autoload.php';
+
+// Bootstrap Laravel and handle the request...
+(require_once __DIR__.'/../sismako/bootstrap/app.php')
+    ->handleRequest(Request::capture());
+```
+
+⚠️ Pastikan `.env`, `storage/`, dan `vendor/` **tetap berada di dalam
+`sismako/`**, bukan di `public_html/`.
 
 ---
 
@@ -192,6 +268,19 @@ Naikkan juga bila tersedia: `max_execution_time = 120`, `memory_limit = 256M`
 ---
 
 ## 10. Checklist setelah deploy
+
+### 🔴 Uji keamanan WAJIB (lakukan paling pertama)
+
+Buka di browser: **`https://domain-anda.com/.env`**
+
+- **404 / Not Found** → ✅ benar, struktur folder aman.
+- **Isi file muncul** (terlihat `DB_PASSWORD=...`) → 🚨 **HENTIKAN**. Berarti
+  aplikasi tertaruh di dalam `public_html` dan password database Anda terekspos
+  ke publik. Ulangi Bagian 3, lalu **ganti password database** di hPanel.
+
+Uji juga `https://domain-anda.com/storage/logs/laravel.log` — harus 404.
+
+### Checklist fungsional
 
 - [ ] Beranda terbuka tanpa error
 - [ ] Login admin berhasil
