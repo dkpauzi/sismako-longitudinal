@@ -56,10 +56,9 @@ class AttendanceMatrixWidget extends ChartWidget
             ->orderByDesc('start_year')
             ->orderByDesc('semester')
             ->get()
-            ->mapWithKeys(function ($period) {
-                $semesterLabel = $period->semester === 'odd' ? 'Ganjil' : 'Genap';
-                return [$period->id => "{$period->name} - {$semesterLabel}"];
-            })
+            // Accessor `name` SUDAH memuat label semester (mis. "2025/2026 Genap"),
+            // jadi jangan ditambahi lagi — dulu tercetak ganda: "… Genap - Genap".
+            ->mapWithKeys(fn ($period) => [$period->id => $period->name])
             ->toArray();
     }
 
@@ -126,6 +125,33 @@ class AttendanceMatrixWidget extends ChartWidget
     protected function getType(): string
     {
         return 'bar';
+    }
+
+    /**
+     * Keterangan di bawah judul. Saat tidak ada data, Chart.js hanya menampilkan
+     * area kosong tanpa penjelasan sehingga terlihat seperti aplikasi error —
+     * deskripsi ini membuat kondisi "memang belum ada data" menjadi eksplisit.
+     */
+    public function getDescription(): ?string
+    {
+        if (! $this->filter) {
+            return 'Pilih tahun ajaran untuk menampilkan data.';
+        }
+
+        if (! $this->hasAttendanceData()) {
+            return 'Belum ada data absensi harian pada tahun ajaran ini.';
+        }
+
+        return 'Rekap ketidakhadiran (Sakit / Izin / Alpa) per bulan.';
+    }
+
+    /** Apakah ada minimal satu baris absensi pada periode terpilih? */
+    private function hasAttendanceData(): bool
+    {
+        return DB::table('attendances')
+            ->join('teaching_assignments', 'attendances.teaching_assignment_id', '=', 'teaching_assignments.id')
+            ->where('teaching_assignments.academic_period_id', $this->filter)
+            ->exists();
     }
 
     protected function getOptions(): array
